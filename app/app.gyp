@@ -16,81 +16,8 @@
     ],
   },
   'includes': [
-    'app_base.gypi',
   ],
   'targets': [
-    {
-      'target_name': 'app_unittests',
-      'type': 'executable',
-      'msvs_guid': 'B4D59AE8-8D2F-97E1-A8E9-6D2826729530',
-      'dependencies': [
-        'app_base',
-        'app_resources',
-        '../base/base.gyp:test_support_base',
-        '../net/net.gyp:net_test_support',
-        '../skia/skia.gyp:skia',
-        '../testing/gmock.gyp:gmock',
-        '../testing/gtest.gyp:gtest',
-        '../third_party/icu/icu.gyp:icui18n',
-        '../third_party/icu/icu.gyp:icuuc',
-        '../third_party/libpng/libpng.gyp:libpng',
-        '../third_party/zlib/zlib.gyp:zlib',
-        '<(libjpeg_gyp_path):libjpeg',
-      ],
-      'sources': [
-        'animation_container_unittest.cc',
-        'animation_unittest.cc',
-        'clipboard/clipboard_unittest.cc',
-        'l10n_util_mac_unittest.mm',
-        'l10n_util_unittest.cc',
-        'multi_animation_unittest.cc',
-        'os_exchange_data_win_unittest.cc',
-        'run_all_unittests.cc',
-        'slide_animation_unittest.cc',
-        'sql/connection_unittest.cc',
-        'sql/statement_unittest.cc',
-        'sql/transaction_unittest.cc',
-        'system_monitor_unittest.cc',
-        'test_suite.h',
-        'test/data/resource.h',
-        'text_elider_unittest.cc',
-        'tree_node_iterator_unittest.cc',
-        'tree_node_model_unittest.cc',
-        'view_prop_unittest.cc',
-        'win_util_unittest.cc',
-      ],
-      'include_dirs': [
-        '..',
-      ],
-      'conditions': [
-        ['OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris"', {
-          'sources': [
-            'gtk_dnd_util_unittest.cc',
-          ],
-          'dependencies': [
-            'app_unittest_strings',
-            '../build/linux/system.gyp:gtk',
-            '../tools/xdisplaycheck/xdisplaycheck.gyp:xdisplaycheck',
-          ],
-        }],
-        ['OS!="win"', {
-          'sources!': [
-            'os_exchange_data_win_unittest.cc',
-            'view_prop_unittest.cc',
-            'win_util_unittest.cc',
-          ],
-        }],
-        ['OS =="linux" or OS =="freebsd"', {
-          'conditions': [
-            ['linux_use_tcmalloc==1', {
-              'dependencies': [
-                '../base/allocator/allocator.gyp:allocator',
-              ],
-            }],
-          ],
-        }],
-      ],
-    },
     {
       'target_name': 'app_strings',
       'msvs_guid': 'AE9BF4A2-19C5-49D8-BB1A-F28496DD7051',

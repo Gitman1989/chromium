@@ -46,9 +46,10 @@
       'type': '<(library)',
       'msvs_guid': '6F9258E5-294F-47B2-919D-17FFE7A8B751',
       'dependencies': [
-        '../app/app.gyp:app_base',
+#       '../app/app.gyp:app_base',
         '../app/app.gyp:app_strings',
         '../app/app.gyp:app_resources',
+        '../base/base.gyp:base',
         '../skia/skia.gyp:skia',
         '../third_party/icu/icu.gyp:icui18n',
         '../third_party/icu/icu.gyp:icuuc',
@@ -413,8 +414,8 @@
       'target_name': 'views_unittests',
       'type': 'executable',
       'dependencies': [
-        '../app/app.gyp:app_resources',
-        '../app/app.gyp:app_strings',
+        #'../app/app.gyp:app_resources',
+        #'../app/app.gyp:app_strings',
         '../base/base.gyp:base',
         '../base/base.gyp:test_support_base',
         '../skia/skia.gyp:skia',
@@ -448,7 +449,7 @@
         ['OS=="linux" or OS=="freebsd" or OS=="openbsd"', {
           'dependencies': [
             '../build/linux/system.gyp:gtk',
-            '../chrome/chrome.gyp:packed_resources',
+#            '../chrome/chrome.gyp:packed_resources',
           ],
           'conditions': [
             ['linux_use_tcmalloc==1', {
@@ -487,7 +488,9 @@
       'type': 'executable',
       'dependencies': [
         '../base/base.gyp:base',
+	    '../base/base.gyp:base_i18n',
         '../skia/skia.gyp:skia',
+        '../gfx/gfx.gyp:gfx',
         '../third_party/icu/icu.gyp:icui18n',
         '../third_party/icu/icu.gyp:icuuc',
         'views',
@@ -520,7 +523,7 @@
         ['OS=="linux" or OS=="freebsd" or OS=="openbsd"', {
           'dependencies': [
             '../build/linux/system.gyp:gtk',
-            '../chrome/chrome.gyp:packed_resources',
+            #'../chrome/chrome.gyp:packed_resources',
           ],
           'conditions': [
             ['linux_use_tcmalloc==1', {
