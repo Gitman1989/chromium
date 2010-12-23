@@ -33,6 +33,8 @@ deps = {
 
 deps_os = {
   "unix": {
+    "src/third_party/openssl":
+      "/trunk/deps/third_party/openssl@69192",
   },
 }
 

@@ -15,7 +15,7 @@
 #include "base/file_path.h"
 #include "base/utf_string_conversions.h"
 #include "gfx/point.h"
-#include "net/base/net_util.h"
+//#include "net/base/net_util.h"
 #include "views/widget/root_view.h"
 #include "views/widget/widget_gtk.h"
 
@@ -127,8 +127,8 @@ void DropTargetGtk::OnDragDataReceived(GdkDragContext* context,
       // TEXT_URI_LIST is used for files as well as urls.
       if (urls[0].SchemeIsFile()) {
         FilePath file_path;
-        if (net::FileURLToFilePath(urls[0], &file_path))
-          data_provider().SetFilename(file_path.ToWStringHack());
+        //if (net::FileURLToFilePath(urls[0], &file_path))
+        //  data_provider().SetFilename(file_path.ToWStringHack());
       }
     } else {
       // Consumers of OSExchangeData will see this as an invalid URL. That is,

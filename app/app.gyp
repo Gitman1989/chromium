@@ -16,6 +16,7 @@
     ],
   },
   'includes': [
+    'app_base.gypi',
   ],
   'targets': [
     {

@@ -81,7 +81,7 @@
         ['OS=="win" or chromeos==1 or touchui==1', {
           'toolkit_views%': 1,
         }, {
-          'toolkit_views%': 0,
+          'toolkit_views%': 1,
         }],
 
         # A flag to enable or disable our compile-time dependency

@@ -108,7 +108,7 @@ std::string ResourceBundle::LoadLocaleResources(
   FilePath locale_file_path = GetLocaleFilePath(app_locale);
   if (locale_file_path.empty()) {
     // It's possible that there is no locale.pak.
-    NOTREACHED();
+    //NOTREACHED();
     return std::string();
   }
   locale_resources_data_ = LoadResourcesDataPak(locale_file_path);

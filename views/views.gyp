@@ -5,6 +5,7 @@
 {
   'variables': {
     'chromium_code': 1,
+    'toolkit_views': 1
   },
   'target_defaults': {
     'sources/': [
@@ -488,9 +489,11 @@
       'type': 'executable',
       'dependencies': [
         '../base/base.gyp:base',
-	    '../base/base.gyp:base_i18n',
+	'../base/base.gyp:base_i18n',
+	'../build/temp_gyp/googleurl.gyp:googleurl',
         '../skia/skia.gyp:skia',
         '../gfx/gfx.gyp:gfx',
+        '../app/app.gyp:app_base',
         '../third_party/icu/icu.gyp:icui18n',
         '../third_party/icu/icu.gyp:icuuc',
         'views',
@@ -499,6 +502,7 @@
         '..',
       ],
       'sources': [
+	'stubs.cc',
         'examples/button_example.h',
         'examples/combobox_example.h',
         'examples/example_base.cc',
@@ -524,6 +528,7 @@
           'dependencies': [
             '../build/linux/system.gyp:gtk',
             #'../chrome/chrome.gyp:packed_resources',
+	    #'views_pack.gyp:packed_resources'
           ],
           'conditions': [
             ['linux_use_tcmalloc==1', {

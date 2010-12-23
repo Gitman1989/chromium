@@ -5,6 +5,7 @@
 {
   'variables': {
     'chromium_code': 1,
+    'javascript_engine': 0
   },
   'targets': [
     {
@@ -563,7 +564,7 @@
         'proxy/proxy_resolver_script.h',
         'proxy/proxy_resolver_script_data.cc',
         'proxy/proxy_resolver_script_data.h',
-        'proxy/proxy_resolver_v8.cc',
+#        'proxy/proxy_resolver_v8.cc',
         'proxy/proxy_resolver_v8.h',
         'proxy/proxy_resolver_winhttp.cc',
         'proxy/proxy_resolver_winhttp.h',
@@ -731,7 +732,7 @@
       'conditions': [
         ['javascript_engine=="v8"', {
           'dependencies': [
-            '../v8/tools/gyp/v8.gyp:v8',
+#            '../v8/tools/gyp/v8.gyp:v8',
           ],
         }],
         ['chromeos==1', {

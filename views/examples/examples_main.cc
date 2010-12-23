@@ -88,7 +88,7 @@ void ExamplesMain::Run() {
   // the second tabbed pane.
   views::Window* window =
       views::Window::CreateChromeWindow(NULL, gfx::Rect(0, 0, 850, 300), this);
-
+/*
   examples::TextfieldExample textfield_example(this);
   tabbed_pane->AddTab(textfield_example.GetExampleTitle(),
                       textfield_example.GetExampleView());
@@ -140,15 +140,16 @@ void ExamplesMain::Run() {
                       widget_example.GetExampleView());
 
 #if defined(OS_LINUX)
-  examples::SliderExample slider_example(this);
-  tabbed_pane->AddTab(slider_example.GetExampleTitle(),
-                      slider_example.GetExampleView());
+    examples::SliderExample slider_example(this);
+    tabbed_pane->AddTab(slider_example.GetExampleTitle(),
+                    slider_example.GetExampleView());
 #endif
 
-  examples::MenuExample menu_example(this);
-  tabbed_pane->AddTab(menu_example.GetExampleTitle(),
-                      menu_example.GetExampleView());
-
+    examples::MenuExample menu_example(this);
+    tabbed_pane->AddTab(menu_example.GetExampleTitle(),
+                    menu_example.GetExampleView());
+*/
+    
   window->Show();
   views::AcceleratorHandler accelerator_handler;
   MessageLoopForUI::current()->Run(&accelerator_handler);

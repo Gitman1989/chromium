@@ -426,8 +426,8 @@ void Label::CalculateDrawStringParams(std::wstring* paint_text,
   if (url_set_) {
     // TODO(jungshik) : Figure out how to get 'intl.accept_languages'
     // preference and use it when calling ElideUrl.
-    *paint_text = UTF16ToWideHack(
-        gfx::ElideUrl(url_, font_, GetAvailableRect().width(), std::wstring()));
+//    *paint_text = UTF16ToWideHack(
+//        gfx::ElideUrl(url_, font_, GetAvailableRect().width(), std::wstring()));
 
     // An URLs is always treated as an LTR text and therefore we should
     // explicitly mark it as such if the locale is RTL so that URLs containing
@@ -441,8 +441,8 @@ void Label::CalculateDrawStringParams(std::wstring* paint_text,
     *paint_text = UTF16ToWide(base::i18n::GetDisplayStringInLTRDirectionality(
         WideToUTF16(*paint_text)));
   } else if (elide_in_middle_) {
-    *paint_text = UTF16ToWideHack(gfx::ElideText(WideToUTF16Hack(text_),
-        font_, GetAvailableRect().width(), true));
+//    *paint_text = UTF16ToWideHack(gfx::ElideText(WideToUTF16Hack(text_),
+//        font_, GetAvailableRect().width(), true));
   } else {
     *paint_text = text_;
   }

@@ -429,7 +429,7 @@ std::string GetApplicationLocale(const std::string& pref_locale) {
   }
 
   // No locale data file was found; we shouldn't get here.
-  NOTREACHED();
+  //NOTREACHED();
 
   return std::string();
 
