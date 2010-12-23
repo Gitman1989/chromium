@@ -163,7 +163,7 @@ SkBitmap* ResourceBundle::GetBitmapNamed(int resource_id) {
   // We failed to retrieve the bitmap, show a debugging red square.
   {
     LOG(WARNING) << "Unable to load bitmap with id " << resource_id;
-     NOTREACHED();  // Want to assert in debug mode.
+    NOTREACHED();  // Want to assert in debug mode.
 
     AutoLock lock_scope(*lock_);  // Guard empty_bitmap initialization.
 

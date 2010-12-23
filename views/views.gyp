@@ -528,7 +528,6 @@
           'dependencies': [
             '../build/linux/system.gyp:gtk',
             #'../chrome/chrome.gyp:packed_resources',
-	    #'views_pack.gyp:packed_resources'
           ],
           'conditions': [
             ['linux_use_tcmalloc==1', {
