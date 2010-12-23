@@ -89,66 +89,6 @@ void ExamplesMain::Run() {
   views::Window* window =
       views::Window::CreateChromeWindow(NULL, gfx::Rect(0, 0, 850, 300), this);
 
-  examples::TextfieldExample textfield_example(this);
-  tabbed_pane->AddTab(textfield_example.GetExampleTitle(),
-                      textfield_example.GetExampleView());
-
-  examples::ButtonExample button_example(this);
-  tabbed_pane->AddTab(button_example.GetExampleTitle(),
-                      button_example.GetExampleView());
-
-  examples::ThrobberExample throbber_example(this);
-  tabbed_pane->AddTab(throbber_example.GetExampleTitle(),
-                      throbber_example.GetExampleView());
-
-  examples::ComboboxExample combobox_example(this);
-  tabbed_pane->AddTab(combobox_example.GetExampleTitle(),
-                      combobox_example.GetExampleView());
-
-  examples::TabbedPaneExample tabbed_pane_example(this);
-  tabbed_pane->AddTab(tabbed_pane_example.GetExampleTitle(),
-                      tabbed_pane_example.GetExampleView());
-
-  examples::MessageBoxExample message_box_example(this);
-  tabbed_pane->AddTab(message_box_example.GetExampleTitle(),
-                      message_box_example.GetExampleView());
-
-  examples::RadioButtonExample radio_button_example(this);
-  tabbed_pane->AddTab(radio_button_example.GetExampleTitle(),
-                      radio_button_example.GetExampleView());
-
-  examples::ScrollViewExample scroll_view_example(this);
-  tabbed_pane->AddTab(scroll_view_example.GetExampleTitle(),
-                      scroll_view_example.GetExampleView());
-
-  examples::SingleSplitViewExample single_split_view_example(this);
-  tabbed_pane->AddTab(single_split_view_example.GetExampleTitle(),
-                      single_split_view_example.GetExampleView());
-
-#if defined(OS_WIN)
-  examples::TableExample table_example(this);
-  tabbed_pane->AddTab(table_example.GetExampleTitle(),
-                      table_example.GetExampleView());
-#endif
-
-  examples::Table2Example table2_example(this);
-  tabbed_pane->AddTab(table2_example.GetExampleTitle(),
-                      table2_example.GetExampleView());
-
-  examples::WidgetExample widget_example(this);
-  tabbed_pane->AddTab(widget_example.GetExampleTitle(),
-                      widget_example.GetExampleView());
-
-#if defined(OS_LINUX)
-  examples::SliderExample slider_example(this);
-  tabbed_pane->AddTab(slider_example.GetExampleTitle(),
-                      slider_example.GetExampleView());
-#endif
-
-  examples::MenuExample menu_example(this);
-  tabbed_pane->AddTab(menu_example.GetExampleTitle(),
-                      menu_example.GetExampleView());
-
   window->Show();
   views::AcceleratorHandler accelerator_handler;
   MessageLoopForUI::current()->Run(&accelerator_handler);
