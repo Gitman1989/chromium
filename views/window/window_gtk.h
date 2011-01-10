@@ -10,6 +10,10 @@
 #include "views/widget/widget_gtk.h"
 #include "views/window/window.h"
 
+class QMainWindow;
+
+
+
 namespace gfx {
 class Point;
 class Size;
@@ -114,6 +118,14 @@ class WindowGtk : public WidgetGtk, public Window {
 
   // State of the window, such as fullscreen, hidden...
   GdkWindowState window_state_;
+
+  QMainWindow* window_;
+
+
+
+
+
+
 
   // Set to true if the window is in the process of closing.
   bool window_closed_;

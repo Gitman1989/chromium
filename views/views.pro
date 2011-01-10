@@ -69,7 +69,22 @@ SOURCES += \
     widget/drop_helper.cc \
     widget/default_theme_provider.cc \
     widget/child_window_message_processor.cc \
-    widget/aero_tooltip_manager.cc
+    widget/aero_tooltip_manager.cc \
+    controls/tabbed_pane/tabbed_pane.cc \
+    controls/tabbed_pane/tabbed_pane_unittest.cc \
+    controls/tabbed_pane/native_tabbed_pane_win.cc \
+    controls/tabbed_pane/native_tabbed_pane_gtk.cc \
+    controls/button/text_button.cc \
+    controls/button/radio_button.cc \
+    controls/button/native_button.cc \
+    controls/button/native_button_win.cc \
+    controls/button/native_button_gtk.cc \
+    controls/button/menu_button.cc \
+    controls/button/image_button.cc \
+    controls/button/custom_button.cc \
+    controls/button/checkbox.cc \
+    controls/button/button.cc \
+    controls/button/button_dropdown.cc
 
 HEADERS += \
     views_delegate.h \
@@ -120,7 +135,23 @@ HEADERS += \
     widget/drop_helper.h \
     widget/default_theme_provider.h \
     widget/child_window_message_processor.h \
-    widget/aero_tooltip_manager.h
+    widget/aero_tooltip_manager.h \
+    controls/tabbed_pane/tabbed_pane.h \
+    controls/tabbed_pane/native_tabbed_pane_wrapper.h \
+    controls/tabbed_pane/native_tabbed_pane_win.h \
+    controls/tabbed_pane/native_tabbed_pane_gtk.h \
+    controls/button/text_button.h \
+    controls/button/radio_button.h \
+    controls/button/native_button.h \
+    controls/button/native_button_wrapper.h \
+    controls/button/native_button_win.h \
+    controls/button/native_button_gtk.h \
+    controls/button/menu_button.h \
+    controls/button/image_button.h \
+    controls/button/custom_button.h \
+    controls/button/checkbox.h \
+    controls/button/button.h \
+    controls/button/button_dropdown.h
 
 OTHER_FILES += \
     views.target.mk \

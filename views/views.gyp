@@ -353,6 +353,7 @@
       ],
       'include_dirs': [
         '<(DEPTH)/third_party/wtl/include',
+        '/home/petro/qtsdk/qt/include/'
       ],
       'conditions': [
         ['OS=="linux" or OS=="freebsd" or OS=="openbsd"', {
@@ -416,8 +417,8 @@
       'type': 'executable',
       'dependencies': [
         '../base/base.gyp:base',
-	'../base/base.gyp:base_i18n',
-	'../build/temp_gyp/googleurl.gyp:googleurl',
+        '../base/base.gyp:base_i18n',
+        '../build/temp_gyp/googleurl.gyp:googleurl',
         '../skia/skia.gyp:skia',
         '../gfx/gfx.gyp:gfx',
         '../app/app.gyp:app_base',
@@ -427,6 +428,7 @@
       ],
       'include_dirs': [
         '..',
+        '/home/petro/qtsdk/qt/include/'
       ],
       'sources': [
         'stubs.cc',
@@ -438,6 +440,12 @@
 
         '<(SHARED_INTERMEDIATE_DIR)/app/app_resources/app_resources.rc',
       ],
+      'link_settings': {
+        'libraries': [
+          '-l/home/petro/qtsdk/qt/lib/libQtCore.so',
+          '-l/home/petro/qtsdk/qt/lib/libQtGui.so'
+        ]
+      },
       'conditions': [
         ['OS=="linux" or OS=="freebsd" or OS=="openbsd"', {
           'dependencies': [

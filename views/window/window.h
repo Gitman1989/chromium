@@ -73,6 +73,9 @@ class Window {
   // Hides the window. This does not delete the window, it just hides it. This
   // always hides the window, it is separate from the stack maintained by
   // Push/PopForceHidden.
+
+
+
   virtual void HideWindow() = 0;
 
 #if defined(OS_WIN)

@@ -36,6 +36,9 @@
 #include "views/grid_layout.h"
 #include "views/window/window.h"
 
+#include <QtGui/QApplication>
+
+
 namespace examples {
 
 views::View* ExamplesMain::GetContentsView() {
@@ -88,8 +91,15 @@ void ExamplesMain::Run() {
   // the second tabbed pane.
   views::Window* window =
       views::Window::CreateChromeWindow(NULL, gfx::Rect(0, 0, 850, 300), this);
+  examples::TextfieldExample t(this);
+  tabbed_pane->AddTab(t.GetExampleTitle(),t.GetExampleView());
 
   window->Show();
+
+
+
+
+
   views::AcceleratorHandler accelerator_handler;
   MessageLoopForUI::current()->Run(&accelerator_handler);
 }
@@ -106,9 +116,13 @@ int main(int argc, char** argv) {
   gtk_init(&argc, &argv);
 #endif
 
+  QApplication app(argc, argv);
+
   CommandLine::Init(argc, argv);
   examples::ExamplesMain main;
   main.Run();
+
+
 
 #if defined(OS_WIN)
   OleUninitialize();

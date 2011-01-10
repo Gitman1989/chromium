@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <QtGui/QMainWindow>
+#undef signals
+
 #include "views/window/window_gtk.h"
 
 #include "gfx/rect.h"
@@ -121,7 +124,11 @@ void WindowGtk::SetBounds(const gfx::Rect& bounds,
 
 void WindowGtk::Show() {
   gtk_widget_show(GetNativeView());
+
+  window_->show();
 }
+
+
 
 void WindowGtk::HideWindow() {
   Hide();
@@ -418,6 +425,9 @@ void WindowGtk::Init(GtkWindow* parent, const gfx::Rect& bounds) {
   // }
 
   // ResetWindowRegion(false);
+  window_ = new QMainWindow;
+
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
