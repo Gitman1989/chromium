@@ -89,14 +89,18 @@ void ExamplesMain::Run() {
 
   // TODO(satorux): The window is getting wide.  Eventually, we would have
   // the second tabbed pane.
+
   views::Window* window =
       views::Window::CreateChromeWindow(NULL, gfx::Rect(0, 0, 850, 300), this);
+
   examples::TextfieldExample t(this);
-  tabbed_pane->AddTab(t.GetExampleTitle(),t.GetExampleView());
+  tabbed_pane->AddTab(t.GetExampleTitle(), t.GetExampleView());
 
+  views::RadioButton* radio_button = new views::RadioButton(L"push",0);
+  radio_button->radiobutton_->show();
+
+  
   window->Show();
-
-
 
 
 

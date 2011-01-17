@@ -89,6 +89,7 @@ class NativeRadioButtonGtk : public NativeCheckboxGtk {
   explicit NativeRadioButtonGtk(RadioButton* radio_button);
   virtual ~NativeRadioButtonGtk();
 
+
  protected:
   // Overridden from NativeCheckboxGtk.
   virtual void CreateNativeControl();

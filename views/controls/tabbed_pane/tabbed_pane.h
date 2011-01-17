@@ -8,7 +8,6 @@
 
 #include "views/view.h"
 
-class QTabWidget;
 
 namespace views {
 
@@ -37,7 +36,6 @@ class TabbedPane : public View {
   // Returns the index of the selected tab.
   int GetSelectedTabIndex();
 
-  QTabWidget* tab_;
 
   // Returns the contents of the selected tab.
   View* GetSelectedTab();

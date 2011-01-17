@@ -6,6 +6,7 @@
 #define GFX_NATIVE_WIDGET_TYPES_H_
 #pragma once
 
+//#include <QtGui/QWidget>
 #include "base/basictypes.h"
 #include "build/build_config.h"
 
@@ -87,6 +88,7 @@ typedef void* NativeMenu;
 #elif defined(USE_X11)
 typedef PangoFontDescription* NativeFont;
 typedef GtkWidget* NativeView;
+//typedef QWidget NativeView_;
 typedef GtkWindow* NativeWindow;
 typedef GtkWidget* NativeEditView;
 typedef cairo_t* NativeDrawingContext;

@@ -9,6 +9,8 @@
 #include "views/controls/native_control_gtk.h"
 #include "views/controls/tabbed_pane/native_tabbed_pane_wrapper.h"
 
+class QTabWidget;
+
 namespace views {
 
 class WidgetGtk;
@@ -49,6 +51,8 @@ class NativeTabbedPaneGtk : public NativeControlGtk,
 
   // Returns the WidgetGtk containing the tab contents at |index|.
   WidgetGtk* GetWidgetAt(int index);
+
+  QTabWidget* tab_;
 
   View* GetTabViewAt(int index);
   void OnSwitchPage(int selected_tab_index);

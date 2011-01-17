@@ -18,6 +18,9 @@
 #include "views/widget/root_view.h"
 #include "views/widget/widget_gtk.h"
 
+#include <QtGui/QTabWidget>
+#include <QtGui/QLabel>
+
 namespace views {
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -27,6 +30,7 @@ NativeTabbedPaneGtk::NativeTabbedPaneGtk(TabbedPane* tabbed_pane)
     : NativeControlGtk(),
       tabbed_pane_(tabbed_pane) {
   set_focus_view(tabbed_pane);
+  tab_ = new QTabWidget;
 }
 
 NativeTabbedPaneGtk::~NativeTabbedPaneGtk() {
@@ -37,6 +41,10 @@ NativeTabbedPaneGtk::~NativeTabbedPaneGtk() {
 
 void NativeTabbedPaneGtk::AddTab(const std::wstring& title, View* contents) {
   AddTabAtIndex(GetTabCount(), title, contents, true);
+
+  // Qt
+  tab_->addTab(new QLabel("Test test test"), QString::fromStdWString(title));
+  tab_->show();
 }
 
 void NativeTabbedPaneGtk::AddTabAtIndex(int index, const std::wstring& title,

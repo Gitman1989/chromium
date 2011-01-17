@@ -8,6 +8,8 @@
 
 #include "views/controls/button/checkbox.h"
 
+#include <QtGui/QRadioButton>
+
 namespace views {
 
 class NativeRadioButtonGtk;
@@ -20,6 +22,8 @@ class RadioButton : public Checkbox {
 
   RadioButton(const std::wstring& label, int group_id);
   virtual ~RadioButton();
+
+  QRadioButton* radiobutton_;
 
   // Overridden from Checkbox:
   virtual void SetChecked(bool checked);

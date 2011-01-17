@@ -84,7 +84,9 @@ SOURCES += \
     controls/button/custom_button.cc \
     controls/button/checkbox.cc \
     controls/button/button.cc \
-    controls/button/button_dropdown.cc
+    controls/button/button_dropdown.cc \
+    controls/listbox/listbox.cc \
+    controls/listbox/native_listbox_win.cc
 
 HEADERS += \
     views_delegate.h \
@@ -151,7 +153,10 @@ HEADERS += \
     controls/button/custom_button.h \
     controls/button/checkbox.h \
     controls/button/button.h \
-    controls/button/button_dropdown.h
+    controls/button/button_dropdown.h \
+    controls/listbox/native_listbox_win.h \
+    controls/listbox/listbox.h \
+    controls/listbox/native_listbox_wrapper.h
 
 OTHER_FILES += \
     views.target.mk \

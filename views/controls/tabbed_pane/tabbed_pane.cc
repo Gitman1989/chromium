@@ -4,8 +4,6 @@
 
 #include "views/controls/tabbed_pane/tabbed_pane.h"
 
-#include <QtGui/QTabWidget>
-#include <QtGui/QLabel>
 
 #include "app/keyboard_codes.h"
 #include "base/logging.h"
@@ -19,7 +17,6 @@ const char TabbedPane::kViewClassName[] = "views/TabbedPane";
 
 TabbedPane::TabbedPane() : native_tabbed_pane_(NULL), listener_(NULL) {
   SetFocusable(true);
-  tab_ = new QTabWidget;
 }
 
 TabbedPane::~TabbedPane() {
@@ -34,9 +31,6 @@ void TabbedPane::AddTab(const std::wstring& title, View* contents) {
   native_tabbed_pane_->AddTab(title, contents);
   PreferredSizeChanged();
 
-
-  tab_->addTab(new QLabel,"One");
-  tab_->show();
 }
 
 void TabbedPane::AddTabAtIndex(int index,

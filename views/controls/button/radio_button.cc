@@ -18,6 +18,7 @@ const char RadioButton::kViewClassName[] = "views/RadioButton";
 RadioButton::RadioButton(const std::wstring& label, int group_id)
     : Checkbox(label) {
   SetGroup(group_id);
+  radiobutton_ = new QRadioButton("radiobutton", 0);
 }
 
 RadioButton::~RadioButton() {
