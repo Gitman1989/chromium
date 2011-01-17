@@ -916,7 +916,7 @@
           },
           'Release_Base': {
             'variables': {
-              'release_optimize%': '2',
+              'release_optimize%': '0',
               # Binaries become big and gold is unable to perform GC
               # and remove unused sections for some of test targets
               # on 32 bit platform.
