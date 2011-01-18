@@ -10,7 +10,7 @@
 #include "base/basictypes.h"
 #include "ppapi/c/pp_completion_callback.h"
 #include "ppapi/c/ppb_graphics_2d.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebCanvas.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCanvas.h"
 #include "webkit/plugins/ppapi/resource.h"
 
 struct PPB_Graphics2D;
@@ -28,7 +28,7 @@ class PluginModule;
 
 class PPB_Graphics2D_Impl : public Resource {
  public:
-  PPB_Graphics2D_Impl(PluginModule* module);
+  PPB_Graphics2D_Impl(PluginInstance* instance);
   virtual ~PPB_Graphics2D_Impl();
 
   // Returns a pointer to the interface implementing PPB_ImageData that is

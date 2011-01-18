@@ -12,7 +12,6 @@
 #include "chrome/browser/in_process_webkit/webkit_context.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/test/in_process_browser_test.h"
 #include "chrome/test/testing_profile.h"
 #include "chrome/test/thread_test_helper.h"
@@ -67,7 +66,8 @@ IN_PROC_BROWSER_TEST_F(IndexedDBBrowserTest, TransactionGetTest) {
   SimpleTest(testUrl(FilePath(FILE_PATH_LITERAL("transaction_get_test.html"))));
 }
 
-IN_PROC_BROWSER_TEST_F(IndexedDBBrowserTest, ObjectStoreTest) {
+// Crashy, http://crbug.com/68446.
+IN_PROC_BROWSER_TEST_F(IndexedDBBrowserTest, DISABLED_ObjectStoreTest) {
   SimpleTest(testUrl(FilePath(FILE_PATH_LITERAL("object_store_test.html"))));
 }
 

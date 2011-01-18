@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -54,9 +54,14 @@
 
 namespace {
 
+// Delay between when an event occurs and when it is passed to the Javascript
+// page.  All events that occur during this period are grouped together and
+// sent to the page at once, which reduces context switching and CPU usage.
+const int kNetLogEventDelayMilliseconds = 100;
+
 // Returns the HostCache for |context|'s primary HostResolver, or NULL if
 // there is none.
-net::HostCache* GetHostResolverCache(URLRequestContext* context) {
+net::HostCache* GetHostResolverCache(net::URLRequestContext* context) {
   net::HostResolverImpl* host_resolver_impl =
       context->host_resolver()->GetAsHostResolverImpl();
 
@@ -67,7 +72,7 @@ net::HostCache* GetHostResolverCache(URLRequestContext* context) {
 }
 
 // Returns the disk cache backend for |context| if there is one, or NULL.
-disk_cache::Backend* GetDiskCacheBackend(URLRequestContext* context) {
+disk_cache::Backend* GetDiskCacheBackend(net::URLRequestContext* context) {
   if (!context->http_transaction_factory())
     return NULL;
 
@@ -80,7 +85,8 @@ disk_cache::Backend* GetDiskCacheBackend(URLRequestContext* context) {
 
 // Returns the http network session for |context| if there is one.
 // Otherwise, returns NULL.
-net::HttpNetworkSession* GetHttpNetworkSession(URLRequestContext* context) {
+net::HttpNetworkSession* GetHttpNetworkSession(
+    net::URLRequestContext* context) {
   if (!context->http_transaction_factory())
     return NULL;
 
@@ -245,8 +251,18 @@ class NetInternalsMessageHandler::IOThreadImpl
   // Helper that executes |function_name| in the attached renderer.
   // The function takes ownership of |arg|.  Note that this can be called from
   // any thread.
-  void CallJavascriptFunction(const std::wstring& function_name,
-                              Value* arg);
+  void CallJavascriptFunction(const std::wstring& function_name, Value* arg);
+
+  // Adds |entry| to the queue of pending log entries to be sent to the page via
+  // Javascript.  Must be called on the IO Thread.  Also creates a delayed task
+  // that will call PostPendingEntries, if there isn't one already.
+  void AddEntryToQueue(Value* entry);
+
+  // Sends all pending entries to the page via Javascript, and clears the list
+  // of pending entries.  Sending multiple entries at once results in a
+  // significant reduction of CPU usage when a lot of events are happening.
+  // Must be called on the IO Thread.
+  void PostPendingEntries();
 
   // Pointer to the UI-thread message handler. Only access this from
   // the UI thread.
@@ -271,6 +287,11 @@ class NetInternalsMessageHandler::IOThreadImpl
   // True if we have attached an observer to the NetLog already.
   bool is_observing_log_;
   friend class base::RefCountedThreadSafe<IOThreadImpl>;
+
+  // Log entries that have yet to be passed along to Javascript page.  Non-NULL
+  // when and only when there is a pending delayed task to call
+  // PostPendingEntries.  Read and written to exclusively on the IO Thread.
+  scoped_ptr<ListValue> pending_entries_;
 };
 
 // Helper class for a DOMUI::MessageCallback which when excuted calls
@@ -671,7 +692,7 @@ void NetInternalsMessageHandler::IOThreadImpl::OnRendererReady(
 
 void NetInternalsMessageHandler::IOThreadImpl::OnGetProxySettings(
     const ListValue* list) {
-  URLRequestContext* context = context_getter_->GetURLRequestContext();
+  net::URLRequestContext* context = context_getter_->GetURLRequestContext();
   net::ProxyService* proxy_service = context->proxy_service();
 
   DictionaryValue* dict = new DictionaryValue();
@@ -685,7 +706,7 @@ void NetInternalsMessageHandler::IOThreadImpl::OnGetProxySettings(
 
 void NetInternalsMessageHandler::IOThreadImpl::OnReloadProxySettings(
     const ListValue* list) {
-  URLRequestContext* context = context_getter_->GetURLRequestContext();
+  net::URLRequestContext* context = context_getter_->GetURLRequestContext();
   context->proxy_service()->ForceReloadProxyConfig();
 
   // Cause the renderer to be notified of the new values.
@@ -694,7 +715,7 @@ void NetInternalsMessageHandler::IOThreadImpl::OnReloadProxySettings(
 
 void NetInternalsMessageHandler::IOThreadImpl::OnGetBadProxies(
     const ListValue* list) {
-  URLRequestContext* context = context_getter_->GetURLRequestContext();
+  net::URLRequestContext* context = context_getter_->GetURLRequestContext();
 
   const net::ProxyRetryInfoMap& bad_proxies_map =
       context->proxy_service()->proxy_retry_info();
@@ -719,7 +740,7 @@ void NetInternalsMessageHandler::IOThreadImpl::OnGetBadProxies(
 
 void NetInternalsMessageHandler::IOThreadImpl::OnClearBadProxies(
     const ListValue* list) {
-  URLRequestContext* context = context_getter_->GetURLRequestContext();
+  net::URLRequestContext* context = context_getter_->GetURLRequestContext();
   context->proxy_service()->ClearBadProxiesCache();
 
   // Cause the renderer to be notified of the new values.
@@ -728,7 +749,7 @@ void NetInternalsMessageHandler::IOThreadImpl::OnClearBadProxies(
 
 void NetInternalsMessageHandler::IOThreadImpl::OnGetHostResolverInfo(
     const ListValue* list) {
-  URLRequestContext* context = context_getter_->GetURLRequestContext();
+  net::URLRequestContext* context = context_getter_->GetURLRequestContext();
   net::HostResolverImpl* host_resolver_impl =
       context->host_resolver()->GetAsHostResolverImpl();
   net::HostCache* cache = GetHostResolverCache(context);
@@ -810,7 +831,7 @@ void NetInternalsMessageHandler::IOThreadImpl::OnClearHostResolverCache(
 
 void NetInternalsMessageHandler::IOThreadImpl::OnEnableIPv6(
     const ListValue* list) {
-  URLRequestContext* context = context_getter_->GetURLRequestContext();
+  net::URLRequestContext* context = context_getter_->GetURLRequestContext();
   net::HostResolverImpl* host_resolver_impl =
       context->host_resolver()->GetAsHostResolverImpl();
 
@@ -833,7 +854,8 @@ void NetInternalsMessageHandler::IOThreadImpl::OnStartConnectionTests(
   // For example, turn "www.google.com" into "http://www.google.com".
   GURL url(URLFixerUpper::FixupURL(UTF16ToUTF8(url_str), std::string()));
 
-  connection_tester_.reset(new ConnectionTester(this, io_thread_));
+  connection_tester_.reset(new ConnectionTester(
+      this, io_thread_->globals()->proxy_script_fetcher_context.get()));
   connection_tester_->RunAllTests(url);
 }
 
@@ -950,10 +972,31 @@ void NetInternalsMessageHandler::IOThreadImpl::OnAddEntry(
     const net::NetLog::Source& source,
     net::NetLog::EventPhase phase,
     net::NetLog::EventParameters* params) {
+  BrowserThread::PostTask(
+      BrowserThread::IO, FROM_HERE,
+      NewRunnableMethod(
+          this, &IOThreadImpl::AddEntryToQueue,
+          net::NetLog::EntryToDictionaryValue(type, time, source, phase,
+                                              params, false)));
+}
+
+void NetInternalsMessageHandler::IOThreadImpl::AddEntryToQueue(Value* entry) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  if (!pending_entries_.get()) {
+    pending_entries_.reset(new ListValue());
+    BrowserThread::PostDelayedTask(
+        BrowserThread::IO, FROM_HERE,
+        NewRunnableMethod(this, &IOThreadImpl::PostPendingEntries),
+        kNetLogEventDelayMilliseconds);
+  }
+  pending_entries_->Append(entry);
+}
+
+void NetInternalsMessageHandler::IOThreadImpl::PostPendingEntries() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   CallJavascriptFunction(
-      L"g_browser.receivedLogEntry",
-      net::NetLog::EntryToDictionaryValue(type, time, source, phase, params,
-                                          false));
+      L"g_browser.receivedLogEntries",
+      pending_entries_.release());
 }
 
 void NetInternalsMessageHandler::IOThreadImpl::OnStartConnectionTestSuite() {

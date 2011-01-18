@@ -1,5 +1,5 @@
 #!/usr/bin/python2.4
-# Copyright (c) 2010 The Chromium Authors. All rights reserved.
+# Copyright (c) 2011 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -25,13 +25,14 @@ class AdmlWriterTest(xml_writer_base_unittest.XmlWriterBaseTest):
     config = {
       'build': 'test',
       'win_supported_os': 'SUPPORTED_TESTOS',
-      'win_supported_os_msg': 'IDS_POLICY_WIN_SUPPORTED_WINXPSP2',
     }
-    # Grid messages
-    messages = {
-      'IDS_POLICY_WIN_SUPPORTED_WINXPSP2': 'Supported on Test OS or higher'
+    self.writer = adml_writer.GetWriter(config)
+    self.writer.messages = {
+      'win_supported_winxpsp2': {
+        'text': 'Supported on Test OS or higher',
+        'desc': 'blah'
+      }
     }
-    self.writer = adml_writer.GetWriter(config, messages)
     self.writer.Init()
 
   def _InitWriterForAddingPolicyGroups(self, writer):
@@ -55,7 +56,7 @@ class AdmlWriterTest(xml_writer_base_unittest.XmlWriterBaseTest):
     }
     writer.BeginPolicyGroup(policy_group)
 
-    string_elements =\
+    string_elements = \
         self.writer._string_table_elem.getElementsByTagName('string')
     for elem in string_elements:
       self.writer._string_table_elem.removeChild(elem)
@@ -158,10 +159,90 @@ class AdmlWriterTest(xml_writer_base_unittest.XmlWriterBaseTest):
         '</presentation>')
     self.AssertXMLEquals(output, expected_output)
 
-  def testEnumPolicy(self):
+  def testIntPolicy(self):
+    int_policy = {
+      'name': 'IntPolicyStub',
+      'type': 'int',
+      'caption': 'Int policy caption',
+      'label': 'Int policy label',
+      'desc': 'This is a test description.',
+    }
+    self. _InitWriterForAddingPolicies(self.writer, int_policy)
+    self.writer.WritePolicy(int_policy)
+    # Assert generated string elements.
+    output = self.GetXMLOfChildren(self.writer._string_table_elem)
+    expected_output = (
+        '<string id="IntPolicyStub">\n'
+        '  Int policy caption\n'
+        '</string>\n'
+        '<string id="IntPolicyStub_Explain">\n'
+        '  This is a test description.\n'
+        '</string>')
+    self.AssertXMLEquals(output, expected_output)
+    # Assert generated presentation elements.
+    output = self.GetXMLOfChildren(self.writer._presentation_table_elem)
+    expected_output = (
+        '<presentation id="IntPolicyStub">\n'
+        '  <decimalTextBox refId="IntPolicyStub">\n'
+        '    <label>\n'
+        '      Int policy label\n'
+        '    </label>\n'
+        '  </decimalTextBox>\n'
+        '</presentation>')
+    self.AssertXMLEquals(output, expected_output)
+
+  def testIntEnumPolicy(self):
     enum_policy = {
       'name': 'EnumPolicyStub',
-      'type': 'enum',
+      'type': 'int-enum',
+      'caption': 'Enum policy caption',
+      'label': 'Enum policy label',
+      'desc': 'This is a test description.',
+      'items': [
+          {
+           'name': 'item 1',
+           'value': 1,
+           'caption': 'Caption Item 1',
+          },
+          {
+           'name': 'item 2',
+           'value': 2,
+           'caption': 'Caption Item 2',
+          },
+      ],
+    }
+    self. _InitWriterForAddingPolicies(self.writer, enum_policy)
+    self.writer.WritePolicy(enum_policy)
+    # Assert generated string elements.
+    output = self.GetXMLOfChildren(self.writer._string_table_elem)
+    expected_output = (
+        '<string id="EnumPolicyStub">\n'
+        '  Enum policy caption\n'
+        '</string>\n'
+        '<string id="EnumPolicyStub_Explain">\n'
+        '  This is a test description.\n'
+        '</string>\n'
+        '<string id="item 1">\n'
+        '  Caption Item 1\n'
+        '</string>\n'
+        '<string id="item 2">\n'
+        '  Caption Item 2\n'
+        '</string>')
+    self.AssertXMLEquals(output, expected_output)
+    # Assert generated presentation elements.
+    output = self.GetXMLOfChildren(self.writer._presentation_table_elem)
+    expected_output = (
+        '<presentation id="EnumPolicyStub">\n'
+        '  <dropdownList refId="EnumPolicyStub">\n'
+        '    Enum policy label\n'
+        '  </dropdownList>\n'
+        '</presentation>')
+    self.AssertXMLEquals(output, expected_output)
+
+  def testStringEnumPolicy(self):
+    enum_policy = {
+      'name': 'EnumPolicyStub',
+      'type': 'string-enum',
       'caption': 'Enum policy caption',
       'label': 'Enum policy label',
       'desc': 'This is a test description.',

@@ -48,7 +48,9 @@ class TabProxy : public AutomationResourceProxy,
  public:
   class TabProxyDelegate {
    public:
-    virtual void OnMessageReceived(TabProxy* tab, const IPC::Message& msg) {}
+    virtual bool OnMessageReceived(TabProxy* tab, const IPC::Message& msg) {
+      return false;
+    }
     virtual void OnChannelError(TabProxy* tab) {}
 
    protected:
@@ -402,10 +404,16 @@ class TabProxy : public AutomationResourceProxy,
   void StopAsync();
   void SaveAsAsync();
 
+  // Notify the JavaScript engine in the render to change its parameters
+  // while performing stress testing. See
+  // |ViewHostMsg_JavaScriptStressTestControl_Commands| in render_messages.h
+  // for information on the arguments.
+  void JavaScriptStressTestControl(int cmd, int param);
+
   // Calls delegates
   void AddObserver(TabProxyDelegate* observer);
   void RemoveObserver(TabProxyDelegate* observer);
-  void OnMessageReceived(const IPC::Message& message);
+  bool OnMessageReceived(const IPC::Message& message);
   void OnChannelError();
  protected:
   virtual ~TabProxy();

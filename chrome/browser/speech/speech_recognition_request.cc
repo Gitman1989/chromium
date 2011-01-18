@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -134,7 +134,8 @@ bool SpeechRecognitionRequest::Send(const std::string& language,
     // If no language is provided then we use the first from the accepted
     // language list. If this list is empty then it defaults to "en-US".
     // Example of the contents of this list: "es,en-GB;q=0.8", ""
-    URLRequestContext* request_context = url_context_->GetURLRequestContext();
+    net::URLRequestContext* request_context =
+        url_context_->GetURLRequestContext();
     DCHECK(request_context);
     std::string accepted_language_list = request_context->accept_language();
     size_t separator = accepted_language_list.find_first_of(",;");
@@ -175,7 +176,7 @@ bool SpeechRecognitionRequest::Send(const std::string& language,
 void SpeechRecognitionRequest::OnURLFetchComplete(
     const URLFetcher* source,
     const GURL& url,
-    const URLRequestStatus& status,
+    const net::URLRequestStatus& status,
     int response_code,
     const ResponseCookies& cookies,
     const std::string& data) {

@@ -16,22 +16,29 @@ typedef struct tagNMLVCUSTOMDRAW NMLVCUSTOMDRAW;
 #include <map>
 #include <vector>
 
-#include "app/keyboard_codes.h"
-#include "app/table_model_observer.h"
 #include "base/gtest_prod_util.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/base/keycodes/keyboard_codes.h"
+#include "ui/base/models/table_model_observer.h"
+
 #if defined(OS_WIN)
 // TODO(port): remove the ifdef when native_control.h is ported.
 #include "views/controls/native_control.h"
 #endif  // defined(OS_WIN)
 
+class SkBitmap;
+
+namespace ui {
+struct TableColumn;
+class TableModel;
+}
+using ui::TableColumn;
+using ui::TableModel;
+using ui::TableModelObserver; // TODO(beng): remove these.
+
 namespace gfx {
 class Font;
 }
-
-struct TableColumn;
-class TableModel;
-class SkBitmap;
 
 // A TableView is a view that displays multiple rows with any number of columns.
 // TableView is driven by a TableModel. The model returns the contents
@@ -258,7 +265,7 @@ class TableView : public NativeControl,
   virtual void OnMiddleClick();
 
   // Overridden from NativeControl. Notifies the observer.
-  virtual bool OnKeyDown(app::KeyboardCode virtual_keycode);
+  virtual bool OnKeyDown(ui::KeyboardCode virtual_keycode);
 
   // Invoked to customize the colors or font at a particular cell. If you
   // change the colors or font, return true. This is only invoked if
@@ -490,7 +497,7 @@ class TableView : public NativeControl,
   scoped_array<int> view_to_model_;
   scoped_array<int> model_to_view_;
 
-  std::wstring alt_text_;
+  string16 alt_text_;
 
   DISALLOW_COPY_AND_ASSIGN(TableView);
 };

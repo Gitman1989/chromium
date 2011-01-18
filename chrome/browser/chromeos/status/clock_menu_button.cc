@@ -12,8 +12,6 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/status/status_area_host.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/common/pref_names.h"
 #include "gfx/canvas.h"
 #include "gfx/font.h"
 #include "grit/generated_resources.h"
@@ -82,7 +80,7 @@ void ClockMenuButton::UpdateText() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// ClockMenuButton, menus::MenuModel implementation:
+// ClockMenuButton, ui::MenuModel implementation:
 
 int ClockMenuButton::GetItemCount() const {
   // If options dialog is unavailable, don't count a separator and configure
@@ -90,11 +88,11 @@ int ClockMenuButton::GetItemCount() const {
   return host_->ShouldOpenButtonOptions(this) ? 3 : 1;
 }
 
-menus::MenuModel::ItemType ClockMenuButton::GetTypeAt(int index) const {
+ui::MenuModel::ItemType ClockMenuButton::GetTypeAt(int index) const {
   // There's a separator between the current date and the menu item to open
   // the options menu.
-  return index == 1 ? menus::MenuModel::TYPE_SEPARATOR:
-                      menus::MenuModel::TYPE_COMMAND;
+  return index == 1 ? ui::MenuModel::TYPE_SEPARATOR:
+                      ui::MenuModel::TYPE_COMMAND;
 }
 
 string16 ClockMenuButton::GetLabelAt(int index) const {

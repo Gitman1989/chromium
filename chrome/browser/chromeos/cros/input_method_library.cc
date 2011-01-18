@@ -63,6 +63,9 @@ class InputMethodLibraryImpl : public InputMethodLibrary,
         should_change_input_method_(false),
         ibus_daemon_process_id_(0),
         candidate_window_process_id_(0) {
+    // TODO(yusukes): Using both CreateFallbackInputMethodDescriptors and
+    // chromeos::GetHardwareKeyboardLayoutName doesn't look clean. Probably
+    // we should unify these APIs.
     scoped_ptr<InputMethodDescriptors> input_method_descriptors(
         CreateFallbackInputMethodDescriptors());
     current_input_method_ = input_method_descriptors->at(0);
@@ -148,19 +151,22 @@ class InputMethodLibraryImpl : public InputMethodLibrary,
     return false;
   }
 
-  bool GetImeConfig(const char* section, const char* config_name,
+  bool GetImeConfig(const std::string& section, const std::string& config_name,
                     ImeConfigValue* out_value) {
     bool success = false;
     if (EnsureLoadedAndStarted()) {
       success = chromeos::GetImeConfig(input_method_status_connection_,
-                                       section, config_name, out_value);
+                                       section.c_str(),
+                                       config_name.c_str(),
+                                       out_value);
     }
     return success;
   }
 
-  bool SetImeConfig(const char* section, const char* config_name,
+  bool SetImeConfig(const std::string& section, const std::string& config_name,
                     const ImeConfigValue& value) {
-    MaybeStartOrStopInputMethodProcesses(section, config_name, value);
+    // Before calling FlushImeConfig(), start input method process if necessary.
+    MaybeStartInputMethodProcesses(section, config_name, value);
 
     const ConfigKeyType key = std::make_pair(section, config_name);
     current_config_values_[key] = value;
@@ -168,6 +174,9 @@ class InputMethodLibraryImpl : public InputMethodLibrary,
       pending_config_requests_[key] = value;
       FlushImeConfig();
     }
+
+    // Stop input method process if necessary.
+    MaybeStopInputMethodProcesses(section, config_name, value);
     return pending_config_requests_.empty();
   }
 
@@ -182,25 +191,60 @@ class InputMethodLibraryImpl : public InputMethodLibrary,
     return current_ime_properties_;
   }
 
+  virtual std::string GetKeyboardOverlayId(const std::string& input_method_id) {
+    if (EnsureLoadedAndStarted()) {
+      return chromeos::GetKeyboardOverlayId(input_method_id);
+    }
+    return "";
+  }
+
  private:
-  // Starts or stops the input method processes based on the current state.
-  void MaybeStartOrStopInputMethodProcesses(
-      const char* section,
-      const char* config_name,
-      const ImeConfigValue& value) {
-    if (!strcmp(language_prefs::kGeneralSectionName, section) &&
-        !strcmp(language_prefs::kPreloadEnginesConfigName, config_name)) {
+  // Starts input method processes based on the |defer_ime_startup_| flag and
+  // input method configuration being updated. |section| is a section name of
+  // the input method configuration (e.g. "general", "general/hotkey").
+  // |config_name| is a name of the configuration (e.g. "preload_engines",
+  // "previous_engine"). |value| is the configuration value to be set.
+  void MaybeStartInputMethodProcesses(const std::string& section,
+                                      const std::string& config_name,
+                                      const ImeConfigValue& value) {
+    if (section == language_prefs::kGeneralSectionName &&
+        config_name == language_prefs::kPreloadEnginesConfigName) {
       if (EnsureLoadedAndStarted()) {
-        // If there are no input methods other than one for the hardware
-        // keyboard, we'll stop the input method processes.
+        const std::string hardware_layout_name =
+            chromeos::GetHardwareKeyboardLayoutName();  // e.g. "xkb:us::eng"
+        if (!(value.type == ImeConfigValue::kValueTypeStringList &&
+              value.string_list_value.size() == 1 &&
+              value.string_list_value[0] == hardware_layout_name) &&
+            !defer_ime_startup_) {
+          // If there are no input methods other than one for the hardware
+          // keyboard, we don't start the input method processes.
+          // When |defer_ime_startup_| is true, we don't start it either.
+          StartInputMethodProcesses();
+        }
+        chromeos::SetActiveInputMethods(input_method_status_connection_, value);
+      }
+    }
+  }
+
+  // Stops input method processes based on the |enable_auto_ime_shutdown_| flag
+  // and input method configuration being updated.
+  // See also: MaybeStartInputMethodProcesses().
+  void MaybeStopInputMethodProcesses(const std::string& section,
+                                     const std::string& config_name,
+                                     const ImeConfigValue& value) {
+    if (section == language_prefs::kGeneralSectionName &&
+        config_name == language_prefs::kPreloadEnginesConfigName) {
+      if (EnsureLoadedAndStarted()) {
+        const std::string hardware_layout_name =
+            chromeos::GetHardwareKeyboardLayoutName();  // e.g. "xkb:us::eng"
         if (value.type == ImeConfigValue::kValueTypeStringList &&
             value.string_list_value.size() == 1 &&
-            value.string_list_value[0] ==
-            chromeos::GetHardwareKeyboardLayoutName()) {
-          if (enable_auto_ime_shutdown_)
-            StopInputMethodProcesses();
-        } else if (!defer_ime_startup_) {
-          StartInputMethodProcesses();
+            value.string_list_value[0] == hardware_layout_name &&
+            enable_auto_ime_shutdown_) {
+          // If there are no input methods other than one for the hardware
+          // keyboard, and |enable_auto_ime_shutdown_| is true, we'll stop the
+          // input method processes.
+          StopInputMethodProcesses();
         }
         chromeos::SetActiveInputMethods(input_method_status_connection_, value);
       }
@@ -290,12 +334,35 @@ class InputMethodLibraryImpl : public InputMethodLibrary,
                    this, &InputMethodLibraryImpl::FlushImeConfig);
     }
 
+    // Notify the current input method and the number of active input methods to
+    // the UI so that the UI could determine e.g. if it should show/hide the
+    // input method indicator, etc. We have to call FOR_EACH_OBSERVER here since
+    // updating "preload_engine" does not necessarily trigger a DBus signal such
+    // as "global-engine-changed". For example,
+    // 1) If we change the preload_engine from "xkb:us:intl:eng" (i.e. the
+    //    indicator is hidden) to "xkb:us:intl:eng,mozc", we have to update UI
+    //    so it shows the indicator, but no signal is sent from ibus-daemon
+    //    because the current input method is not changed.
+    // 2) If we change the preload_engine from "xkb:us::eng,mozc" (i.e. the
+    //    indicator is shown and ibus-daemon is started) to "xkb:us::eng", we
+    //    have to update UI so it hides the indicator, but we should not expect
+    //    that ibus-daemon could send a DBus signal since the daemon is killed
+    //    right after this FlushImeConfig() call.
     if (active_input_methods_are_changed) {
+      scoped_ptr<InputMethodDescriptor> current_input_method(
+          chromeos::GetCurrentInputMethod(input_method_status_connection_));
+      // The |current_input_method_| member variable should not be used since
+      // the variable might be stale. SetImeConfig("preload_engine") call above
+      // might change the current input method in ibus-daemon, but the variable
+      // is not updated until InputMethodChangedHandler(), which is the handler
+      // for the global-engine-changed DBus signal, is called.
       const size_t num_active_input_methods = GetNumActiveInputMethods();
-      FOR_EACH_OBSERVER(Observer, observers_,
-                        ActiveInputMethodsChanged(this,
-                                                  current_input_method_,
-                                                  num_active_input_methods));
+      if (current_input_method.get()) {
+        FOR_EACH_OBSERVER(Observer, observers_,
+                          ActiveInputMethodsChanged(this,
+                                                    *current_input_method.get(),
+                                                    num_active_input_methods));
+      }
     }
   }
 
@@ -304,7 +371,7 @@ class InputMethodLibraryImpl : public InputMethodLibrary,
       const chromeos::InputMethodDescriptor& current_input_method) {
     // The handler is called when the input method method change is
     // notified via a DBus connection. Since the DBus notificatiosn are
-    // handled in the UI thread, we can assume that this functionalways
+    // handled in the UI thread, we can assume that this function always
     // runs on the UI thread, but just in case.
     if (!BrowserThread::CurrentlyOn(BrowserThread::UI)) {
       LOG(ERROR) << "Not on UI thread";
@@ -518,11 +585,19 @@ class InputMethodLibraryImpl : public InputMethodLibrary,
       // actually changes the XKB layout will not be called.
       CrosLibrary::Get()->GetKeyboardLibrary()->SetCurrentKeyboardLayoutByName(
           chromeos::input_method::GetKeyboardLayoutName(xkb_engine_name));
-      kill(ibus_daemon_process_id_, SIGTERM);
+      if (!chromeos::StopInputMethodProcess(input_method_status_connection_)) {
+        LOG(ERROR) << "StopInputMethodProcess IPC failed. Sending SIGTERM to "
+                   << "PID " << ibus_daemon_process_id_;
+        kill(ibus_daemon_process_id_, SIGTERM);
+      }
+      VLOG(1) << "ibus-daemon (PID=" << ibus_daemon_process_id_ << ") is "
+              << "terminated";
       ibus_daemon_process_id_ = 0;
     }
     if (candidate_window_process_id_) {
       kill(candidate_window_process_id_, SIGTERM);
+      VLOG(1) << "candidate_window (PID=" << candidate_window_process_id_
+              << ") is terminated";
       candidate_window_process_id_ = 0;
     }
   }
@@ -586,6 +661,8 @@ class InputMethodLibraryImpl : public InputMethodLibrary,
   // If true, we'll defer the startup until a non-default method is
   // activated.
   bool defer_ime_startup_;
+  // True if we should stop input method processes when there are no input
+  // methods other than one for the hardware keyboard.
   bool enable_auto_ime_shutdown_;
   // The ID of the current input method (ex. "mozc").
   std::string current_input_method_id_;
@@ -608,7 +685,9 @@ class InputMethodLibraryStubImpl : public InputMethodLibrary {
  public:
   InputMethodLibraryStubImpl()
       : previous_input_method_("", "", "", ""),
-        current_input_method_("", "", "", "") {
+        current_input_method_("", "", "", ""),
+        keyboard_overlay_map_(
+            CreateRealisticKeyboardOverlayMap()) {
   }
 
   ~InputMethodLibraryStubImpl() {}
@@ -637,14 +716,14 @@ class InputMethodLibraryStubImpl : public InputMethodLibrary {
     return true;
   }
 
-  bool GetImeConfig(const char* section,
-                    const char* config_name,
+  bool GetImeConfig(const std::string& section,
+                    const std::string& config_name,
                     ImeConfigValue* out_value) {
     return false;
   }
 
-  bool SetImeConfig(const char* section,
-                    const char* config_name,
+  bool SetImeConfig(const std::string& section,
+                    const std::string& config_name,
                     const ImeConfigValue& value) {
     return false;
   }
@@ -666,7 +745,16 @@ class InputMethodLibraryStubImpl : public InputMethodLibrary {
   virtual void SetDeferImeStartup(bool defer) {}
   virtual void SetEnableAutoImeShutdown(bool enable) {}
 
+  virtual std::string GetKeyboardOverlayId(const std::string& input_method_id) {
+    KeyboardOverlayMap::const_iterator iter =
+        keyboard_overlay_map_->find(input_method_id);
+    return (iter != keyboard_overlay_map_->end()) ?
+        iter->second : "";
+  }
+
  private:
+  typedef std::map<std::string, std::string> KeyboardOverlayMap;
+
   // Creates realistic input method descriptors that can be used for
   // testing Chrome OS version of chrome on regular Linux desktops.
   InputMethodDescriptors* CreateRealisticInputMethodDescriptors() {
@@ -795,9 +883,83 @@ class InputMethodLibraryStubImpl : public InputMethodLibrary {
     return descriptions;
   }
 
+  std::map<std::string, std::string>* CreateRealisticKeyboardOverlayMap() {
+    KeyboardOverlayMap* keyboard_overlay_map =
+        new KeyboardOverlayMap;
+    (*keyboard_overlay_map)["xkb:nl::nld"] = "nl";
+    (*keyboard_overlay_map)["xkb:be::nld"] = "nl";
+    (*keyboard_overlay_map)["xkb:fr::fra"] = "fr";
+    (*keyboard_overlay_map)["xkb:be::fra"] = "fr";
+    (*keyboard_overlay_map)["xkb:ca::fra"] = "fr_CA";
+    (*keyboard_overlay_map)["xkb:ch:fr:fra"] = "fr";
+    (*keyboard_overlay_map)["xkb:de::ger"] = "de";
+    (*keyboard_overlay_map)["xkb:be::ger"] = "de";
+    (*keyboard_overlay_map)["xkb:ch::ger"] = "de";
+    (*keyboard_overlay_map)["mozc"] = "en_US";
+    (*keyboard_overlay_map)["mozc-jp"] = "ja";
+    (*keyboard_overlay_map)["mozc-dv"] = "en_US_dvorak";
+    (*keyboard_overlay_map)["xkb:jp::jpn"] = "ja";
+    (*keyboard_overlay_map)["xkb:ru::rus"] = "ru";
+    (*keyboard_overlay_map)["xkb:ru:phonetic:rus"] = "ru";
+    (*keyboard_overlay_map)["m17n:th:kesmanee"] = "th";
+    (*keyboard_overlay_map)["m17n:th:pattachote"] = "th";
+    (*keyboard_overlay_map)["m17n:th:tis820"] = "th";
+    (*keyboard_overlay_map)["chewing"] = "zh_TW";
+    (*keyboard_overlay_map)["m17n:zh:cangjie"] = "zh_TW";
+    (*keyboard_overlay_map)["m17n:zh:quick"] = "zh_TW";
+    (*keyboard_overlay_map)["m17n:vi:tcvn"] = "vi";
+    (*keyboard_overlay_map)["m17n:vi:telex"] = "vi";
+    (*keyboard_overlay_map)["m17n:vi:viqr"] = "vi";
+    (*keyboard_overlay_map)["m17n:vi:vni"] = "vi";
+    (*keyboard_overlay_map)["xkb:us::eng"] = "en_US";
+    (*keyboard_overlay_map)["xkb:us:intl:eng"] = "en_US";
+    (*keyboard_overlay_map)["xkb:us:altgr-intl:eng"] = "en_US";
+    (*keyboard_overlay_map)["xkb:us:dvorak:eng"] =
+        "en_US_dvorak";
+    (*keyboard_overlay_map)["xkb:us:colemak:eng"] =
+        "en_US";
+    (*keyboard_overlay_map)["hangul"] = "ko";
+    (*keyboard_overlay_map)["pinyin"] = "zh_CN";
+    (*keyboard_overlay_map)["m17n:ar:kbd"] = "ar";
+    (*keyboard_overlay_map)["m17n:hi:itrans"] = "hi";
+    (*keyboard_overlay_map)["m17n:fa:isiri"] = "ar";
+    (*keyboard_overlay_map)["xkb:br::por"] = "pt_BR";
+    (*keyboard_overlay_map)["xkb:bg::bul"] = "bg";
+    (*keyboard_overlay_map)["xkb:bg:phonetic:bul"] = "bg";
+    (*keyboard_overlay_map)["xkb:ca:eng:eng"] = "ca";
+    (*keyboard_overlay_map)["xkb:cz::cze"] = "cs";
+    (*keyboard_overlay_map)["xkb:ee::est"] = "et";
+    (*keyboard_overlay_map)["xkb:es::spa"] = "es";
+    (*keyboard_overlay_map)["xkb:es:cat:cat"] = "ca";
+    (*keyboard_overlay_map)["xkb:dk::dan"] = "da";
+    (*keyboard_overlay_map)["xkb:gr::gre"] = "el";
+    (*keyboard_overlay_map)["xkb:il::heb"] = "iw";
+    (*keyboard_overlay_map)["xkb:kr:kr104:kor"] = "ko";
+    (*keyboard_overlay_map)["xkb:latam::spa"] = "es_419";
+    (*keyboard_overlay_map)["xkb:lt::lit"] = "lt";
+    (*keyboard_overlay_map)["xkb:lv:apostrophe:lav"] = "lv";
+    (*keyboard_overlay_map)["xkb:hr::scr"] = "hr";
+    (*keyboard_overlay_map)["xkb:gb:extd:eng"] = "en_GB";
+    (*keyboard_overlay_map)["xkb:fi::fin"] = "fi";
+    (*keyboard_overlay_map)["xkb:hu::hun"] = "hu";
+    (*keyboard_overlay_map)["xkb:it::ita"] = "it";
+    (*keyboard_overlay_map)["xkb:no::nob"] = "no";
+    (*keyboard_overlay_map)["xkb:pl::pol"] = "pl";
+    (*keyboard_overlay_map)["xkb:pt::por"] = "pt_PT";
+    (*keyboard_overlay_map)["xkb:ro::rum"] = "ro";
+    (*keyboard_overlay_map)["xkb:se::swe"] = "sv";
+    (*keyboard_overlay_map)["xkb:sk::slo"] = "sk";
+    (*keyboard_overlay_map)["xkb:si::slv"] = "sl";
+    (*keyboard_overlay_map)["xkb:rs::srp"] = "sr";
+    (*keyboard_overlay_map)["xkb:tr::tur"] = "tr";
+    (*keyboard_overlay_map)["xkb:ua::ukr"] = "uk";
+    return keyboard_overlay_map;
+  }
+
   InputMethodDescriptor previous_input_method_;
   InputMethodDescriptor current_input_method_;
   ImePropertyList current_ime_properties_;
+  scoped_ptr<KeyboardOverlayMap> keyboard_overlay_map_;
 
   DISALLOW_COPY_AND_ASSIGN(InputMethodLibraryStubImpl);
 };

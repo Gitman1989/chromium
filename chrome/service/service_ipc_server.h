@@ -35,7 +35,7 @@ class ServiceIPCServer : public IPC::Channel::Listener,
 
  private:
   // IPC::Channel::Listener implementation:
-  virtual void OnMessageReceived(const IPC::Message& msg);
+  virtual bool OnMessageReceived(const IPC::Message& msg);
   virtual void OnChannelConnected(int32 peer_pid);
   virtual void OnChannelError();
 
@@ -44,12 +44,21 @@ class ServiceIPCServer : public IPC::Channel::Listener,
   void OnEnableCloudPrintProxyWithTokens(const std::string& cloud_print_token,
                                          const std::string& talk_token);
   void OnIsCloudPrintProxyEnabled();
-
-  void OnEnableRemotingWithTokens(const std::string& login,
-                                  const std::string& remoting_token,
-                                  const std::string& talk_token);
   void OnDisableCloudPrintProxy();
-  void OnHello();
+
+#if defined(ENABLE_REMOTING)
+  void OnSetRemotingHostCredentials(const std::string& login,
+                                      const std::string& talk_token);
+  void OnEnableRemotingHost();
+  void OnDisableRemotingHost();
+  void OnGetRemotingHostInfo();
+
+  // Sends HostInfo message to the browser. It must is called when we
+  // receive GetRemotingHostInfo message or when status of the host
+  // is changed.
+  void SendRemotingHostInfo();
+#endif  // defined(ENABLE_REMOTING)
+
   void OnShutdown();
   void OnUpdateAvailable();
 

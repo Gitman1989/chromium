@@ -1,15 +1,8 @@
 // Copyright (c) 2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
 #include "chrome/browser/sync/engine/syncer_thread.h"
-
-#include "build/build_config.h"
-
-#if defined(OS_MACOSX)
-#include <CoreFoundation/CFNumber.h>
-#include <IOKit/IOTypes.h>
-#include <IOKit/IOKitLib.h>
-#endif
 
 #include <algorithm>
 #include <map>
@@ -17,12 +10,18 @@
 
 #include "base/rand_util.h"
 #include "base/third_party/dynamic_annotations/dynamic_annotations.h"
+#include "build/build_config.h"
 #include "chrome/browser/sync/engine/model_safe_worker.h"
 #include "chrome/browser/sync/engine/net/server_connection_manager.h"
 #include "chrome/browser/sync/engine/syncer.h"
 #include "chrome/browser/sync/sessions/sync_session.h"
-#include "chrome/common/chrome_switches.h"
 #include "jingle/notifier/listener/notification_constants.h"
+
+#if defined(OS_MACOSX)
+#include <CoreFoundation/CFNumber.h>
+#include <IOKit/IOTypes.h>
+#include <IOKit/IOKitLib.h>
+#endif
 
 using std::priority_queue;
 using std::min;
@@ -59,7 +58,7 @@ void SyncerThread::NudgeSyncerWithDataTypes(
     int milliseconds_from_now,
     NudgeSource source,
     const syncable::ModelTypeBitSet& model_types) {
-  AutoLock lock(lock_);
+  base::AutoLock lock(lock_);
   if (vault_.syncer_ == NULL) {
     return;
   }
@@ -70,7 +69,7 @@ void SyncerThread::NudgeSyncerWithDataTypes(
 void SyncerThread::NudgeSyncer(
     int milliseconds_from_now,
     NudgeSource source) {
-  AutoLock lock(lock_);
+  base::AutoLock lock(lock_);
   if (vault_.syncer_ == NULL) {
     return;
   }
@@ -107,7 +106,7 @@ SyncerThread::~SyncerThread() {
 // and false otherwise.
 bool SyncerThread::Start() {
   {
-    AutoLock lock(lock_);
+    base::AutoLock lock(lock_);
     if (thread_.IsRunning()) {
       return true;
     }
@@ -141,7 +140,7 @@ bool SyncerThread::Stop(int max_wait) {
 
 void SyncerThread::RequestSyncerExitAndSetThreadStopConditions() {
   {
-    AutoLock lock(lock_);
+    base::AutoLock lock(lock_);
     // If the thread has been started, then we either already have or are about
     // to enter ThreadMainLoop so we have to proceed with shutdown and wait for
     // it to finish.  If the thread has not been started --and we now own the
@@ -170,7 +169,7 @@ void SyncerThread::RequestSyncerExitAndSetThreadStopConditions() {
 }
 
 bool SyncerThread::RequestPause() {
-  AutoLock lock(lock_);
+  base::AutoLock lock(lock_);
   if (vault_.pause_requested_ || vault_.paused_)
     return false;
 
@@ -195,7 +194,7 @@ void SyncerThread::Notify(SyncEngineEvent::EventCause cause) {
 }
 
 bool SyncerThread::RequestResume() {
-  AutoLock lock(lock_);
+  base::AutoLock lock(lock_);
   // Only valid to request a resume when we are already paused or we
   // have a pause pending.
   if (!(vault_.paused_ || vault_.pause_requested_))
@@ -472,8 +471,8 @@ SyncerThread::WaitInterval SyncerThread::CalculatePollingWaitTime(
   // Determine if the syncer has unfinished work to do.
   SyncSessionSnapshot* snapshot = session_context_->previous_session_snapshot();
   const bool syncer_has_work_to_do = snapshot &&
-      (snapshot->num_server_changes_remaining > snapshot->max_local_timestamp ||
-          snapshot->unsynced_count > 0);
+      (snapshot->num_server_changes_remaining > 0 ||
+       snapshot->unsynced_count > 0);
   VLOG(1) << "syncer_has_work_to_do is " << syncer_has_work_to_do;
 
   // First calculate the expected wait time, figuring in any backoff because of
@@ -530,7 +529,7 @@ SyncerThread::WaitInterval SyncerThread::CalculatePollingWaitTime(
 }
 
 void SyncerThread::ThreadMain() {
-  AutoLock lock(lock_);
+  base::AutoLock lock(lock_);
   // Signal Start() to let it know we've made it safely onto the message loop,
   // and unblock it's caller.
   thread_main_started_.Signal();
@@ -637,7 +636,7 @@ SyncSourceInfo SyncerThread::MakeSyncSourceInfo(bool nudged,
 }
 
 void SyncerThread::CreateSyncer(const std::string& dirname) {
-  AutoLock lock(lock_);
+  base::AutoLock lock(lock_);
   VLOG(1) << "Creating syncer up for: " << dirname;
   // The underlying database structure is ready, and we should create
   // the syncer.
@@ -655,7 +654,7 @@ void SyncerThread::CreateSyncer(const std::string& dirname) {
 // server.
 static inline void CheckConnected(bool* connected,
                                   HttpResponse::ServerConnectionCode code,
-                                  ConditionVariable* condvar) {
+                                  base::ConditionVariable* condvar) {
   if (*connected) {
     // Note, be careful when adding cases here because if the SyncerThread
     // thinks there is no valid connection as determined by this method, it
@@ -686,7 +685,7 @@ void SyncerThread::WatchConnectionManager(ServerConnectionManager* conn_mgr) {
 void SyncerThread::HandleServerConnectionEvent(
     const ServerConnectionEvent& event) {
   if (ServerConnectionEvent::STATUS_CHANGED == event.what_happened) {
-    AutoLock lock(lock_);
+    base::AutoLock lock(lock_);
     CheckConnected(&vault_.connected_, event.connection_code,
                    &vault_field_changed_);
   }
@@ -771,7 +770,7 @@ void SyncerThread::NudgeSyncImpl(int milliseconds_from_now,
 }
 
 void SyncerThread::SetNotificationsEnabled(bool notifications_enabled) {
-  AutoLock lock(lock_);
+  base::AutoLock lock(lock_);
   session_context_->set_notifications_enabled(notifications_enabled);
 }
 

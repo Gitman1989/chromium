@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -29,7 +29,7 @@ class DECLSPEC_NOVTABLE PluginUrlRequestDelegate {  // NOLINT
     const std::string& redirect_url, int redirect_status) = 0;
   virtual void OnReadComplete(int request_id, const std::string& data) = 0;
   virtual void OnResponseEnd(int request_id,
-                             const URLRequestStatus& status) = 0;
+                             const net::URLRequestStatus& status) = 0;
   virtual void AddPrivacyDataForUrl(const std::string& url,
                                     const std::string& policy_ref,
                                     int32 flags) {}
@@ -68,20 +68,20 @@ class DECLSPEC_NOVTABLE PluginUrlRequestManager {  // NOLINT
   // automation messages are received from Chrome.
   // Strip 'tab' handle and forward to the virtual methods implemented by
   // derived classes.
-  void StartUrlRequest(int tab, int request_id,
-                       const IPC::AutomationURLRequest& request_info) {
+  void StartUrlRequest(int request_id,
+                       const AutomationURLRequest& request_info) {
     StartRequest(request_id, request_info);
   }
 
-  void ReadUrlRequest(int tab, int request_id, int bytes_to_read) {
+  void ReadUrlRequest(int request_id, int bytes_to_read) {
     ReadRequest(request_id, bytes_to_read);
   }
 
-  void EndUrlRequest(int tab, int request_id, const URLRequestStatus& s) {
+  void EndUrlRequest(int request_id, const net::URLRequestStatus& s) {
     EndRequest(request_id);
   }
 
-  void DownloadUrlRequestInHost(int tab, int request_id) {
+  void DownloadUrlRequestInHost(int request_id) {
     DownloadRequestInHost(request_id);
   }
 
@@ -89,12 +89,11 @@ class DECLSPEC_NOVTABLE PluginUrlRequestManager {  // NOLINT
     StopAll();
   }
 
-  void GetCookiesFromHost(int tab_handle, const GURL& url, int cookie_id) {
+  void GetCookiesFromHost(const GURL& url, int cookie_id) {
     GetCookiesForUrl(url, cookie_id);
   }
 
-  void SetCookiesInHost(int tab_handle, const GURL& url,
-                        const std::string& cookie) {
+  void SetCookiesInHost(const GURL& url, const std::string& cookie) {
     SetCookiesForUrl(url, cookie);
   }
 
@@ -103,8 +102,8 @@ class DECLSPEC_NOVTABLE PluginUrlRequestManager {  // NOLINT
   bool enable_frame_busting_;
 
  private:
-  virtual void StartRequest(int request_id,
-      const IPC::AutomationURLRequest& request_info) = 0;
+  virtual void StartRequest(
+      int request_id, const AutomationURLRequest& request_info) = 0;
   virtual void ReadRequest(int request_id, int bytes_to_read) = 0;
   virtual void EndRequest(int request_id) = 0;
   virtual void DownloadRequestInHost(int request_id) = 0;

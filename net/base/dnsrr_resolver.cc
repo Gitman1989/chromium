@@ -8,6 +8,10 @@
 #include <resolv.h>
 #endif
 
+#if defined(OS_WIN)
+#include <windns.h>
+#endif
+
 #include "base/lock.h"
 #include "base/message_loop.h"
 #include "base/scoped_ptr.h"
@@ -15,7 +19,7 @@
 #include "base/stl_util-inl.h"
 #include "base/string_piece.h"
 #include "base/task.h"
-#include "base/worker_pool.h"
+#include "base/threading/worker_pool.h"
 #include "net/base/dns_reload_timer.h"
 #include "net/base/dns_util.h"
 #include "net/base/net_errors.h"
@@ -26,9 +30,9 @@
 //      |                       (origin loop)    (worker loop)
 //      |
 //   Resolve()
-//      |---->----<creates>
-//      |
 //      |---->-------------------<creates>
+//      |
+//      |---->----<creates>
 //      |
 //      |---->---------------------------------------------------<creates>
 //      |
@@ -58,11 +62,9 @@
 //
 // A cache hit:
 //
-// DnsRRResolver CacheHitCallbackTask  Handle
+// DnsRRResolver                       Handle
 //      |
 //   Resolve()
-//      |---->----<creates>
-//      |
 //      |---->------------------------<creates>
 //      |
 //      |
@@ -70,13 +72,31 @@
 //
 // (MessageLoop cycles)
 //
-//                   Run
-//                    |
-//                    |----->-----------Post
-
-
+//                                      Post
 
 namespace net {
+
+#if defined(OS_WIN)
+// DnsRRIsParsedByWindows returns true if Windows knows how to parse the given
+// RR type. RR data is returned in a DNS_RECORD structure which may be raw (if
+// Windows doesn't parse it) or may be a parse result. It's unclear how this
+// API is intended to evolve in the future. If Windows adds support for new RR
+// types in a future version a client which expected raw data will break.
+// See http://msdn.microsoft.com/en-us/library/ms682082(v=vs.85).aspx
+static bool DnsRRIsParsedByWindows(uint16 rrtype) {
+  // We only cover the types which are defined in dns_util.h
+  switch (rrtype) {
+    case kDNS_CNAME:
+    case kDNS_TXT:
+    case kDNS_DS:
+    case kDNS_RRSIG:
+    case kDNS_DNSKEY:
+      return true;
+    default:
+      return false;
+  }
+}
+#endif
 
 static const uint16 kClassIN = 1;
 // kMaxCacheEntries is the number of RRResponse objects that we'll cache.
@@ -139,9 +159,9 @@ class RRResolverWorker {
   bool Start() {
     DCHECK_EQ(MessageLoop::current(), origin_loop_);
 
-    return WorkerPool::PostTask(
-               FROM_HERE, NewRunnableMethod(this, &RRResolverWorker::Run),
-               true /* task is slow */);
+    return base::WorkerPool::PostTask(
+        FROM_HERE, NewRunnableMethod(this, &RRResolverWorker::Run),
+        true /* task is slow */);
   }
 
   // Cancel is called from the origin loop when the DnsRRResolver is getting
@@ -237,9 +257,67 @@ class RRResolverWorker {
       return;
     }
 
+    // See http://msdn.microsoft.com/en-us/library/ms682016(v=vs.85).aspx
+    PDNS_RECORD record = NULL;
+    DNS_STATUS status =
+        DnsQuery_A(name_.c_str(), rrtype_, DNS_QUERY_STANDARD,
+                   NULL /* pExtra (reserved) */, &record, NULL /* pReserved */);
     response_.fetch_time = base::Time::Now();
-    response_.negative = true;
-    result_ = ERR_NAME_NOT_RESOLVED;
+    response_.name = name_;
+    response_.dnssec = false;
+    response_.ttl = 0;
+
+    if (status != 0) {
+      response_.negative = true;
+      result_ = ERR_NAME_NOT_RESOLVED;
+    } else {
+      response_.negative = false;
+      result_ = OK;
+      for (DNS_RECORD* cur = record; cur; cur = cur->pNext) {
+        if (cur->wType == rrtype_) {
+          response_.ttl = record->dwTtl;
+          // Windows will parse some types of resource records. If we want one
+          // of these types then we have to reserialise the record.
+          switch (rrtype_) {
+            case kDNS_TXT: {
+              // http://msdn.microsoft.com/en-us/library/ms682109(v=vs.85).aspx
+              const DNS_TXT_DATA* txt = &cur->Data.TXT;
+              std::string rrdata;
+
+              for (DWORD i = 0; i < txt->dwStringCount; i++) {
+                // Although the string is typed as a PWSTR, it's actually just
+                // an ASCII byte-string.  Also, the string must be < 256
+                // elements because the length in the DNS packet is a single
+                // byte.
+                const char* s = reinterpret_cast<char*>(txt->pStringArray[i]);
+                size_t len = strlen(s);
+                DCHECK_LT(len, 256u);
+                char len8 = static_cast<char>(len);
+                rrdata.push_back(len8);
+                rrdata += s;
+              }
+              response_.rrdatas.push_back(rrdata);
+              break;
+            }
+            default:
+              if (DnsRRIsParsedByWindows(rrtype_)) {
+                // Windows parses this type, but we don't have code to unparse
+                // it.
+                NOTREACHED() << "you need to add code for the RR type here";
+                response_.negative = true;
+                result_ = ERR_INVALID_ARGUMENT;
+              } else {
+                // This type is given to us raw.
+                response_.rrdatas.push_back(
+                    std::string(reinterpret_cast<char*>(&cur->Data),
+                                cur->wDataLength));
+              }
+          }
+        }
+      }
+    }
+
+    DnsRecordListFree(record, DnsFreeRecordList);
     Finish();
   }
 
@@ -559,7 +637,11 @@ class RRResolverJob {
   }
 
   ~RRResolverJob() {
-    Cancel(ERR_ABORTED);
+    if (worker_) {
+      worker_->Cancel();
+      worker_ = NULL;
+      PostAll(ERR_ABORTED, NULL);
+    }
   }
 
   void AddHandle(RRResolverHandle* handle) {
@@ -569,14 +651,6 @@ class RRResolverJob {
   void HandleResult(int result, const RRResponse& response) {
     worker_ = NULL;
     PostAll(result, &response);
-  }
-
-  void Cancel(int error) {
-    if (worker_) {
-      worker_->Cancel();
-      worker_ = NULL;
-      PostAll(error, NULL);
-    }
   }
 
  private:
@@ -669,6 +743,7 @@ intptr_t DnsRRResolver::Resolve(const std::string& name, uint16 rrtype,
     job = new RRResolverJob(worker);
     inflight_.insert(make_pair(key, job));
     if (!worker->Start()) {
+      inflight_.erase(key);
       delete job;
       delete worker;
       return kInvalidHandle;

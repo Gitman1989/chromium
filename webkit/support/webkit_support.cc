@@ -4,6 +4,7 @@
 
 #include "webkit/support/webkit_support.h"
 
+#include "app/gfx/gl/gl_context.h"
 #include "app/gfx/gl/gl_implementation.h"
 #include "base/at_exit.h"
 #include "base/base64.h"
@@ -25,14 +26,15 @@
 #include "base/weak_ptr.h"
 #include "grit/webkit_chromium_resources.h"
 #include "media/base/filter_collection.h"
+#include "media/base/message_loop_factory_impl.h"
 #include "net/base/escape.h"
 #include "net/base/net_errors.h"
 #include "net/base/net_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFileSystemCallbacks.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebKit.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPluginParams.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLError.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFileSystemCallbacks.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginParams.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLError.h"
 #include "webkit/appcache/web_application_cache_host_impl.h"
 #include "webkit/glue/media/video_renderer_impl.h"
 #include "webkit/glue/webkit_glue.h"
@@ -93,7 +95,8 @@ void InitLogging(bool enable_gp_fault_error_box) {
       logging::LOG_ONLY_TO_FILE,
       // We might have multiple DumpRenderTree processes going at once.
       logging::LOCK_LOG_FILE,
-      logging::DELETE_OLD_LOG_FILE);
+      logging::DELETE_OLD_LOG_FILE,
+      logging::DISABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
 
   // We want process and thread IDs because we may have multiple processes.
   const bool kProcessId = true;
@@ -125,7 +128,7 @@ class TestEnvironment {
 
   TestWebKitClient* webkit_client() const { return webkit_client_.get(); }
 
-#if defined(OS_WIN)
+#if defined(OS_WIN) || defined(OS_MACOSX)
   void set_theme_engine(WebKit::WebThemeEngine* engine) {
     DCHECK(webkit_client_ != 0);
     webkit_client_->SetThemeEngine(engine);
@@ -264,6 +267,9 @@ WebPlugin* CreateWebPlugin(WebFrame* frame,
 
 WebKit::WebMediaPlayer* CreateMediaPlayer(WebFrame* frame,
                                           WebMediaPlayerClient* client) {
+  scoped_ptr<media::MessageLoopFactory> message_loop_factory(
+      new media::MessageLoopFactoryImpl());
+
   scoped_ptr<media::FilterCollection> collection(
       new media::FilterCollection());
 
@@ -272,7 +278,9 @@ WebKit::WebMediaPlayer* CreateMediaPlayer(WebFrame* frame,
   collection->AddVideoRenderer(video_renderer);
 
   scoped_ptr<webkit_glue::WebMediaPlayerImpl> result(
-      new webkit_glue::WebMediaPlayerImpl(client, collection.release()));
+      new webkit_glue::WebMediaPlayerImpl(client,
+                                          collection.release(),
+                                          message_loop_factory.release()));
   if (!result->Initialize(frame, false, video_renderer)) {
     return NULL;
   }
@@ -287,6 +295,19 @@ WebKit::WebApplicationCacheHost* CreateApplicationCacheHost(
 WebKit::WebString GetWebKitRootDir() {
   FilePath path = GetWebKitRootDirFilePath();
   return WebKit::WebString::fromUTF8(WideToUTF8(path.ToWStringHack()).c_str());
+}
+
+void SetUpGLBindings(GLBindingPreferences bindingPref) {
+  switch(bindingPref) {
+    case GL_BINDING_DEFAULT:
+      gfx::GLContext::InitializeOneOff();
+      break;
+    case GL_BINDING_SOFTWARE_RENDERER:
+      gfx::InitializeGLBindings(gfx::kGLImplementationOSMesaGL);
+      break;
+    default:
+      NOTREACHED();
+  }
 }
 
 void RegisterMockedURL(const WebKit::WebURL& url,
@@ -490,7 +511,7 @@ void SetAcceptAllCookies(bool accept) {
 }
 
 // Theme engine
-#if defined(OS_WIN)
+#if defined(OS_WIN) || defined(OS_MACOSX)
 
 void SetThemeEngine(WebKit::WebThemeEngine* engine) {
   DCHECK(test_environment);

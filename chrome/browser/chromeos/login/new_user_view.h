@@ -95,8 +95,8 @@ class NewUserView : public ThrobberHostView,
 
   // Overridden from views::Textfield::Controller
   // Not thread-safe, by virtue of using SetupSession().
-  virtual bool HandleKeystroke(views::Textfield* sender,
-                               const views::Textfield::Keystroke& keystroke);
+  virtual bool HandleKeyEvent(views::Textfield* sender,
+                              const views::KeyEvent& keystroke);
   virtual void ContentsChanged(views::Textfield* sender,
                                const string16& new_contents);
 
@@ -198,9 +198,6 @@ class NewUserView : public ThrobberHostView,
   // Ordinal position of controls inside view layout.
   int languages_menubutton_order_;
   int sign_in_button_order_;
-
-  FRIEND_TEST_ALL_PREFIXES(LoginScreenTest, IncognitoLogin);
-  friend class LoginScreenTest;
 
   DISALLOW_COPY_AND_ASSIGN(NewUserView);
 };

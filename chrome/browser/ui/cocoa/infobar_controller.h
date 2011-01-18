@@ -4,7 +4,7 @@
 
 #import <Cocoa/Cocoa.h>
 
-#import "base/cocoa_protocols_mac.h"
+#import "base/mac/cocoa_protocols.h"
 #include "base/scoped_nsobject.h"
 
 @class AnimatableView;
@@ -69,6 +69,10 @@ class InfoBarDelegate;
 // the infobar view.  This method is called by awakeFromNib.  The
 // default implementation does nothing.
 - (void)addAdditionalControls;
+
+// Subclasses must override this method to perform cleanup just before the
+// infobar closes.
+- (void)infobarWillClose;
 
 // Sets the info bar message to the specified |message|.
 - (void)setLabelToMessage:(NSString*)message;

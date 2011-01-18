@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,6 +10,7 @@
 #include "base/process_util.h"
 #include "base/string_number_conversions.h"
 #include "base/sys_string_conversions.h"
+#include "base/test/test_timeouts.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/net/url_fixer_upper.h"
 #include "chrome/common/chrome_constants.h"
@@ -239,21 +240,31 @@ class PageCyclerTest : public UIPerfTest {
     ASSERT_EQ(AUTOMATION_MSG_NAVIGATION_SUCCESS, tab->NavigateToURL(test_url));
 
     // Wait for the test to finish.
-    ASSERT_TRUE(WaitUntilCookieValue(tab.get(), test_url, "__pc_done",
-                                     UITest::test_timeout_ms(), "1"));
+    ASSERT_TRUE(WaitUntilCookieValue(
+        tab.get(), test_url, "__pc_done",
+        TestTimeouts::huge_test_timeout_ms(), "1"));
 
     std::string cookie;
     ASSERT_TRUE(tab->GetCookieByName(test_url, "__pc_pages", &cookie));
     pages->assign(UTF8ToWide(cookie));
     ASSERT_FALSE(pages->empty());
-    ASSERT_TRUE(tab->GetCookieByName(test_url, "__pc_timings", &cookie));
 
+    // Get the timing cookie value from the DOM automation.
     std::wstring wcookie;
     ASSERT_TRUE(tab->ExecuteAndExtractString(L"",
           L"window.domAutomationController.send("
           L"JSON.stringify(__get_timings()));",
           &wcookie));
     cookie = base::SysWideToNativeMB(wcookie);
+
+    // JSON.stringify() encapsulates the returned string in quotes, strip them.
+    std::string::size_type start_idx = cookie.find("\"");
+    std::string::size_type end_idx = cookie.find_last_of("\"");
+    if (start_idx != std::string::npos &&
+        end_idx != std::string::npos &&
+        start_idx < end_idx) {
+      cookie = cookie.substr(start_idx+1, end_idx-start_idx-1);
+    }
 
     timings->assign(cookie);
     ASSERT_FALSE(timings->empty());
@@ -512,11 +523,12 @@ TEST_F(PageCyclerDatabaseReferenceTest, Database##name##File) { \
 
 // This macro simplifies setting up regular and reference build tests
 // for HTML5 Indexed DB tests.
+// FAILS crbug.com/68660
 #define PAGE_CYCLER_IDB_TESTS(test, name) \
-TEST_F(PageCyclerIndexedDatabaseTest, IndexedDB##name##File) { \
+TEST_F(PageCyclerIndexedDatabaseTest, FAILS_IndexedDB##name##File) { \
   RunTest(test, test, false); \
 } \
-TEST_F(PageCyclerIndexedDatabaseReferenceTest, IndexedDB##name##File) { \
+TEST_F(PageCyclerIndexedDatabaseReferenceTest, FAILS_IndexedDB##name##File) { \
   RunTest(test, test, false); \
 }
 
@@ -579,6 +591,10 @@ PAGE_CYCLER_DATABASE_TESTS("pseudo-random-transactions",
 #endif
 
 // Indexed DB tests.
+// Disabled in debug builds on Windows.
+// Bug http://code.google.com/p/chromium/issues/detail?id=67918
+#if !defined(OS_WIN) || defined(NDEBUG)
 PAGE_CYCLER_IDB_TESTS("basic_insert", BasicInsert);
+#endif
 
 }  // namespace

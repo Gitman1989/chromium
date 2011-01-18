@@ -8,10 +8,12 @@
 #include "gpu/demos/framework/demo_factory.h"
 #include "ppapi/cpp/completion_callback.h"
 #include "ppapi/cpp/instance.h"
-#include "ppapi/cpp/dev/graphics_3d_dev.h"
 #include "ppapi/cpp/module.h"
 #include "ppapi/cpp/rect.h"
 #include "ppapi/cpp/size.h"
+#include "ppapi/cpp/dev/context_3d_dev.h"
+#include "ppapi/cpp/dev/graphics_3d_dev.h"
+#include "ppapi/cpp/dev/surface_3d_dev.h"
 #include "ppapi/lib/gl/gles2/gl2ext_ppapi.h"
 
 namespace gpu {
@@ -22,15 +24,17 @@ class PluginInstance : public pp::Instance {
   PluginInstance(PP_Instance instance, pp::Module* module)
       : pp::Instance(instance),
         module_(module),
-        demo_(CreateDemo()) {
+        demo_(CreateDemo()),
+        swap_pending_(false),
+        paint_needed_(false) {
     // Set the callback object outside of the initializer list to avoid a
     // compiler warning about using "this" in an initializer list.
     callback_factory_.Initialize(this);
   }
 
   ~PluginInstance() {
-    if (!graphics_.is_null()) {
-      glSetCurrentContextPPAPI(graphics_.pp_resource());
+    if (!context_.is_null()) {
+      glSetCurrentContextPPAPI(context_.pp_resource());
       delete demo_;
       glSetCurrentContextPPAPI(0);
     }
@@ -44,43 +48,56 @@ class PluginInstance : public pp::Instance {
     size_ = position.size();
     demo_->InitWindowSize(size_.width(), size_.height());
 
-    if (graphics_.is_null()) {
-      graphics_ = pp::Graphics3D_Dev(*this, 0, NULL, NULL);
-      if (graphics_.is_null())
+    if (context_.is_null()) {
+      context_ = pp::Context3D_Dev(*this, 0, pp::Context3D_Dev(), NULL);
+      if (context_.is_null())
         return;
 
-      if (!pp::Instance::BindGraphics(graphics_))
-        return;
-
-      glSetCurrentContextPPAPI(graphics_.pp_resource());
+      glSetCurrentContextPPAPI(context_.pp_resource());
       demo_->InitGL();
       glSetCurrentContextPPAPI(0);
+    } else {
+      // Need to recreate surface. Unbind existing surface.
+      pp::Instance::BindGraphics(pp::Surface3D_Dev());
+      context_.BindSurfaces(pp::Surface3D_Dev(), pp::Surface3D_Dev());
     }
+    surface_ = pp::Surface3D_Dev(*this, 0, NULL);
+    context_.BindSurfaces(surface_, surface_);
+    pp::Instance::BindGraphics(surface_);
 
-    if (demo_->IsAnimated())
-      Animate(0);
-    else
-      Paint();
+    Paint();
   }
 
   void Paint() {
-    glSetCurrentContextPPAPI(graphics_.pp_resource());
+    if (swap_pending_) {
+      // A swap is pending. Delay paint until swap finishes.
+      paint_needed_ = true;
+      return;
+    }
+    glSetCurrentContextPPAPI(context_.pp_resource());
     demo_->Draw();
-    graphics_.SwapBuffers();
+    swap_pending_ = true;
+    surface_.SwapBuffers(
+        callback_factory_.NewCallback(&PluginInstance::OnSwap));
     glSetCurrentContextPPAPI(0);
   }
 
  private:
-  void Animate(int delay) {
-    Paint();
-    module_->core()->CallOnMainThread(delay,
-        callback_factory_.NewCallback(&PluginInstance::Animate), delay);
+  void OnSwap(int32_t) {
+    swap_pending_ = false;
+    if (paint_needed_ || demo_->IsAnimated()) {
+      paint_needed_ = false;
+      Paint();
+    }
   }
 
   pp::Module* module_;
   Demo* demo_;
-  pp::Graphics3D_Dev graphics_;
+  pp::Context3D_Dev context_;
+  pp::Surface3D_Dev surface_;
   pp::Size size_;
+  bool swap_pending_;
+  bool paint_needed_;
   pp::CompletionCallbackFactory<PluginInstance> callback_factory_;
 };
 

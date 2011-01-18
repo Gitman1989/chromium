@@ -30,10 +30,6 @@ RenderViewHostDelegate::GetBrowserIntegrationDelegate() {
   return NULL;
 }
 
-RenderViewHostDelegate::Resource*
-RenderViewHostDelegate::GetResourceDelegate() {
-  return NULL;
-}
 
 RenderViewHostDelegate::ContentSettings*
 RenderViewHostDelegate::GetContentSettingsDelegate() {
@@ -51,16 +47,6 @@ RenderViewHostDelegate::GetPrintingDelegate() {
 
 RenderViewHostDelegate::FavIcon*
 RenderViewHostDelegate::GetFavIconDelegate() {
-  return NULL;
-}
-
-RenderViewHostDelegate::Autocomplete*
-RenderViewHostDelegate::GetAutocompleteDelegate() {
-  return NULL;
-}
-
-RenderViewHostDelegate::AutoFill*
-RenderViewHostDelegate::GetAutoFillDelegate() {
   return NULL;
 }
 
@@ -82,6 +68,10 @@ RenderViewHostDelegate::GetFileSelectDelegate() {
 AutomationResourceRoutingDelegate*
 RenderViewHostDelegate::GetAutomationResourceRoutingDelegate() {
   return NULL;
+}
+
+bool RenderViewHostDelegate::OnMessageReceived(const IPC::Message& message) {
+  return false;
 }
 
 const GURL& RenderViewHostDelegate::GetURL() const {

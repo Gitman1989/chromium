@@ -15,13 +15,12 @@
 #include "base/logging.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/stats_table.h"
-#include "base/nullable_string16.h"
 #include "base/process_util.h"
 #include "base/scoped_callback_factory.h"
 #include "base/shared_memory.h"
 #include "base/string_util.h"
 #include "base/task.h"
-#include "base/thread_local.h"
+#include "base/threading/thread_local.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/common/appcache/appcache_dispatcher.h"
@@ -79,20 +78,20 @@
 #include "net/base/net_util.h"
 #include "third_party/sqlite/sqlite3.h"
 #include "third_party/tcmalloc/chromium/src/google/malloc_extension.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebCache.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebColor.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebCrossOriginPreflightResultCache.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDatabase.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDocument.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFontCache.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebKit.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebRuntimeFeatures.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebScriptController.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSecurityPolicy.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebStorageEventDispatcher.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebString.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebView.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCache.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebColor.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCrossOriginPreflightResultCache.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDatabase.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFontCache.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebRuntimeFeatures.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebScriptController.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSecurityPolicy.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebStorageEventDispatcher.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "webkit/extensions/v8/benchmarking_extension.h"
 #include "webkit/extensions/v8/gears_extension.h"
 #include "webkit/extensions/v8/playback_extension.h"
@@ -269,7 +268,6 @@ void RenderThread::Init() {
   is_extension_process_ = type_str == switches::kExtensionProcess ||
       CommandLine::ForCurrentProcess()->HasSwitch(switches::kSingleProcess);
   is_incognito_process_ = false;
-  is_speech_input_enabled_ = false;
   suspend_webkit_shared_timer_ = true;
   notify_webkit_of_modal_loop_ = true;
   plugin_refresh_allowed_ = true;
@@ -594,13 +592,14 @@ void RenderThread::OnDOMStorageEvent(
       params.storage_type == DOM_STORAGE_LOCAL);
 }
 
-void RenderThread::OnControlMessageReceived(const IPC::Message& msg) {
+bool RenderThread::OnControlMessageReceived(const IPC::Message& msg) {
   // Some messages are handled by delegates.
   if (appcache_dispatcher_->OnMessageReceived(msg))
-    return;
+    return true;
   if (indexed_db_dispatcher_->OnMessageReceived(msg))
-    return;
+    return true;
 
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(RenderThread, msg)
     IPC_MESSAGE_HANDLER(ViewMsg_VisitedLink_NewTable, OnUpdateVisitedLinks)
     IPC_MESSAGE_HANDLER(ViewMsg_VisitedLink_Add, OnAddVisitedLinks)
@@ -659,14 +658,9 @@ void RenderThread::OnControlMessageReceived(const IPC::Message& msg) {
                         OnSpellCheckEnableAutoSpellCorrect)
     IPC_MESSAGE_HANDLER(ViewMsg_GpuChannelEstablished, OnGpuChannelEstablished)
     IPC_MESSAGE_HANDLER(ViewMsg_SetPhishingModel, OnSetPhishingModel)
-    IPC_MESSAGE_HANDLER(ViewMsg_SpeechInput_SetFeatureEnabled,
-                        OnSetSpeechInputEnabled)
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
-}
-
-void RenderThread::OnSetSpeechInputEnabled(bool enabled) {
-  DCHECK(!webkit_client_.get());
-  is_speech_input_enabled_ = enabled;
+  return handled;
 }
 
 void RenderThread::OnSetNextPageID(int32 next_page_id) {
@@ -876,12 +870,18 @@ void RenderThread::EnsureWebKitInitialized() {
 
   WebScriptController::enableV8SingleThreadMode();
 
+  const CommandLine& command_line = *CommandLine::ForCurrentProcess();
+
   // chrome: pages should not be accessible by normal content, and should
   // also be unable to script anything but themselves (to help limit the damage
   // that a corrupt chrome: page could cause).
   WebString chrome_ui_scheme(ASCIIToUTF16(chrome::kChromeUIScheme));
-  WebSecurityPolicy::registerURLSchemeAsLocal(chrome_ui_scheme);
-  WebSecurityPolicy::registerURLSchemeAsNoAccess(chrome_ui_scheme);
+  if (command_line.HasSwitch(switches::kNewChromeUISecurityModel)) {
+    WebSecurityPolicy::registerURLSchemeAsDisplayIsolated(chrome_ui_scheme);
+  } else {
+    WebSecurityPolicy::registerURLSchemeAsLocal(chrome_ui_scheme);
+    WebSecurityPolicy::registerURLSchemeAsNoAccess(chrome_ui_scheme);
+  }
 
   // chrome-extension: resources shouldn't trigger insecure content warnings.
   WebString extension_scheme(ASCIIToUTF16(chrome::kExtensionScheme));
@@ -899,8 +899,6 @@ void RenderThread::EnsureWebKitInitialized() {
   // search_extension is null if not enabled.
   if (search_extension)
     RegisterExtension(search_extension, false);
-
-  const CommandLine& command_line = *CommandLine::ForCurrentProcess();
 
   if (command_line.HasSwitch(switches::kEnableBenchmarking))
     RegisterExtension(extensions_v8::BenchmarkingExtension::Get(), false);
@@ -966,7 +964,8 @@ void RenderThread::EnsureWebKitInitialized() {
   WebRuntimeFeatures::enableDeviceOrientation(
       !command_line.HasSwitch(switches::kDisableDeviceOrientation));
 
-  WebRuntimeFeatures::enableSpeechInput(is_speech_input_enabled_);
+  WebRuntimeFeatures::enableSpeechInput(
+      !command_line.HasSwitch(switches::kDisableSpeechInput));
 
   WebRuntimeFeatures::enableFileSystem(
       !command_line.HasSwitch(switches::kDisableFileSystem));

@@ -6,7 +6,6 @@
 
 #include <list>
 
-#include "app/keyboard_codes.h"
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
 #include "base/message_loop.h"
@@ -24,7 +23,6 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/file_select_helper.h"
 #include "chrome/browser/platform_util.h"
-#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_host/render_process_host.h"
 #include "chrome/browser/renderer_host/render_view_host.h"
@@ -43,13 +41,13 @@
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/native_web_keyboard_event.h"
 #include "chrome/common/notification_service.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/common/render_messages_params.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/common/view_types.h"
 #include "grit/browser_resources.h"
 #include "grit/generated_resources.h"
+#include "ui/base/keycodes/keyboard_codes.h"
 #include "webkit/glue/context_menu.h"
 
 #if defined(TOOLKIT_VIEWS)
@@ -265,7 +263,7 @@ void ExtensionHost::Observe(NotificationType type,
       // sent. NULL it out so that dirty pointer issues don't arise in cases
       // when multiple ExtensionHost objects pointing to the same Extension are
       // present.
-      if (extension_ == Details<const Extension>(details).ptr())
+      if (extension_ == Details<UnloadedExtensionInfo>(details)->extension)
         extension_ = NULL;
       break;
     default:
@@ -708,7 +706,7 @@ bool ExtensionHost::PreHandleKeyboardEvent(const NativeWebKeyboardEvent& event,
                                            bool* is_keyboard_shortcut) {
   if (extension_host_type_ == ViewType::EXTENSION_POPUP &&
       event.type == NativeWebKeyboardEvent::RawKeyDown &&
-      event.windowsKeyCode == app::VKEY_ESCAPE) {
+      event.windowsKeyCode == ui::VKEY_ESCAPE) {
     DCHECK(is_keyboard_shortcut != NULL);
     *is_keyboard_shortcut = true;
   }
@@ -718,7 +716,7 @@ bool ExtensionHost::PreHandleKeyboardEvent(const NativeWebKeyboardEvent& event,
 void ExtensionHost::HandleKeyboardEvent(const NativeWebKeyboardEvent& event) {
   if (extension_host_type_ == ViewType::EXTENSION_POPUP) {
     if (event.type == NativeWebKeyboardEvent::RawKeyDown &&
-        event.windowsKeyCode == app::VKEY_ESCAPE) {
+        event.windowsKeyCode == ui::VKEY_ESCAPE) {
       NotificationService::current()->Notify(
           NotificationType::EXTENSION_HOST_VIEW_SHOULD_CLOSE,
           Source<Profile>(profile_),

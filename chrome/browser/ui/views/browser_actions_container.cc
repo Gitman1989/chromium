@@ -1,12 +1,11 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/browser_actions_container.h"
+#include "chrome/browser/ui/views/browser_actions_container.h"
 
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
-#include "app/slide_animation.h"
 #include "base/stl_util-inl.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
@@ -38,6 +37,7 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkTypeface.h"
 #include "third_party/skia/include/effects/SkGradientShader.h"
+#include "ui/base/animation/slide_animation.h"
 #include "views/controls/button/menu_button.h"
 #include "views/controls/button/text_button.h"
 #include "views/controls/menu/menu_2.h"
@@ -165,10 +165,10 @@ void BrowserActionButton::UpdateState() {
   }
 
   // If the browser action name is empty, show the extension name instead.
-  std::wstring name = UTF8ToWide(browser_action()->GetTitle(tab_id));
+  string16 name = UTF8ToUTF16(browser_action()->GetTitle(tab_id));
   if (name.empty())
-    name = UTF8ToWide(extension()->name());
-  SetTooltipText(name);
+    name = UTF8ToUTF16(extension()->name());
+  SetTooltipText(UTF16ToWideHack(name));
   SetAccessibleName(name);
   GetParent()->SchedulePaint();
 }
@@ -289,7 +289,7 @@ BrowserActionView::BrowserActionView(const Extension* extension,
   AddChildView(button_);
   button_->UpdateState();
   SetAccessibleName(
-      l10n_util::GetString(IDS_ACCNAME_EXTENSIONS_BROWSER_ACTION));
+      l10n_util::GetStringUTF16(IDS_ACCNAME_EXTENSIONS_BROWSER_ACTION));
 }
 
 BrowserActionView::~BrowserActionView() {
@@ -366,20 +366,21 @@ BrowserActionsContainer::BrowserActionsContainer(Browser* browser,
     model_->AddObserver(this);
   }
 
-  resize_animation_.reset(new SlideAnimation(this));
+  resize_animation_.reset(new ui::SlideAnimation(this));
   resize_area_ = new views::ResizeArea(this);
-  resize_area_->SetAccessibleName(l10n_util::GetString(IDS_ACCNAME_SEPARATOR));
+  resize_area_->SetAccessibleName(
+      l10n_util::GetStringUTF16(IDS_ACCNAME_SEPARATOR));
   AddChildView(resize_area_);
 
   chevron_ = new views::MenuButton(NULL, std::wstring(), this, false);
   chevron_->set_border(NULL);
   chevron_->EnableCanvasFlippingForRTLUI(true);
   chevron_->SetAccessibleName(
-      l10n_util::GetString(IDS_ACCNAME_EXTENSIONS_CHEVRON));
+      l10n_util::GetStringUTF16(IDS_ACCNAME_EXTENSIONS_CHEVRON));
   chevron_->SetVisible(false);
   AddChildView(chevron_);
 
-  SetAccessibleName(l10n_util::GetString(IDS_ACCNAME_EXTENSIONS));
+  SetAccessibleName(l10n_util::GetStringUTF16(IDS_ACCNAME_EXTENSIONS));
 }
 
 BrowserActionsContainer::~BrowserActionsContainer() {
@@ -482,7 +483,8 @@ void BrowserActionsContainer::OnBrowserActionExecuted(
   // Popups just display.  No notification to the extension.
   // TODO(erikkay): should there be?
   if (!button->IsPopup()) {
-    ExtensionBrowserEventRouter::GetInstance()->BrowserActionExecuted(
+    ExtensionService* service = profile_->GetExtensionService();
+    service->browser_event_router()->BrowserActionExecuted(
         profile_, browser_action->extension_id(), browser_);
     return;
   }
@@ -797,18 +799,19 @@ void BrowserActionsContainer::OnResize(int resize_amount, bool done_resizing) {
   int max_width = IconCountToWidth(-1, false);
   container_width_ =
       std::min(std::max(0, container_width_ - resize_amount), max_width);
-  SaveDesiredSizeAndAnimate(Tween::EASE_OUT,
+  SaveDesiredSizeAndAnimate(ui::Tween::EASE_OUT,
                             WidthToIconCount(container_width_));
 }
 
-void BrowserActionsContainer::AnimationProgressed(const Animation* animation) {
+void BrowserActionsContainer::AnimationProgressed(
+    const ui::Animation* animation) {
   DCHECK_EQ(resize_animation_.get(), animation);
   resize_amount_ = static_cast<int>(resize_animation_->GetCurrentValue() *
       (container_width_ - animation_target_size_));
   OnBrowserActionVisibilityChanged();
 }
 
-void BrowserActionsContainer::AnimationEnded(const Animation* animation) {
+void BrowserActionsContainer::AnimationEnded(const ui::Animation* animation) {
   container_width_ = animation_target_size_;
   animation_target_size_ = 0;
   resize_amount_ = 0;
@@ -918,7 +921,7 @@ void BrowserActionsContainer::BrowserActionAdded(const Extension* extension,
   if ((model_->GetVisibleIconCount() < 0) &&
       !profile_->GetExtensionService()->IsBeingUpgraded(extension)) {
     suppress_chevron_ = true;
-    SaveDesiredSizeAndAnimate(Tween::LINEAR, visible_actions + 1);
+    SaveDesiredSizeAndAnimate(ui::Tween::LINEAR, visible_actions + 1);
   } else {
     // Just redraw the (possibly modified) visible icon set.
     OnBrowserActionVisibilityChanged();
@@ -954,7 +957,7 @@ void BrowserActionsContainer::BrowserActionRemoved(const Extension* extension) {
         // Either we went from overflow to no-overflow, or we shrunk the no-
         // overflow container by 1.  Either way the size changed, so animate.
         chevron_->SetVisible(false);
-        SaveDesiredSizeAndAnimate(Tween::EASE_OUT,
+        SaveDesiredSizeAndAnimate(ui::Tween::EASE_OUT,
                                   browser_action_views_.size());
       }
       return;
@@ -1066,7 +1069,7 @@ int BrowserActionsContainer::ContainerMinSize() const {
 }
 
 void BrowserActionsContainer::SaveDesiredSizeAndAnimate(
-    Tween::Type tween_type,
+    ui::Tween::Type tween_type,
     size_t num_visible_icons) {
   // Save off the desired number of visible icons.  We do this now instead of at
   // the end of the animation so that even if the browser is shut down while

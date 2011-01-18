@@ -22,6 +22,9 @@ struct SSLConfig {
   SSLConfig();
   ~SSLConfig();
 
+  // Returns true if |cert| is one of the certs in |allowed_bad_certs|.
+  bool IsAllowedBadCert(X509Certificate* cert) const;
+
   bool rev_checking_enabled;  // True if server certificate revocation
                               // checking is enabled.
   // SSL 2.0 is not supported.
@@ -31,6 +34,11 @@ struct SSLConfig {
   bool snap_start_enabled;  // True if we'll try Snap Start handshakes.
   // True if we'll do async checks for certificate provenance using DNS.
   bool dns_cert_provenance_checking_enabled;
+
+  // TODO(hclam): This option is used to simplify the SSLServerSocketNSS
+  // implementation and should be removed when session caching is implemented.
+  // See http://crbug.com/67236 for more details.
+  bool session_resume_disabled;  // Don't allow session resume.
 
   // Cipher suites which should be explicitly prevented from being used in
   // addition to those disabled by the net built-in policy -- by default, all
@@ -73,9 +81,6 @@ struct SSLConfig {
     scoped_refptr<X509Certificate> cert;
     int cert_status;
   };
-
-  // Returns true if |cert| is one of the certs in |allowed_bad_certs|.
-  bool IsAllowedBadCert(X509Certificate* cert) const;
 
   // Add any known-bad SSL certificate (with its cert status) to
   // |allowed_bad_certs| that should not trigger an ERR_CERT_* error when

@@ -24,7 +24,6 @@ without changes to the corresponding grd file. etaa -->
         <include name="IDR_ABOUT_MEMORY_HTML" file="resources\about_memory.html" flattenhtml="true" type="BINDATA" />
       </if>
       <include name="IDR_ABOUT_STATS_HTML" file="resources\about_stats.html" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_ABOUT_SYNC_HTML" file="sync\resources\about_sync.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_ABOUT_VERSION_HTML" file="resources\about_version.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_BOOKMARKS_MANIFEST" file="resources\bookmark_manager\manifest.json" type="BINDATA" />
       <include name="IDR_CREDITS_HTML" file="resources\about_credits.html" flattenhtml="true" type="BINDATA" />
@@ -61,12 +60,16 @@ without changes to the corresponding grd file. etaa -->
       <include name="IDR_SSL_ERROR_HTML" file="security\resources\ssl_error.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_SSL_ROAD_BLOCK_HTML" file="security\resources\ssl_roadblock.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_SYNC_CONFIGURE_HTML" file="sync\resources\configure.html" flattenhtml="true" type="BINDATA" />
+      <include name="IDR_SYNC_ENCRYPTION_LOGIN_HTML" file="sync\resources\encryption_login.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_SYNC_PASSPHRASE_HTML" file="sync\resources\passphrase.html" flattenhtml="true" type="BINDATA" />
+      <include name="IDR_SYNC_FIRST_PASSPHRASE_HTML" file="sync\resources\firstpassphrase.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_SYNC_SETTING_UP_HTML" file="sync\resources\setting_up.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_SYNC_SETUP_DONE_HTML" file="sync\resources\setup_done.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_SYNC_SETUP_FLOW_HTML" file="sync\resources\setup_flow.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_REMOTING_SETUP_FLOW_HTML" file="remoting\resources\remoting_setup_flow.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_REMOTING_SETUP_DONE_HTML" file="remoting\resources\remoting_setup_done.html" flattenhtml="true" type="BINDATA" />
+      <include name="IDR_REMOTING_SETUP_ERROR_HTML" file="remoting\resources\remoting_setup_error.html" flattenhtml="true" type="BINDATA" />
+      <include name="IDR_REMOTING_SETTING_UP_HTML" file="remoting\resources\remoting_setting_up.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_CLOUD_PRINT_SETUP_FLOW_HTML" file="printing\cloud_print\resources\cloud_print_setup_flow.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_CLOUD_PRINT_SETUP_LOGIN_HTML" file="printing\cloud_print\resources\cloud_print_setup_login.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_CLOUD_PRINT_SETUP_DONE_HTML" file="printing\cloud_print\resources\cloud_print_setup_done.html" flattenhtml="true" type="BINDATA" />

@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,8 +15,23 @@ const char kCeee[] = "ceee";
 // Currently this is only required when used in combination with kMultiInstall.
 const char kChrome[] = "chrome";
 
-// Run the installer in Chrome Frame mode.
+// Install Chrome Frame.
 const char kChromeFrame[] = "chrome-frame";
+
+// When installing Chrome Frame, install it in ready mode.
+// If --chrome-frame is not on the command line, this switch has no effect.
+const char kChromeFrameReadyMode[] = "ready-mode";
+
+// GCF ready mode opt-in.  This enables a full installation of GCF.
+const char kChromeFrameReadyModeOptIn[] = "ready-mode-opt-in";
+
+// GCF ready mode temp opt-out.  This disables the GCF user agent modification
+// and detection of headers/meta tags.
+const char kChromeFrameReadyModeTempOptOut[] = "ready-mode-temp-opt-out";
+
+// End GCF ready mode temp opt-out.  This re-enables the GCF user agent
+// modification and detection of headers/meta tags.
+const char kChromeFrameReadyModeEndTempOptOut[] = "ready-mode-end-temp-opt-out";
 
 // Run the installer for Chrome SxS.
 const char kChromeSxS[] = "chrome-sxs";
@@ -139,6 +154,7 @@ const wchar_t kChromeExe[] = L"chrome.exe";
 const wchar_t kChromeFrameDll[] = L"npchrome_frame.dll";
 const wchar_t kChromeFrameHelperExe[] = L"chrome_frame_helper.exe";
 const wchar_t kChromeFrameHelperWndClass[] = L"ChromeFrameHelperWindowClass";
+const wchar_t kChromeFrameReadyModeField[] = L"ChromeFrameReadyMode";
 const wchar_t kChromeNaCl64Dll[] = L"nacl64.dll";
 const wchar_t kChromeNewExe[] = L"new_chrome.exe";
 const wchar_t kChromeOldExe[] = L"old_chrome.exe";

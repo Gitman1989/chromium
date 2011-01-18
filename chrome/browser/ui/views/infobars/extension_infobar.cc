@@ -1,21 +1,21 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/infobars/extension_infobar.h"
+#include "chrome/browser/ui/views/infobars/extension_infobar.h"
 
 #include "app/resource_bundle.h"
-#include "app/slide_animation.h"
 #include "chrome/browser/extensions/extension_context_menu_model.h"
 #include "chrome/browser/extensions/extension_infobar_delegate.h"
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/platform_util.h"
-#include "chrome/browser/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_icon_set.h"
 #include "chrome/common/extensions/extension_resource.h"
 #include "gfx/canvas_skia.h"
 #include "grit/theme_resources.h"
+#include "ui/base/animation/slide_animation.h"
 #include "views/controls/button/menu_button.h"
 #include "views/controls/menu/menu_2.h"
 #include "views/widget/widget.h"

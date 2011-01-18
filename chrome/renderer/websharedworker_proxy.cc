@@ -7,7 +7,7 @@
 #include "chrome/common/render_messages.h"
 #include "chrome/common/webmessageportchannel_impl.h"
 #include "chrome/common/worker_messages.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURL.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURL.h"
 
 WebSharedWorkerProxy::WebSharedWorkerProxy(ChildThread* child_thread,
                                            unsigned long long document_id,
@@ -67,10 +67,13 @@ void WebSharedWorkerProxy::connect(WebKit::WebMessagePortChannel* channel,
   }
 }
 
-void WebSharedWorkerProxy::OnMessageReceived(const IPC::Message& message) {
+bool WebSharedWorkerProxy::OnMessageReceived(const IPC::Message& message) {
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(WebSharedWorkerProxy, message)
     IPC_MESSAGE_HANDLER(ViewMsg_WorkerCreated, OnWorkerCreated)
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
+  return handled;
 }
 
 void WebSharedWorkerProxy::OnWorkerCreated() {

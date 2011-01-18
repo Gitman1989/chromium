@@ -6,7 +6,9 @@
 
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/common/render_messages_params.h"
+#include "chrome/test/testing_pref_service.h"
 
 // static
 const int MockBalloonCollection::kMockBalloonSpace = 5;
@@ -69,7 +71,8 @@ DesktopNotificationsTest::~DesktopNotificationsTest() {
 void DesktopNotificationsTest::SetUp() {
   profile_.reset(new TestingProfile());
   balloon_collection_ = new MockBalloonCollection();
-  ui_manager_.reset(new NotificationUIManager());
+  ui_manager_.reset(
+      new NotificationUIManager(profile_->GetTestingPrefService()));
   ui_manager_->Initialize(balloon_collection_);
   balloon_collection_->set_space_change_listener(ui_manager_.get());
   service_.reset(new DesktopNotificationService(profile(), ui_manager_.get()));
@@ -78,8 +81,8 @@ void DesktopNotificationsTest::SetUp() {
 
 void DesktopNotificationsTest::TearDown() {
   service_.reset(NULL);
-  profile_.reset(NULL);
   ui_manager_.reset(NULL);
+  profile_.reset(NULL);
 }
 
 ViewHostMsg_ShowNotification_Params
@@ -319,4 +322,111 @@ TEST_F(DesktopNotificationsTest, TestUserInputEscaping) {
   // URL-encoded versions of tags should also not be found.
   EXPECT_EQ(std::string::npos, data_url.spec().find("%3cscript%3e"));
   EXPECT_EQ(std::string::npos, data_url.spec().find("%3ci%3e"));
+}
+
+TEST_F(DesktopNotificationsTest, TestBoundingBox) {
+  // Create some notifications.
+  ViewHostMsg_ShowNotification_Params params = StandardTestNotification();
+  for (int id = 0; id <= 3; ++id) {
+    params.notification_id = id;
+    EXPECT_TRUE(service_->ShowDesktopNotification(
+        params, 0, 0, DesktopNotificationService::PageNotification));
+  }
+
+  gfx::Rect box = balloon_collection_->GetBalloonsBoundingBox();
+
+  // Try this for all positions.
+  BalloonCollection::PositionPreference pref;
+  for (pref = BalloonCollection::UPPER_RIGHT;
+       pref <= BalloonCollection::LOWER_LEFT;
+       pref = static_cast<BalloonCollection::PositionPreference>(pref + 1)) {
+    // Make sure each balloon's 4 corners are inside the box.
+    std::deque<Balloon*>& balloons = balloon_collection_->balloons();
+    std::deque<Balloon*>::iterator iter;
+    for (iter = balloons.begin(); iter != balloons.end(); ++iter) {
+      int min_x = (*iter)->GetPosition().x();
+      int max_x = min_x + (*iter)->GetViewSize().width() - 1;
+      int min_y = (*iter)->GetPosition().y();
+      int max_y = min_y + (*iter)->GetViewSize().height() - 1;
+
+      EXPECT_TRUE(box.Contains(gfx::Point(min_x, min_y)));
+      EXPECT_TRUE(box.Contains(gfx::Point(min_x, max_y)));
+      EXPECT_TRUE(box.Contains(gfx::Point(max_x, min_y)));
+      EXPECT_TRUE(box.Contains(gfx::Point(max_x, max_y)));
+    }
+  }
+}
+
+TEST_F(DesktopNotificationsTest, TestPositionPreference) {
+  // Set position preference to lower right.
+  profile_->GetPrefs()->SetInteger(prefs::kDesktopNotificationPosition,
+                                   BalloonCollection::LOWER_RIGHT);
+
+  // Create some notifications.
+  ViewHostMsg_ShowNotification_Params params = StandardTestNotification();
+  for (int id = 0; id <= 3; ++id) {
+    params.notification_id = id;
+    EXPECT_TRUE(service_->ShowDesktopNotification(
+        params, 0, 0, DesktopNotificationService::PageNotification));
+  }
+
+  std::deque<Balloon*>& balloons = balloon_collection_->balloons();
+  std::deque<Balloon*>::iterator iter;
+
+  // Check that they decrease in y-position (for MAC, with reversed
+  // coordinates, they should increase).
+  int last_y = -1;
+  int last_x = -1;
+
+  for (iter = balloons.begin(); iter != balloons.end(); ++iter) {
+    int current_x = (*iter)->GetPosition().x();
+    int current_y = (*iter)->GetPosition().y();
+    if (last_x > 0)
+      EXPECT_EQ(last_x, current_x);
+
+    if (last_y > 0) {
+#if defined(OS_MACOSX)
+      EXPECT_GT(current_y, last_y);
+#else
+      EXPECT_LT(current_y, last_y);
+#endif
+    }
+
+    last_x = current_x;
+    last_y = current_y;
+  }
+
+  // Now change the position to upper right.  This should cause an immediate
+  // repositioning, and we check for the reverse ordering.
+  profile_->GetPrefs()->SetInteger(prefs::kDesktopNotificationPosition,
+                                   BalloonCollection::UPPER_RIGHT);
+  last_x = -1;
+  last_y = -1;
+
+  for (iter = balloons.begin(); iter != balloons.end(); ++iter) {
+    int current_x = (*iter)->GetPosition().x();
+    int current_y = (*iter)->GetPosition().y();
+
+    if (last_x > 0)
+      EXPECT_EQ(last_x, current_x);
+
+    if (last_y > 0) {
+#if defined(OS_MACOSX)
+      EXPECT_LT(current_y, last_y);
+#else
+      EXPECT_GT(current_y, last_y);
+#endif
+    }
+
+    last_x = current_x;
+    last_y = current_y;
+  }
+
+  // Now change the position to upper left.  Confirm that the X value for the
+  // balloons gets smaller.
+  profile_->GetPrefs()->SetInteger(prefs::kDesktopNotificationPosition,
+                                   BalloonCollection::UPPER_LEFT);
+
+  int current_x = (*balloons.begin())->GetPosition().x();
+  EXPECT_LT(current_x, last_x);
 }

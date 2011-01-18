@@ -25,6 +25,14 @@ class GPUInfo;
 //------------------------------------------------------------------------------
 // GPU Messages
 // These are messages from the browser to the GPU process.
+
+// Tells the GPU process to initialize itself. The browser explicitly
+// requests this be done so that we are guaranteed that the channel is set
+// up between the browser and GPU process before doing any work that might
+// potentially crash the GPU process. Detection of the child process
+// exiting abruptly is predicated on having the IPC channel set up.
+IPC_MESSAGE_CONTROL0(GpuMsg_Initialize)
+
 // Tells the GPU process to create a new channel for communication with a
 // given renderer.  The channel name is returned in a
 // GpuHostMsg_ChannelEstablished message.  The renderer ID is passed so that
@@ -59,6 +67,13 @@ IPC_MESSAGE_CONTROL3(GpuMsg_AcceleratedSurfaceBuffersSwappedACK,
                      int /* renderer_id */,
                      int32 /* route_id */,
                      uint64 /* swap_buffers_count */)
+
+// Tells the GPU process that the IOSurface of the buffer belonging to
+// |renderer_route_id| a given id was destroyed, either by the user closing the
+// tab hosting the surface, or by the renderer navigating to a new page.
+IPC_MESSAGE_CONTROL2(GpuMsg_DidDestroyAcceleratedSurface,
+                     int /* renderer_id */,
+                     int32 /* renderer_route_id */)
 #endif
 
 // Tells the GPU process to crash.

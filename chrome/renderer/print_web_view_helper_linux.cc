@@ -10,48 +10,64 @@
 #include "chrome/common/render_messages_params.h"
 #include "printing/native_metafile.h"
 #include "skia/ext/vector_canvas.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSize.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSize.h"
 
 using printing::NativeMetafile;
 using WebKit::WebFrame;
+using WebKit::WebNode;
 using WebKit::WebSize;
 
 void PrintWebViewHelper::PrintPages(const ViewMsg_PrintPages_Params& params,
-                                    WebFrame* frame) {
-  PrepareFrameAndViewForPrint prep_frame_view(params.params,
-                                              frame,
-                                              frame->view());
-  int page_count = prep_frame_view.GetExpectedPageCount();
-
-  // TODO(myhuang): Send ViewHostMsg_DidGetPrintedPagesCount.
-
-  if (page_count == 0)
-    return;
-
+                                    WebFrame* frame,
+                                    WebNode* node) {
   // We only can use PDF in the renderer because Cairo needs to create a
   // temporary file for a PostScript surface.
   printing::NativeMetafile metafile(printing::NativeMetafile::PDF);
-  metafile.Init();
+  int page_count;
+  skia::VectorCanvas* canvas = NULL;
 
-  ViewMsg_PrintPage_Params print_page_params;
-  print_page_params.params = params.params;
-  const gfx::Size& canvas_size = prep_frame_view.GetPrintCanvasSize();
-  if (params.pages.empty()) {
-    for (int i = 0; i < page_count; ++i) {
-      print_page_params.page_number = i;
-      PrintPage(print_page_params, canvas_size, frame, &metafile);
-    }
-  } else {
-    for (size_t i = 0; i < params.pages.size(); ++i) {
-      print_page_params.page_number = params.pages[i];
-      PrintPage(print_page_params, canvas_size, frame, &metafile);
+  {
+    // Hack - when |prep_frame_view| goes out of scope, PrintEnd() gets called.
+    // Doing this before closing |metafile| below ensures
+    // webkit::ppapi::PluginInstance::PrintEnd() has a valid canvas/metafile to
+    // save the final output to. See pepper_plugin_instance.cc for the whole
+    // story.
+    PrepareFrameAndViewForPrint prep_frame_view(params.params,
+                                                frame,
+                                                node,
+                                                frame->view());
+    page_count = prep_frame_view.GetExpectedPageCount();
+
+    // TODO(myhuang): Send ViewHostMsg_DidGetPrintedPagesCount.
+
+    if (page_count == 0)
+      return;
+
+    metafile.Init();
+
+    ViewMsg_PrintPage_Params print_page_params;
+    print_page_params.params = params.params;
+    const gfx::Size& canvas_size = prep_frame_view.GetPrintCanvasSize();
+    if (params.pages.empty()) {
+      for (int i = 0; i < page_count; ++i) {
+        print_page_params.page_number = i;
+        delete canvas;
+        PrintPage(print_page_params, canvas_size, frame, &metafile, &canvas);
+      }
+    } else {
+      for (size_t i = 0; i < params.pages.size(); ++i) {
+        print_page_params.page_number = params.pages[i];
+        delete canvas;
+        PrintPage(print_page_params, canvas_size, frame, &metafile, &canvas);
+      }
     }
   }
 
+  delete canvas;
   metafile.Close();
 
-  int fd_in_browser = -1;
+  int sequence_number = -1;
   // Get the size of the resulting metafile.
   uint32 buf_size = metafile.GetDataSize();
   DCHECK_GT(buf_size, 0u);
@@ -60,7 +76,7 @@ void PrintWebViewHelper::PrintPages(const ViewMsg_PrintPages_Params& params,
 
   // Ask the browser to open a file for us.
   if (!Send(new ViewHostMsg_AllocateTempFileForPrinting(&fd,
-                                                        &fd_in_browser))) {
+                                                        &sequence_number))) {
     return;
   }
 
@@ -68,13 +84,14 @@ void PrintWebViewHelper::PrintPages(const ViewMsg_PrintPages_Params& params,
     return;
 
   // Tell the browser we've finished writing the file.
-  Send(new ViewHostMsg_TempFileForPrintingWritten(fd_in_browser));
+  Send(new ViewHostMsg_TempFileForPrintingWritten(sequence_number));
 }
 
 void PrintWebViewHelper::PrintPage(const ViewMsg_PrintPage_Params& params,
                                    const gfx::Size& canvas_size,
                                    WebFrame* frame,
-                                   printing::NativeMetafile* metafile) {
+                                   printing::NativeMetafile* metafile,
+                                   skia::VectorCanvas** canvas) {
   double content_width_in_points;
   double content_height_in_points;
   double margin_top_in_points;
@@ -101,9 +118,10 @@ void PrintWebViewHelper::PrintPage(const ViewMsg_PrintPage_Params& params,
   if (!cairo_context)
     return;
 
-  skia::VectorCanvas canvas(cairo_context,
-                            canvas_size.width(), canvas_size.height());
-  frame->printPage(params.page_number, &canvas);
+  *canvas = new skia::VectorCanvas(cairo_context,
+                                   canvas_size.width(),
+                                   canvas_size.height());
+  frame->printPage(params.page_number, *canvas);
 
   // TODO(myhuang): We should handle transformation for paper margins.
   // TODO(myhuang): We should render the header and the footer.

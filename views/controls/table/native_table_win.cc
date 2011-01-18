@@ -9,16 +9,18 @@
 
 #include "app/l10n_util.h"
 #include "app/l10n_util_win.h"
-#include "app/table_model.h"
+#include "app/win/hwnd_util.h"
 #include "base/logging.h"
-#include "base/win_util.h"
 #include "gfx/canvas_skia.h"
 #include "gfx/favicon_size.h"
 #include "gfx/icon_util.h"
 #include "skia/ext/skia_utils_win.h"
+#include "ui/base/models/table_model.h"
 #include "views/controls/table/table_view2.h"
 #include "views/controls/table/table_view_observer.h"
 #include "views/widget/widget.h"
+
+using ui::TableColumn;
 
 namespace views {
 
@@ -408,12 +410,12 @@ void NativeTableWin::CreateNativeControl() {
     DCHECK(header);
     SetWindowLongPtr(header, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
     header_original_handler_ =
-        win_util::SetWindowProc(header, &NativeTableWin::TableHeaderWndProc);
+        app::win::SetWindowProc(header, &NativeTableWin::TableHeaderWndProc);
   }
 
   SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
   original_handler_ =
-      win_util::SetWindowProc(hwnd, &NativeTableWin::TableWndProc);
+      app::win::SetWindowProc(hwnd, &NativeTableWin::TableWndProc);
 
   // Bug 964884: detach the IME attached to this window.
   // We should attach IMEs only when we need to input CJK strings.
@@ -463,7 +465,7 @@ void NativeTableWin::OnMiddleClick() {
     table_->observer()->OnMiddleClick();
 }
 
-bool NativeTableWin::OnKeyDown(app::KeyboardCode virtual_keycode) {
+bool NativeTableWin::OnKeyDown(ui::KeyboardCode virtual_keycode) {
   if (!ignore_listview_change_ && table_->observer())
     table_->observer()->OnKeyDown(virtual_keycode);
   return false;  // Let the key event be processed as ususal.

@@ -8,12 +8,12 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/debug/debugger.h"
-#include "base/debug_util.h"
 #include "base/i18n/icu_util.h"
 #include "base/mac/scoped_nsautorelease_pool.h"
 #include "base/message_loop.h"
 #include "base/metrics/stats_counters.h"
 #include "base/metrics/stats_table.h"
+#include "base/nss_util.h"
 #include "base/path_service.h"
 #include "base/process_util.h"
 #include "base/string_number_conversions.h"
@@ -33,6 +33,7 @@
 #include "chrome/common/logging_chrome.h"
 #include "chrome/common/main_function_params.h"
 #include "chrome/common/sandbox_init_wrapper.h"
+#include "chrome/common/set_process_title.h"
 #include "chrome/common/url_constants.h"
 #include "ipc/ipc_switches.h"
 
@@ -48,13 +49,14 @@
 
 #if defined(OS_MACOSX)
 #include "app/l10n_util_mac.h"
-#include "base/mac_util.h"
+#include "base/mac/mac_util.h"
+#include "base/mac/os_crash_dumps.h"
 #include "base/mach_ipc_mac.h"
 #include "chrome/app/breakpad_mac.h"
 #include "chrome/browser/mach_broker_mac.h"
 #include "chrome/common/chrome_paths_internal.h"
 #include "grit/chromium_strings.h"
-#include "third_party/WebKit/WebKit/mac/WebCoreSupport/WebSystemInterface.h"
+#include "third_party/WebKit/Source/WebKit/mac/WebCoreSupport/WebSystemInterface.h"
 #endif
 
 #if defined(OS_POSIX)
@@ -410,7 +412,7 @@ void SetMacProcessName(const std::string& process_type) {
   }
   if (name_id) {
     NSString* app_name = l10n_util::GetNSString(name_id);
-    mac_util::SetProcessName(reinterpret_cast<CFStringRef>(app_name));
+    base::mac::SetProcessName(reinterpret_cast<CFStringRef>(app_name));
   }
 }
 
@@ -530,7 +532,8 @@ int RunZygote(const MainFunctionParams& main_function_params) {
   // The StatsTable must be initialized in each process; we already
   // initialized for the browser process, now we need to initialize
   // within the new processes as well.
-  pid_t browser_pid = base::GetParentProcessId(base::GetCurrentProcId());
+  pid_t browser_pid = base::GetParentProcessId(
+      base::GetParentProcessId(base::GetCurrentProcId()));
   InitializeStatsTable(browser_pid, command_line);
 
   MainFunctionParams main_params(command_line,
@@ -640,7 +643,7 @@ int ChromeMain(int argc, char** argv) {
       command_line.GetSwitchValueASCII(switches::kProcessType);
 
 #if defined(OS_MACOSX)
-  mac_util::SetOverrideAppBundlePath(chrome::GetFrameworkBundlePath());
+  base::mac::SetOverrideAppBundlePath(chrome::GetFrameworkBundlePath());
 #endif  // OS_MACOSX
 
   // If we are in diagnostics mode this is the end of the line. After the
@@ -708,6 +711,10 @@ int ChromeMain(int argc, char** argv) {
   }
   SetupCRT(command_line);
 
+#if defined(USE_NSS)
+  base::EarlySetupForNSSInit();
+#endif
+
   // Initialize the Chrome path provider.
   app::RegisterPathProvider();
   chrome::RegisterPathProvider();
@@ -746,9 +753,9 @@ int ChromeMain(int argc, char** argv) {
   //    Browser process in release mode.
   if (!command_line.HasSwitch(switches::kDisableBreakpad)) {
     bool disable_apple_crash_reporter = is_debug_build
-                                        || mac_util::IsBackgroundOnlyProcess();
+                                        || base::mac::IsBackgroundOnlyProcess();
     if (!IsCrashReporterEnabled() && disable_apple_crash_reporter) {
-      DebugUtil::DisableOSCrashDumps();
+      base::mac::DisableOSCrashDumps();
     }
   }
 
@@ -759,11 +766,11 @@ int ChromeMain(int argc, char** argv) {
   // the helper should always have a --type switch.
   //
   // This check is done this late so there is already a call to
-  // mac_util::IsBackgroundOnlyProcess(), so there is no change in
+  // base::mac::IsBackgroundOnlyProcess(), so there is no change in
   // startup/initialization order.
 
   // The helper's Info.plist marks it as a background only app.
-  if (mac_util::IsBackgroundOnlyProcess()) {
+  if (base::mac::IsBackgroundOnlyProcess()) {
     CHECK(command_line.HasSwitch(switches::kProcessType))
         << "Helper application requires --type.";
   } else {
@@ -903,6 +910,10 @@ int ChromeMain(int argc, char** argv) {
   // TODO(mdm): look into calling CommandLine::SetProcTitle() here instead of
   // in each relevant main() function below, to fix /proc/self/exe showing up
   // as our process name since we exec() via that to be update-safe.
+#endif
+
+#if defined(OS_POSIX)
+  SetProcessTitleFromCommandLine(argv);
 #endif
 
   int exit_code = RunNamedProcessTypeMain(process_type, main_params);

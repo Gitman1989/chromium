@@ -14,12 +14,13 @@
 
 #include <algorithm>
 
-#include "app/keyboard_codes.h"
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
+#include "base/utf_string_conversions.h"
 #include "gfx/canvas_skia.h"
 #include "gfx/font.h"
 #include "grit/app_strings.h"
+#include "ui/base/keycodes/keyboard_codes.h"
 #include "views/controls/button/native_button.h"
 #include "views/standard_layout.h"
 #include "views/window/dialog_delegate.h"
@@ -129,7 +130,7 @@ void DialogClientView::ShowDialogButtons() {
     std::wstring label =
         dd->GetDialogButtonLabel(MessageBoxFlags::DIALOGBUTTON_OK);
     if (label.empty())
-      label = l10n_util::GetString(IDS_APP_OK);
+      label = UTF16ToWide(l10n_util::GetStringUTF16(IDS_APP_OK));
     bool is_default_button =
         (dd->GetDefaultDialogButton() & MessageBoxFlags::DIALOGBUTTON_OK) != 0;
     ok_button_ = new DialogButton(this, window(),
@@ -139,7 +140,7 @@ void DialogClientView::ShowDialogButtons() {
     if (is_default_button)
       default_button_ = ok_button_;
     if (!(buttons & MessageBoxFlags::DIALOGBUTTON_CANCEL))
-      ok_button_->AddAccelerator(Accelerator(app::VKEY_ESCAPE,
+      ok_button_->AddAccelerator(Accelerator(ui::VKEY_ESCAPE,
                                              false, false, false));
     AddChildView(ok_button_);
   }
@@ -148,9 +149,9 @@ void DialogClientView::ShowDialogButtons() {
         dd->GetDialogButtonLabel(MessageBoxFlags::DIALOGBUTTON_CANCEL);
     if (label.empty()) {
       if (buttons & MessageBoxFlags::DIALOGBUTTON_OK) {
-        label = l10n_util::GetString(IDS_APP_CANCEL);
+        label = UTF16ToWide(l10n_util::GetStringUTF16(IDS_APP_CANCEL));
       } else {
-        label = l10n_util::GetString(IDS_APP_CLOSE);
+        label = UTF16ToWide(l10n_util::GetStringUTF16(IDS_APP_CLOSE));
       }
     }
     bool is_default_button =
@@ -160,7 +161,7 @@ void DialogClientView::ShowDialogButtons() {
                                       MessageBoxFlags::DIALOGBUTTON_CANCEL,
                                       label, is_default_button);
     cancel_button_->SetGroup(kButtonGroup);
-    cancel_button_->AddAccelerator(Accelerator(app::VKEY_ESCAPE,
+    cancel_button_->AddAccelerator(Accelerator(ui::VKEY_ESCAPE,
                                                false, false, false));
     if (is_default_button)
       default_button_ = ok_button_;
@@ -169,7 +170,7 @@ void DialogClientView::ShowDialogButtons() {
   if (!buttons) {
     // Register the escape key as an accelerator which will close the window
     // if there are no dialog buttons.
-    AddAccelerator(Accelerator(app::VKEY_ESCAPE, false, false, false));
+    AddAccelerator(Accelerator(ui::VKEY_ESCAPE, false, false, false));
   }
 }
 
@@ -387,7 +388,7 @@ gfx::Size DialogClientView::GetPreferredSize() {
 
 bool DialogClientView::AcceleratorPressed(const Accelerator& accelerator) {
   // We only expect Escape key.
-  DCHECK(accelerator.GetKeyCode() == app::VKEY_ESCAPE);
+  DCHECK(accelerator.GetKeyCode() == ui::VKEY_ESCAPE);
   Close();
   return true;
 }
@@ -446,7 +447,8 @@ int DialogClientView::GetButtonWidth(int button) const {
   DialogDelegate* dd = GetDialogDelegate();
   std::wstring button_label = dd->GetDialogButtonLabel(
       static_cast<MessageBoxFlags::DialogButton>(button));
-  int string_width = dialog_button_font_->GetStringWidth(button_label);
+  int string_width = dialog_button_font_->GetStringWidth(
+      WideToUTF16Hack(button_label));
   return std::max(string_width + kDialogButtonLabelSpacing,
                   kDialogMinButtonWidth);
 }

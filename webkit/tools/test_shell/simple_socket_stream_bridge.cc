@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,7 +12,7 @@
 #include "net/socket_stream/socket_stream_job.h"
 #include "net/websockets/websocket_job.h"
 #include "net/url_request/url_request_context.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSocketStreamHandle.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSocketStreamHandle.h"
 #include "webkit/glue/websocketstreamhandle_bridge.h"
 #include "webkit/glue/websocketstreamhandle_delegate.h"
 
@@ -23,7 +23,7 @@ static const int kNoSocketId = 0;
 namespace {
 
 MessageLoop* g_io_thread;
-scoped_refptr<URLRequestContext> g_request_context;
+scoped_refptr<net::URLRequestContext> g_request_context;
 
 class WebSocketStreamHandleBridgeImpl
     : public WebSocketStreamHandleBridge,
@@ -219,7 +219,7 @@ void WebSocketStreamHandleBridgeImpl::DoOnClose() {
 
 /* static */
 void SimpleSocketStreamBridge::InitializeOnIOThread(
-    URLRequestContext* request_context) {
+    net::URLRequestContext* request_context) {
   g_io_thread = MessageLoop::current();
   g_request_context = request_context;
 }

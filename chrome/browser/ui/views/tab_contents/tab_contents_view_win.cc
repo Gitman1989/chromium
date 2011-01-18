@@ -1,10 +1,12 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/tab_contents/tab_contents_view_win.h"
+#include "chrome/browser/ui/views/tab_contents/tab_contents_view_win.h"
 
 #include <windows.h>
+
+#include <vector>
 
 #include "base/time.h"
 #include "chrome/browser/download/download_request_limiter.h"
@@ -16,10 +18,9 @@
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/tab_contents/tab_contents_delegate.h"
 #include "chrome/browser/tab_contents/web_drop_target_win.h"
-#include "chrome/browser/ui/browser.h"  // TODO(beng): this dependency is awful.
-#include "chrome/browser/views/sad_tab_view.h"
-#include "chrome/browser/views/tab_contents/render_view_context_menu_views.h"
-#include "chrome/browser/views/tab_contents/tab_contents_drag_win.h"
+#include "chrome/browser/ui/views/sad_tab_view.h"
+#include "chrome/browser/ui/views/tab_contents/render_view_context_menu_views.h"
+#include "chrome/browser/ui/views/tab_contents/tab_contents_drag_win.h"
 #include "gfx/canvas_skia_paint.h"
 #include "views/focus/view_storage.h"
 #include "views/screen.h"
@@ -155,7 +156,8 @@ void TabContentsViewWin::SetPageTitle(const std::wstring& title) {
   }
 }
 
-void TabContentsViewWin::OnTabCrashed() {
+void TabContentsViewWin::OnTabCrashed(base::TerminationStatus /* status */,
+                                      int /* error_code */) {
   // Force an invalidation to render sad tab. We will notice we crashed when we
   // paint.
   // Note that it's possible to get this message after the window was destroyed.
@@ -182,9 +184,6 @@ void TabContentsViewWin::SizeContents(const gfx::Size& size) {
 }
 
 void TabContentsViewWin::Focus() {
-  views::FocusManager* focus_manager =
-      views::FocusManager::GetFocusManagerForNativeView(GetNativeView());
-
   if (tab_contents()->interstitial_page()) {
     tab_contents()->interstitial_page()->Focus();
     return;
@@ -401,7 +400,12 @@ void TabContentsViewWin::OnPaint(HDC junk_dc) {
   if (tab_contents()->render_view_host() &&
       !tab_contents()->render_view_host()->IsRenderViewLive()) {
     if (sad_tab_ == NULL) {
-      sad_tab_ = new SadTabView(tab_contents());
+      base::TerminationStatus status =
+          tab_contents()->render_view_host()->render_view_termination_status();
+      SadTabView::Kind kind =
+          status == base::TERMINATION_STATUS_PROCESS_WAS_KILLED ?
+          SadTabView::KILLED : SadTabView::CRASHED;
+      sad_tab_ = new SadTabView(tab_contents(), kind);
       SetContentsView(sad_tab_);
     }
     CRect cr;

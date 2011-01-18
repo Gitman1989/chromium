@@ -8,11 +8,13 @@
 
 #include <windows.h>
 
-#include "app/table_model.h"
+#include "ui/base/models/table_model.h"
 #include "views/controls/native_control_win.h"
 #include "views/controls/table/native_table_wrapper.h"
 
 typedef struct tagNMLVCUSTOMDRAW NMLVCUSTOMDRAW;
+
+using ui::TableColumn;
 
 namespace views {
 
@@ -74,7 +76,7 @@ class NativeTableWin : public NativeControlWin, public NativeTableWrapper {
   virtual void OnMiddleClick();
 
   // Overridden from NativeControl. Notifies the observer.
-  virtual bool OnKeyDown(app::KeyboardCode virtual_keycode);
+  virtual bool OnKeyDown(ui::KeyboardCode virtual_keycode);
 
   // Custom drawing of our icons.
   LRESULT OnCustomDraw(NMLVCUSTOMDRAW* draw_info);

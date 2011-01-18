@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,7 @@
 #include "base/file_util.h"
 #include "base/path_service.h"
 #include "base/singleton.h"
-#include "base/thread_restrictions.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/values.h"
 #include "chrome/browser/browser_list.h"
 #include "chrome/browser/browser_thread.h"
@@ -59,14 +59,14 @@ class TestData {
 
 // A simple test net::URLRequestJob. We don't care what it does, only that
 // whether it starts and finishes.
-class SimpleTestJob : public URLRequestTestJob {
+class SimpleTestJob : public net::URLRequestTestJob {
  public:
   explicit SimpleTestJob(net::URLRequest* request)
-      : URLRequestTestJob(request, test_headers(),
-                          TestData::GetInstance()->GetTestData(), true) {}
+      : net::URLRequestTestJob(request, test_headers(),
+                               TestData::GetInstance()->GetTestData(), true) {}
 
   virtual void GetResponseInfo(net::HttpResponseInfo* info) {
-    URLRequestTestJob::GetResponseInfo(info);
+    net::URLRequestTestJob::GetResponseInfo(info);
     if (request_->url().SchemeIsSecure()) {
       // Make up a fake certificate for this response since we don't have
       // access to the real SSL info.
@@ -159,7 +159,7 @@ class PrintDialogCloudTest : public InProcessBrowserTest {
 
   virtual void TearDown() {
     if (handler_added_) {
-      URLRequestFilter* filter = URLRequestFilter::GetInstance();
+      net::URLRequestFilter* filter = net::URLRequestFilter::GetInstance();
       filter->RemoveHostnameHandler(scheme_, host_name_);
       handler_added_ = false;
       TestController::GetInstance()->set_delegate(NULL);
@@ -173,7 +173,7 @@ class PrintDialogCloudTest : public InProcessBrowserTest {
   // individual test functions seems to fix that.
   void AddTestHandlers() {
     if (!handler_added_) {
-      URLRequestFilter* filter = URLRequestFilter::GetInstance();
+      net::URLRequestFilter* filter = net::URLRequestFilter::GetInstance();
       GURL cloud_print_service_url =
           CloudPrintURL(browser()->profile()).
           GetCloudPrintServiceURL();

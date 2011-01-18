@@ -1,10 +1,9 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/automation/automation_provider.h"
 
-#include "app/keyboard_codes.h"
 #include "base/debug/trace_event.h"
 #include "base/json/json_reader.h"
 #include "base/utf_string_conversions.h"
@@ -21,9 +20,10 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_host/render_view_host.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
-#include "chrome/browser/views/bookmark_bar_view.h"
+#include "chrome/browser/ui/views/bookmark_bar_view.h"
 #include "chrome/common/automation_messages.h"
 #include "chrome/common/page_zoom.h"
+#include "ui/base/keycodes/keyboard_codes.h"
 #include "views/focus/accelerator_handler.h"
 #include "views/widget/root_view.h"
 #include "views/widget/widget_win.h"
@@ -203,7 +203,7 @@ void AutomationProvider::WindowSimulateDrag(int handle,
       // Press Escape, making sure we wait until chrome processes the escape.
       // TODO(phajdan.jr): make this use ui_test_utils::SendKeyPressSync.
       ui_controls::SendKeyPressNotifyWhenDone(
-          window, app::VKEY_ESCAPE,
+          window, ui::VKEY_ESCAPE,
           ((flags & views::Event::EF_CONTROL_DOWN) ==
            views::Event::EF_CONTROL_DOWN),
           ((flags & views::Event::EF_SHIFT_DOWN) ==
@@ -230,7 +230,7 @@ void AutomationProvider::WindowSimulateDrag(int handle,
 }
 
 void AutomationProvider::CreateExternalTab(
-    const IPC::ExternalTabSettings& settings,
+    const ExternalTabSettings& settings,
     gfx::NativeWindow* tab_container_window, gfx::NativeWindow* tab_window,
     int* tab_handle, int* session_id) {
   TRACE_EVENT_BEGIN("AutomationProvider::CreateExternalTab", 0, "");
@@ -318,7 +318,7 @@ ExternalTabContainer* AutomationProvider::GetExternalTabForHandle(int handle) {
 }
 
 void AutomationProvider::OnTabReposition(
-    int tab_handle, const IPC::Reposition_Params& params) {
+    int tab_handle, const Reposition_Params& params) {
   if (!tab_tracker_->ContainsHandle(tab_handle))
     return;
 

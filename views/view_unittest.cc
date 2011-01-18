@@ -4,14 +4,12 @@
 
 #include <map>
 
-#include "app/clipboard/clipboard.h"
-#include "app/keyboard_codes.h"
-#include "base/message_loop.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "gfx/canvas_skia.h"
 #include "gfx/path.h"
-#include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/clipboard/clipboard.h"
+#include "ui/base/keycodes/keyboard_codes.h"
 #include "views/background.h"
 #include "views/controls/button/checkbox.h"
 #include "views/controls/native/native_view_host.h"
@@ -20,6 +18,7 @@
 #include "views/event.h"
 #include "views/focus/accelerator_handler.h"
 #include "views/focus/view_storage.h"
+#include "views/test/views_test_base.h"
 #include "views/view.h"
 #include "views/views_delegate.h"
 #include "views/widget/root_view.h"
@@ -29,6 +28,7 @@
 #if defined(OS_WIN)
 #include "views/widget/widget_win.h"
 #include "views/controls/button/native_button_win.h"
+#include "views/test/test_views_delegate.h"
 #elif defined(OS_LINUX)
 #include "views/widget/widget_gtk.h"
 #include "views/window/window_gtk.h"
@@ -41,24 +41,12 @@ using namespace views;
 
 namespace {
 
-class ViewTest : public testing::Test {
+class ViewTest : public ViewsTestBase {
  public:
   ViewTest() {
-#if defined(OS_WIN)
-    OleInitialize(NULL);
-#endif
   }
 
-  ~ViewTest() {
-#if defined(OS_WIN)
-    OleUninitialize();
-#endif
-  }
-
-  virtual void TearDown() {
-    // Flush the message loop because we have pending release tasks
-    // and these tasks if un-executed would upset Valgrind.
-    RunPendingMessages();
+  virtual ~ViewTest() {
   }
 
   Widget* CreateWidget() {
@@ -68,12 +56,6 @@ class ViewTest : public testing::Test {
     return new WidgetGtk(WidgetGtk::TYPE_WINDOW);
 #endif
   }
-
-  void RunPendingMessages() {
-    message_loop_.RunAllPending();
-  }
- private:
-  MessageLoopForUI message_loop_;
 };
 
 // Paints the RootView.
@@ -214,16 +196,18 @@ class MockGestureManager : public GestureManager {
     last_touch_event_ = 0;
     last_view_ = NULL;
     previously_handled_flag_ = false;
+    dispatched_synthetic_event_ = false;
   }
 
-  bool previously_handled_flag_;
   bool ProcessTouchEventForGesture(const TouchEvent& event,
                                    View* source,
                                    bool previouslyHandled);
   MockGestureManager();
 
+  bool previously_handled_flag_;
   int last_touch_event_;
   View *last_view_;
+  bool dispatched_synthetic_event_;
 
   DISALLOW_COPY_AND_ASSIGN(MockGestureManager);
 };
@@ -431,9 +415,14 @@ bool MockGestureManager::ProcessTouchEventForGesture(
     const TouchEvent& event,
     View* source,
     bool previouslyHandled) {
+  if (previouslyHandled) {
+    dispatched_synthetic_event_ = false;
+    return false;
+  }
   last_touch_event_ =  event.GetType();
   last_view_ = source;
   previously_handled_flag_ = previouslyHandled;
+  dispatched_synthetic_event_ = true;
   return true;
 }
 
@@ -470,6 +459,28 @@ TEST_F(ViewTest, TouchEvent) {
   root->SetGestureManager(gm);
   v1->AddChildView(v2);
 
+  // Make sure if none of the views handle the touch event, the gesture manager
+  // does.
+  v1->Reset();
+  v2->Reset();
+  gm->Reset();
+
+  TouchEvent unhandled(Event::ET_TOUCH_MOVED,
+                       400,
+                       400,
+                       0, /* no flags */
+                       0  /* first finger touch */);
+  root->OnTouchEvent(unhandled);
+
+  EXPECT_EQ(v1->last_touch_event_type_, 0);
+  EXPECT_EQ(v2->last_touch_event_type_, 0);
+
+  EXPECT_EQ(gm->previously_handled_flag_, false);
+  EXPECT_EQ(gm->last_touch_event_, Event::ET_TOUCH_MOVED);
+  EXPECT_EQ(gm->last_view_, root);
+  EXPECT_EQ(gm->dispatched_synthetic_event_, true);
+
+  // Test press, drag, release touch sequence.
   v1->Reset();
   v2->Reset();
   gm->Reset();
@@ -488,9 +499,10 @@ TEST_F(ViewTest, TouchEvent) {
   // Make sure v1 did not receive the event
   EXPECT_EQ(v1->last_touch_event_type_, 0);
 
-  EXPECT_EQ(gm->last_touch_event_, Event::ET_TOUCH_PRESSED);
-  EXPECT_EQ(gm->last_view_, root);
-  EXPECT_EQ(gm->previously_handled_flag_, true);
+  // Since v2 handled the touch-event, the gesture manager should not handle it.
+  EXPECT_EQ(gm->last_touch_event_, 0);
+  EXPECT_EQ(NULL, gm->last_view_);
+  EXPECT_EQ(gm->previously_handled_flag_, false);
 
   // Drag event out of bounds. Should still go to v2
   v1->Reset();
@@ -507,11 +519,11 @@ TEST_F(ViewTest, TouchEvent) {
   // Make sure v1 did not receive the event
   EXPECT_EQ(v1->last_touch_event_type_, 0);
 
-  EXPECT_EQ(gm->last_touch_event_, Event::ET_TOUCH_MOVED);
-  EXPECT_EQ(gm->last_view_, root);
-  EXPECT_EQ(gm->previously_handled_flag_, true);
+  EXPECT_EQ(gm->last_touch_event_, 0);
+  EXPECT_EQ(NULL, gm->last_view_);
+  EXPECT_EQ(gm->previously_handled_flag_, false);
 
-  // Releasted event out of bounds. Should still go to v2
+  // Released event out of bounds. Should still go to v2
   v1->Reset();
   v2->Reset();
   TouchEvent released(Event::ET_TOUCH_RELEASED, 0, 0, 0, 0 /* first finger */);
@@ -523,9 +535,9 @@ TEST_F(ViewTest, TouchEvent) {
   // Make sure v1 did not receive the event
   EXPECT_EQ(v1->last_touch_event_type_, 0);
 
-  EXPECT_EQ(gm->last_touch_event_, Event::ET_TOUCH_RELEASED);
-  EXPECT_EQ(gm->last_view_, root);
-  EXPECT_EQ(gm->previously_handled_flag_, true);
+  EXPECT_EQ(gm->last_touch_event_, 0);
+  EXPECT_EQ(NULL, gm->last_view_);
+  EXPECT_EQ(gm->previously_handled_flag_, false);
 
   window->CloseNow();
 }
@@ -764,11 +776,11 @@ TEST_F(ViewTest, HitTestMasks) {
   gfx::Point v2_origin = v2_bounds.origin();
 
   // Test HitTest
-  EXPECT_EQ(true, v1->HitTest(ConvertPointToView(v1, v1_centerpoint)));
-  EXPECT_EQ(true, v2->HitTest(ConvertPointToView(v2, v2_centerpoint)));
+  EXPECT_TRUE(v1->HitTest(ConvertPointToView(v1, v1_centerpoint)));
+  EXPECT_TRUE(v2->HitTest(ConvertPointToView(v2, v2_centerpoint)));
 
-  EXPECT_EQ(true, v1->HitTest(ConvertPointToView(v1, v1_origin)));
-  EXPECT_EQ(false, v2->HitTest(ConvertPointToView(v2, v2_origin)));
+  EXPECT_TRUE(v1->HitTest(ConvertPointToView(v1, v1_origin)));
+  EXPECT_FALSE(v2->HitTest(ConvertPointToView(v2, v2_origin)));
 
   // Test GetViewForPoint
   EXPECT_EQ(v1, root_view->GetViewForPoint(v1_centerpoint));
@@ -783,7 +795,7 @@ TEST_F(ViewTest, Textfield) {
   const string16 kExtraText = ASCIIToUTF16("Pretty deep, Philip!");
   const string16 kEmptyString;
 
-  Clipboard clipboard;
+  ui::Clipboard clipboard;
 
   Widget* window = CreateWidget();
   window->Init(NULL, gfx::Rect(0, 0, 100, 100));
@@ -810,44 +822,6 @@ TEST_F(ViewTest, Textfield) {
 }
 
 #if defined(OS_WIN)
-class TestViewsDelegate : public views::ViewsDelegate {
- public:
-  TestViewsDelegate() {}
-  virtual ~TestViewsDelegate() {}
-
-  // Overridden from views::ViewsDelegate:
-  virtual Clipboard* GetClipboard() const {
-    if (!clipboard_.get()) {
-      // Note that we need a MessageLoop for the next call to work.
-      clipboard_.reset(new Clipboard);
-    }
-    return clipboard_.get();
-  }
-  virtual void SaveWindowPlacement(const std::wstring& window_name,
-                                   const gfx::Rect& bounds,
-                                   bool maximized) {
-  }
-  virtual bool GetSavedWindowBounds(const std::wstring& window_name,
-                                    gfx::Rect* bounds) const {
-    return false;
-  }
-  virtual bool GetSavedMaximizedState(const std::wstring& window_name,
-                                      bool* maximized) const {
-    return false;
-  }
-  virtual void NotifyAccessibilityEvent(
-      views::View* view, AccessibilityTypes::Event event_type) {}
-  virtual HICON GetDefaultWindowIcon() const {
-    return NULL;
-  }
-  virtual void AddRef() {}
-  virtual void ReleaseRef() {}
-
- private:
-  mutable scoped_ptr<Clipboard> clipboard_;
-
-  DISALLOW_COPY_AND_ASSIGN(TestViewsDelegate);
-};
 
 // Tests that the Textfield view respond appropiately to cut/copy/paste.
 TEST_F(ViewTest, TextfieldCutCopyPaste) {
@@ -857,7 +831,7 @@ TEST_F(ViewTest, TextfieldCutCopyPaste) {
   const std::wstring kReadOnlyText = L"Read only";
   const std::wstring kPasswordText = L"Password! ** Secret stuff **";
 
-  Clipboard clipboard;
+  ui::Clipboard clipboard;
 
   Widget* window = CreateWidget();
 #if defined(OS_WIN)
@@ -886,7 +860,7 @@ TEST_F(ViewTest, TextfieldCutCopyPaste) {
   ::SendMessage(normal->GetTestingHandle(), WM_CUT, 0, 0);
 
   string16 result;
-  clipboard.ReadText(Clipboard::BUFFER_STANDARD, &result);
+  clipboard.ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
   EXPECT_EQ(kNormalText, result);
   normal->SetText(kNormalText);  // Let's revert to the original content.
 
@@ -894,7 +868,7 @@ TEST_F(ViewTest, TextfieldCutCopyPaste) {
   read_only->SelectAll();
   ::SendMessage(read_only->GetTestingHandle(), WM_CUT, 0, 0);
   result.clear();
-  clipboard.ReadText(Clipboard::BUFFER_STANDARD, &result);
+  clipboard.ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
   // Cut should have failed, so the clipboard content should not have changed.
   EXPECT_EQ(kNormalText, result);
 
@@ -902,7 +876,7 @@ TEST_F(ViewTest, TextfieldCutCopyPaste) {
   password->SelectAll();
   ::SendMessage(password->GetTestingHandle(), WM_CUT, 0, 0);
   result.clear();
-  clipboard.ReadText(Clipboard::BUFFER_STANDARD, &result);
+  clipboard.ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
   // Cut should have failed, so the clipboard content should not have changed.
   EXPECT_EQ(kNormalText, result);
 
@@ -915,19 +889,19 @@ TEST_F(ViewTest, TextfieldCutCopyPaste) {
   read_only->SelectAll();
   ::SendMessage(read_only->GetTestingHandle(), WM_COPY, 0, 0);
   result.clear();
-  clipboard.ReadText(Clipboard::BUFFER_STANDARD, &result);
+  clipboard.ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
   EXPECT_EQ(kReadOnlyText, result);
 
   normal->SelectAll();
   ::SendMessage(normal->GetTestingHandle(), WM_COPY, 0, 0);
   result.clear();
-  clipboard.ReadText(Clipboard::BUFFER_STANDARD, &result);
+  clipboard.ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
   EXPECT_EQ(kNormalText, result);
 
   password->SelectAll();
   ::SendMessage(password->GetTestingHandle(), WM_COPY, 0, 0);
   result.clear();
-  clipboard.ReadText(Clipboard::BUFFER_STANDARD, &result);
+  clipboard.ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
   // We don't let you copy from a password field, clipboard should not have
   // changed.
   EXPECT_EQ(kNormalText, result);
@@ -976,7 +950,7 @@ bool TestView::AcceleratorPressed(const Accelerator& accelerator) {
 #if defined(OS_WIN)
 TEST_F(ViewTest, ActivateAccelerator) {
   // Register a keyboard accelerator before the view is added to a window.
-  views::Accelerator return_accelerator(app::VKEY_RETURN, false, false, false);
+  views::Accelerator return_accelerator(ui::VKEY_RETURN, false, false, false);
   TestView* view = new TestView();
   view->Reset();
   view->AddAccelerator(return_accelerator);
@@ -1000,7 +974,7 @@ TEST_F(ViewTest, ActivateAccelerator) {
   EXPECT_EQ(view->accelerator_count_map_[return_accelerator], 1);
 
   // Hit the escape key. Nothing should happen.
-  views::Accelerator escape_accelerator(app::VKEY_ESCAPE, false, false, false);
+  views::Accelerator escape_accelerator(ui::VKEY_ESCAPE, false, false, false);
   EXPECT_FALSE(focus_manager->ProcessAccelerator(escape_accelerator));
   EXPECT_EQ(view->accelerator_count_map_[return_accelerator], 1);
   EXPECT_EQ(view->accelerator_count_map_[escape_accelerator], 0);
@@ -1256,7 +1230,7 @@ class DefaultButtonTest : public ViewTest {
   }
 
   void SimularePressingEnterAndCheckDefaultButton(ButtonID button_id) {
-    KeyEvent event(Event::ET_KEY_PRESSED, app::VKEY_RETURN, 0, 0, 0);
+    KeyEvent event(Event::ET_KEY_PRESSED, ui::VKEY_RETURN, 0, 0, 0);
     focus_manager_->OnKeyEvent(event);
     switch (button_id) {
       case OK:

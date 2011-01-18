@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -20,8 +20,8 @@ class URLRequestContextGetter;
 // The WorkerProcessHost is the interface that represents the browser side of
 // the browser <-> worker communication channel. There will be one
 // WorkerProcessHost per worker process.  Currently each worker runs in its own
-// process, but that may change.  However, we do assume [by storing a
-// URLRequestContext] that a WorkerProcessHost serves a single Profile.
+// process, but that may change.  However, we do assume (by storing a
+// net::URLRequestContext) that a WorkerProcessHost serves a single Profile.
 class WorkerProcessHost : public BrowserChildProcessHost {
  public:
 
@@ -149,7 +149,7 @@ class WorkerProcessHost : public BrowserChildProcessHost {
 
   // IPC::Channel::Listener implementation:
   // Called when a message arrives from the worker process.
-  virtual void OnMessageReceived(const IPC::Message& message);
+  virtual bool OnMessageReceived(const IPC::Message& message);
 
   void OnWorkerContextClosed(int worker_route_id);
   void OnAllowDatabase(int worker_route_id,

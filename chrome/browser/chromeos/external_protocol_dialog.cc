@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,7 +14,7 @@
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/tab_contents/tab_contents_view.h"
 #include "chrome/browser/tab_contents/tab_util.h"
-#include "chrome/browser/views/window.h"
+#include "chrome/browser/ui/views/window.h"
 #include "googleurl/src/gurl.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
@@ -54,11 +54,12 @@ int ExternalProtocolDialog::GetDialogButtons() const {
 
 std::wstring ExternalProtocolDialog::GetDialogButtonLabel(
     MessageBoxFlags::DialogButton button) const {
-  return l10n_util::GetString(IDS_EXTERNAL_PROTOCOL_OK_BUTTON_TEXT);
+  return UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_EXTERNAL_PROTOCOL_OK_BUTTON_TEXT));
 }
 
 std::wstring ExternalProtocolDialog::GetWindowTitle() const {
-  return l10n_util::GetString(IDS_EXTERNAL_PROTOCOL_TITLE);
+  return UTF16ToWide(l10n_util::GetStringUTF16(IDS_EXTERNAL_PROTOCOL_TITLE));
 }
 
 void ExternalProtocolDialog::DeleteDelegate() {
@@ -90,17 +91,17 @@ ExternalProtocolDialog::ExternalProtocolDialog(TabContents* tab_contents,
   gfx::ElideString(ASCIIToWide(url.possibly_invalid_spec()),
       kMaxUrlWithoutSchemeSize, &elided_url_without_scheme);
 
-  std::wstring message_text = l10n_util::GetStringF(
+  std::wstring message_text = UTF16ToWide(l10n_util::GetStringFUTF16(
       IDS_EXTERNAL_PROTOCOL_INFORMATION,
-      ASCIIToWide(url.scheme() + ":"),
-      elided_url_without_scheme) + L"\n\n";
+      ASCIIToUTF16(url.scheme() + ":"),
+      WideToUTF16(elided_url_without_scheme)) + ASCIIToUTF16("\n\n"));
 
   message_box_view_ = new MessageBoxView(MessageBoxFlags::kIsConfirmMessageBox,
                                          message_text,
                                          std::wstring(),
                                          kMessageWidth);
-  message_box_view_->SetCheckBoxLabel(
-      l10n_util::GetString(IDS_EXTERNAL_PROTOCOL_CHECKBOX_TEXT));
+  message_box_view_->SetCheckBoxLabel(UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_EXTERNAL_PROTOCOL_CHECKBOX_TEXT)));
 
   gfx::NativeWindow parent_window;
   if (tab_contents) {

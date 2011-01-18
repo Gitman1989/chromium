@@ -9,6 +9,7 @@
 #include "base/command_line.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
+#include "base/stl_util-inl.h"
 #include "base/string_split.h"
 #include "base/string_util.h"
 #include "base/sys_string_conversions.h"
@@ -20,16 +21,23 @@
 #include "webkit/plugins/npapi/plugin_lib.h"
 #include "webkit/plugins/plugin_switches.h"
 
-#if defined(OS_POSIX)
-#include "base/stl_util-inl.h"
-#include "base/third_party/valgrind/valgrind.h"
-#endif  // defined(OS_POSIX)
-
 namespace webkit {
 namespace npapi {
 
 FilePath::CharType kDefaultPluginLibraryName[] =
     FILE_PATH_LITERAL("default_plugin");
+
+// Some version ranges can be shared across operating systems. This should be
+// done where possible to avoid duplication.
+static const VersionRangeDefinition kFlashVersionRange[] = {
+    { "", "", "10.1.102" }
+};
+
+// Similarly, try and share the group definition for plug-ins that are
+// very consistent across OS'es.
+static const PluginGroupDefinition kFlashDefinition = {
+    "adobe-flash-player", "Flash", "Shockwave Flash", kFlashVersionRange,
+    arraysize(kFlashVersionRange), "http://get.adobe.com/flashplayer/" };
 
 #if defined(OS_MACOSX)
 // Plugin Groups for Mac.
@@ -40,10 +48,7 @@ static const VersionRangeDefinition kQuicktimeVersionRange[] = {
     { "", "", "7.6.6" }
 };
 static const VersionRangeDefinition kJavaVersionRange[] = {
-    { "", "", "" }
-};
-static const VersionRangeDefinition kFlashVersionRange[] = {
-    { "", "", "10.1.102" }
+    { "13.0", "14.0", "13.3.0" }  // Snow Leopard
 };
 static const VersionRangeDefinition kSilverlightVersionRange[] = {
     { "0", "4", "3.0.50106.0" },
@@ -56,13 +61,12 @@ static const VersionRangeDefinition kShockwaveVersionRange[] = {
     { "",  "", "11.5.9.615" }
 };
 static const PluginGroupDefinition kGroupDefinitions[] = {
+  kFlashDefinition,
   { "apple-quicktime", "Quicktime", "QuickTime Plug-in", kQuicktimeVersionRange,
     arraysize(kQuicktimeVersionRange),
     "http://www.apple.com/quicktime/download/" },
   { "java-runtime-environment", "Java", "Java", kJavaVersionRange,
     arraysize(kJavaVersionRange), "http://support.apple.com/kb/HT1338" },
-  { "adobe-flash-player", "Flash", "Shockwave Flash", kFlashVersionRange,
-    arraysize(kFlashVersionRange), "http://get.adobe.com/flashplayer/" },
   { "silverlight", "Silverlight", "Silverlight", kSilverlightVersionRange,
     arraysize(kSilverlightVersionRange),
     "http://www.microsoft.com/getsilverlight/" },
@@ -88,9 +92,6 @@ static const VersionRangeDefinition kAdobeReaderVersionRange[] = {
     { "9", "10", "9.4.1" },
     { "0", "9", "8.2.5" }
 };
-static const VersionRangeDefinition kFlashVersionRange[] = {
-    { "", "", "10.1.102" }
-};
 static const VersionRangeDefinition kSilverlightVersionRange[] = {
     { "0", "4", "3.0.50106.0" },
     { "4", "5", "" }
@@ -102,6 +103,7 @@ static const VersionRangeDefinition kDivXVersionRange[] = {
     { "", "", "1.4.3.4" }
 };
 static const PluginGroupDefinition kGroupDefinitions[] = {
+  kFlashDefinition,
   { "apple-quicktime", "Quicktime", "QuickTime Plug-in", kQuicktimeVersionRange,
     arraysize(kQuicktimeVersionRange),
     "http://www.apple.com/quicktime/download/" },
@@ -110,8 +112,6 @@ static const PluginGroupDefinition kGroupDefinitions[] = {
   { "adobe-reader", PluginGroup::kAdobeReaderGroupName, "Adobe Acrobat",
     kAdobeReaderVersionRange, arraysize(kAdobeReaderVersionRange),
     "http://get.adobe.com/reader/" },
-  { "adobe-flash-player", "Flash", "Shockwave Flash", kFlashVersionRange,
-    arraysize(kFlashVersionRange), "http://get.adobe.com/flashplayer/" },
   { "silverlight", "Silverlight", "Silverlight", kSilverlightVersionRange,
     arraysize(kSilverlightVersionRange),
     "http://www.microsoft.com/getsilverlight/" },
@@ -135,7 +135,26 @@ static const PluginGroupDefinition kGroupDefinitions[] = {
 };
 
 #else
-static const PluginGroupDefinition kGroupDefinitions[] = {};
+static const VersionRangeDefinition kJavaVersionRange[] = {
+    { "0", "1.7", "1.6.0.22" }
+};
+
+static const VersionRangeDefinition kRedhatIcedTeaVersionRange[] = {
+    { "0", "1.9", "1.8.3" },
+    { "1.9", "1.10", "1.9.2" },
+};
+
+static const PluginGroupDefinition kGroupDefinitions[] = {
+  // Flash on Linux is significant because there isn't yet a built-in Flash
+  // plug-in on the Linux 64-bit version of Chrome.
+  kFlashDefinition,
+  { "java-runtime-environment", "Java 6", "Java", kJavaVersionRange,
+    arraysize(kJavaVersionRange),
+    "http://www.java.com/en/download/manual.jsp" },
+  { "redhat-icetea-java", "IcedTea", "IcedTea", kRedhatIcedTeaVersionRange,
+    arraysize(kRedhatIcedTeaVersionRange),
+    "http://www.linuxsecurity.com/content/section/3/170/" },
+};
 #endif
 
 // static
@@ -200,6 +219,31 @@ void PluginList::AddExtraPluginDir(const FilePath& plugin_dir) {
 void PluginList::RegisterInternalPlugin(const PluginVersionInfo& info) {
   AutoLock lock(lock_);
   internal_plugins_.push_back(info);
+}
+
+void PluginList::RegisterInternalPlugin(const FilePath& path) {
+  webkit::npapi::PluginVersionInfo info;
+  info.path = path;
+  memset(&info.entry_points, 0, sizeof(info.entry_points));
+  RegisterInternalPlugin(info);
+}
+
+void PluginList::RegisterInternalPlugin(const FilePath& filename,
+                                        const std::string& name,
+                                        const std::string& description,
+                                        const std::string& mime_type,
+                                        const PluginEntryPoints& entry_points) {
+  webkit::npapi::PluginVersionInfo info = {
+    filename,
+    ASCIIToWide(name),
+    ASCIIToWide(description),
+    L"1",
+    ASCIIToWide(mime_type),
+    L"",
+    L"",
+    entry_points
+  };
+  RegisterInternalPlugin(info);
 }
 
 void PluginList::UnregisterInternalPlugin(const FilePath& path) {
@@ -768,18 +812,8 @@ PluginList::~PluginList() {
 }
 
 void PluginList::Shutdown() {
-  // TODO
-  // Note: plugin_groups_ contains simple pointers of type PluginGroup*, but
-  // since this singleton lives until the process is destroyed, no explicit
-  // cleanup is necessary.
-  // However, when running on Valgrind, we need to do the cleanup to keep the
-  // memory tree green.
-#if defined(OS_POSIX)
-  if (RUNNING_ON_VALGRIND) {
-    STLDeleteContainerPairSecondPointers(plugin_groups_.begin(),
-                                         plugin_groups_.end());
-  }
-#endif
+  STLDeleteContainerPairSecondPointers(plugin_groups_.begin(),
+                                       plugin_groups_.end());
 }
 
 }  // namespace npapi

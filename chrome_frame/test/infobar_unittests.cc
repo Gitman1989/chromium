@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,10 +9,8 @@
 #include <atlwin.h>
 
 #include "base/string_number_conversions.h"
-#include "base/win_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/gmock/include/gmock/gmock.h"
-
 #include "chrome_frame/infobars/infobar_content.h"
 #include "chrome_frame/infobars/internal/displaced_window_manager.h"
 #include "chrome_frame/infobars/internal/host_window_manager.h"
@@ -210,7 +208,6 @@ template <typename WINDOW, typename DELEGATE> void ExpectNcCalcSizeSequence(
               OnSize(0, CSize(modified_rect->right - modified_rect->left,
                               modified_rect->bottom - modified_rect->top)))
     .Times(testing::Between(0, 1));
-
 }
 
 template <typename WINDOW, typename DELEGATE, typename MANAGER>
@@ -443,7 +440,7 @@ TEST(InfobarsInfobarWindowTest, SlidingTest) {
 
   // Used to verify that the last RECT given to SetDimensions is the same RECT
   // reserved by ReserveSpace.
-  RECT current_infobar_dimensions = {0, 0, 0, 0};  // Used to verify that the
+  RECT current_infobar_dimensions = {0, 0, 0, 0};
 
   // Used to make sure that each SetDimensions is matched by a return from
   // ReserveSpace.

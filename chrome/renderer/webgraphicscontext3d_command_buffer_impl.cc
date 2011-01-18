@@ -22,7 +22,7 @@
 #include "chrome/renderer/gpu_channel_host.h"
 #include "chrome/renderer/render_thread.h"
 #include "chrome/renderer/render_view.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebView.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 
 WebGraphicsContext3DCommandBufferImpl::WebGraphicsContext3DCommandBufferImpl()
     : context_(NULL),
@@ -116,6 +116,12 @@ bool WebGraphicsContext3DCommandBufferImpl::initialize(
         renderview->routing_id(),
         kWebGraphicsContext3DPerferredGLExtensions,
         attribs);
+    if (context_) {
+      ggl::SetSwapBuffersCallback(
+          context_,
+          NewCallback(this,
+                      &WebGraphicsContext3DCommandBufferImpl::OnSwapBuffers));
+    }
   } else {
     bool compositing_enabled = !CommandLine::ForCurrentProcess()->HasSwitch(
         switches::kDisableAcceleratedCompositing);
@@ -1026,6 +1032,14 @@ void WebGraphicsContext3DCommandBufferImpl::copyTextureToCompositor(
   makeContextCurrent();
   glCopyTextureToParentTextureCHROMIUM(texture, parentTexture);
   glFlush();
+}
+
+void WebGraphicsContext3DCommandBufferImpl::OnSwapBuffers() {
+  // This may be called after tear-down of the RenderView.
+  RenderView* renderview =
+      web_view_ ? RenderView::FromWebView(web_view_) : NULL;
+  if (renderview)
+    renderview->DidFlushPaint();
 }
 
 #endif  // defined(ENABLE_GPU)

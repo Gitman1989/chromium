@@ -6,29 +6,65 @@
 # Please don't directly include this file if you are building via gyp_chromium,
 # since gyp_chromium is automatically forcing its inclusion.
 {
+  # Variables expected to be overriden on the GYP command line (-D) or by
+  # ~/.gyp/include.gypi.
   'variables': {
-    # .gyp files or targets should set chromium_code to 1 if they build
-    # Chromium-specific code, as opposed to external code.  This variable is
-    # used to control such things as the set of warnings to enable, and
-    # whether warnings are treated as errors.
-    'chromium_code%': 0,
-
-    'internal_pdf%': 0,
-
-    # This allows to use libcros from the current system, ie. /usr/lib/
-    # The cros_api will be pulled in as a static library, and all headers
-    # from the system include dirs.
-    'system_libcros%': '0',
-
-    # Variables expected to be overriden on the GYP command line (-D) or by
-    # ~/.gyp/include.gypi.
-
     # Putting a variables dict inside another variables dict looks kind of
-    # weird.  This is done so that "branding" and "buildtype" are defined as
+    # weird.  This is done so that 'host_arch', 'chromeos', etc are defined as
     # variables within the outer variables dict here.  This is necessary
     # to get these variables defined for the conditions within this variables
-    # dict that operate on these variables.
+    # dict that operate on these variables (e.g., for setting 'toolkit_views',
+    # we need to have 'chromeos' already set).
     'variables': {
+      'variables': {
+        'variables': {
+          # Whether we're building a ChromeOS build.
+          'chromeos%': 0,
+
+          # Disable touch support by default.
+          'touchui%': 0,
+        },
+        # Copy conditionally-set variables out one scope.
+        'chromeos%': '<(chromeos)',
+        'touchui%': '<(touchui)',
+
+        # To do a shared build on linux we need to be able to choose between
+        # type static_library and shared_library. We default to doing a static
+        # build but you can override this with "gyp -Dlibrary=shared_library"
+        # or you can add the following line (without the #) to
+        # ~/.gyp/include.gypi {'variables': {'library': 'shared_library'}}
+        # to compile as shared by default
+        'library%': 'static_library',
+
+        # Compute the architecture that we're building on.
+        'conditions': [
+          [ 'OS=="linux" or OS=="freebsd" or OS=="openbsd"', {
+            # This handles the Linux platforms we generally deal with. Anything
+            # else gets passed through, which probably won't work very well; such
+            # hosts should pass an explicit target_arch to gyp.
+            'host_arch%':
+              '<!(uname -m | sed -e "s/i.86/ia32/;s/x86_64/x64/;s/amd64/x64/;s/arm.*/arm/")',
+          }, {  # OS!="linux"
+            'host_arch%': 'ia32',
+          }],
+
+          # Set default value of toolkit_views on for Windows, Chrome OS
+          # and the touch UI.
+          ['OS=="win" or chromeos==1 or touchui==1', {
+            'toolkit_views%': 1,
+          }, {
+            'toolkit_views%': 1,
+          }],
+        ],
+      },
+
+      # Copy conditionally-set variables out one scope.
+      'chromeos%': '<(chromeos)',
+      'touchui%': '<(touchui)',
+      'host_arch%': '<(host_arch)',
+      'library%': '<(library)',
+      'toolkit_views%': '<(toolkit_views)',
+
       # Override branding to select the desired branding flavor.
       'branding%': 'Chromium',
 
@@ -42,76 +78,9 @@
       # builds).
       'buildtype%': 'Dev',
 
-      'variables': {
-        # Compute the architecture that we're building on.
-        'conditions': [
-          [ 'OS=="linux" or OS=="freebsd" or OS=="openbsd"', {
-            # This handles the Linux platforms we generally deal with. Anything
-            # else gets passed through, which probably won't work very well; such
-            # hosts should pass an explicit target_arch to gyp.
-            'host_arch%':
-              '<!(uname -m | sed -e "s/i.86/ia32/;s/x86_64/x64/;s/amd64/x64/;s/arm.*/arm/")',
-          }, {  # OS!="linux"
-            'host_arch%': 'ia32',
-          }],
-        ],
-
-        # Whether we're building a ChromeOS build.  We set the initial
-        # value at this level of nesting so it's available for the
-        # toolkit_views test below.
-        'chromeos%': '0',
-
-        # Disable touch support by default.
-        'touchui%': 0,
-
-        # To do a shared build on linux we need to be able to choose between
-        # type static_library and shared_library. We default to doing a static
-        # build but you can override this with "gyp -Dlibrary=shared_library"
-        # or you can add the following line (without the #) to
-        # ~/.gyp/include.gypi {'variables': {'library': 'shared_library'}}
-        # to compile as shared by default
-        'library%': 'static_library',
-      },
-
-      # We set those at this level of nesting so the values are available for
-      # other conditionals below.
-      'conditions': [
-        # Set default value of toolkit_views on for Windows, Chrome OS
-        # and the touch UI.
-        ['OS=="win" or chromeos==1 or touchui==1', {
-          'toolkit_views%': 1,
-        }, {
-          'toolkit_views%': 1,
-        }],
-
-        # A flag to enable or disable our compile-time dependency
-        # on gnome-keyring. If that dependency is disabled, no gnome-keyring
-        # support will be available. This option is useful
-        # for Linux distributions.
-        ['chromeos==1', {
-          'use_gnome_keyring%': 0,
-        }, {
-          'use_gnome_keyring%': 1,
-        }],
-
-        # Set to 1 compile with -fPIC cflag on linux. This is a must for shared
-        # libraries on linux x86-64 and arm.
-        ['host_arch=="ia32"', {
-          'linux_fpic%': 0,
-        }, {
-          'linux_fpic%': 1,
-        }],
-      ],
-
-      'host_arch%': '<(host_arch)',
-
       # Default architecture we're building for is the architecture we're
       # building on.
       'target_arch%': '<(host_arch)',
-
-      # Copy conditionally-set variables out one scope.
-      'chromeos%': '<(chromeos)',
-      'touchui%': '<(touchui)',
 
       # This variable tells WebCore.gyp and JavaScriptCore.gyp whether they are
       # are built under a chromium full build (1) or a webkit.org chromium
@@ -137,13 +106,8 @@
       # On Linux, we build with sse2 for Chromium builds.
       'disable_sse2%': 0,
 
-      # Remoting compilation is enabled by default. Set to 0 to disable.
-      'remoting%': 1,
-
       # Use libjpeg-turbo as the JPEG codec used by Chromium.
       'use_libjpeg_turbo%': 0,
-
-      'library%': '<(library)',
 
       # Variable 'component' is for cases where we would like to build some
       # components as dynamic shared libraries but still need variable
@@ -151,10 +115,47 @@
       # By default, component is set to whatever library is set to and
       # it can be overriden by the GYP command line or by ~/.gyp/include.gypi.
       'component%': '<(library)',
+
+      # Set to select the Title Case versions of strings in GRD files.
+      'use_titlecase_in_grd_files%': 0,
+
+      # Remoting compilation is enabled by default. Set to 0 to disable.
+      'remoting%': 1,
+
+      'conditions': [
+        # A flag to enable or disable our compile-time dependency
+        # on gnome-keyring. If that dependency is disabled, no gnome-keyring
+        # support will be available. This option is useful
+        # for Linux distributions.
+        ['chromeos==1', {
+          'use_gnome_keyring%': 0,
+        }, {
+          'use_gnome_keyring%': 1,
+        }],
+
+        # Set to 1 compile with -fPIC cflag on linux. This is a must for shared
+        # libraries on linux x86-64 and arm.
+        ['host_arch=="ia32"', {
+          'linux_fpic%': 0,
+        }, {
+          'linux_fpic%': 1,
+        }],
+
+        ['toolkit_views==0 or OS=="mac"', {
+          # GTK+ and Mac wants Title Case strings
+          'use_titlecase_in_grd_files%': 1,
+        }],
+
+        # Enable some hacks to support Flapper only on Chrome OS.
+        ['chromeos==1', {
+          'enable_flapper_hacks%': 1,
+        }, {
+          'enable_flapper_hacks%': 0,
+        }],
+      ],
     },
 
-    # Define branding and buildtype on the basis of their settings within the
-    # variables sub-dict above, unless overridden.
+    # Copy conditionally-set variables out one scope.
     'branding%': '<(branding)',
     'buildtype%': '<(buildtype)',
     'target_arch%': '<(target_arch)',
@@ -162,6 +163,7 @@
     'toolkit_views%': '<(toolkit_views)',
     'use_gnome_keyring%': '<(use_gnome_keyring)',
     'linux_fpic%': '<(linux_fpic)',
+    'enable_flapper_hacks%': '<(enable_flapper_hacks)',
     'chromeos%': '<(chromeos)',
     'touchui%': '<(touchui)',
     'inside_chromium_build%': '<(inside_chromium_build)',
@@ -171,9 +173,10 @@
     'arm_neon%': '<(arm_neon)',
     'sysroot%': '<(sysroot)',
     'disable_sse2%': '<(disable_sse2)',
-    'remoting%': '<(remoting)',
     'library%': '<(library)',
     'component%': '<(component)',
+    'use_titlecase_in_grd_files%': '<(use_titlecase_in_grd_files)',
+    'remoting%': '<(remoting)',
 
     # The release channel that this build targets. This is used to restrict
     # channel-specific build options, like which installer packages to create.
@@ -250,6 +253,9 @@
     # but that doesn't work as we'd like.
     'msvs_debug_link_incremental%': '2',
 
+    # Needed for some of the largest modules.
+    'msvs_debug_link_nonincremental%': '1',
+
     # This is the location of the sandbox binary. Chrome looks for this before
     # running the zygote process. If found, and SUID, it will be used to
     # sandbox the zygote process and, thus, all renderer processes.
@@ -293,9 +299,6 @@
     # Set to 1 to link against libgnome-keyring instead of using dlopen().
     'linux_link_gnome_keyring%': 0,
 
-    # Set to select the Title Case versions of strings in GRD files.
-    'use_titlecase_in_grd_files%': 0,
-
     # Used to disable Native Client at compile time, for platforms where it
     # isn't supported
     'disable_nacl%': 0,
@@ -323,6 +326,37 @@
     # Use OpenSSL instead of NSS. Under development: see http://crbug.com/62803
     'use_openssl%': 0,
 
+    # .gyp files or targets should set chromium_code to 1 if they build
+    # Chromium-specific code, as opposed to external code.  This variable is
+    # used to control such things as the set of warnings to enable, and
+    # whether warnings are treated as errors.
+    'chromium_code%': 0,
+
+    # Set to 1 to compile with the built in pdf viewer.
+    'internal_pdf%': 0,
+
+    # This allows to use libcros from the current system, ie. /usr/lib/
+    # The cros_api will be pulled in as a static library, and all headers
+    # from the system include dirs.
+    'system_libcros%': 0,
+
+    # NOTE: When these end up in the Mac bundle, we need to replace '-' for '_'
+    # so Cocoa is happy (http://crbug.com/20441).
+    'locales': [
+      'am', 'ar', 'bg', 'bn', 'ca', 'cs', 'da', 'de', 'el', 'en-GB',
+      'en-US', 'es-419', 'es', 'et', 'fa', 'fi', 'fil', 'fr', 'gu', 'he',
+      'hi', 'hr', 'hu', 'id', 'it', 'ja', 'kn', 'ko', 'lt', 'lv',
+      'ml', 'mr', 'nb', 'nl', 'pl', 'pt-BR', 'pt-PT', 'ro', 'ru',
+      'sk', 'sl', 'sr', 'sv', 'sw', 'ta', 'te', 'th', 'tr', 'uk',
+      'vi', 'zh-CN', 'zh-TW',
+    ],
+
+    'grit_defines': [],
+
+    # Use Harfbuzz-NG instead of Harfbuzz.
+    # Under development: http://crbug.com/68551
+    'use_harfbuzz_ng%': 0,
+
     'conditions': [
       ['OS=="linux" or OS=="freebsd" or OS=="openbsd"', {
         # This will set gcc_version to XY if you are running gcc X.Y.*.
@@ -339,15 +373,10 @@
           ['(branding=="Chrome" and buildtype=="Official")', {
             'linux_dump_symbols%': 1,
           }],
-          ['toolkit_views==0', {
-            # GTK wants Title Case strings
-            'use_titlecase_in_grd_files%': 1,
-          }],
         ],
       }],  # OS=="linux" or OS=="freebsd" or OS=="openbsd"
+
       ['OS=="mac"', {
-        # Mac wants Title Case strings
-        'use_titlecase_in_grd_files%': 1,
         'conditions': [
           # mac_product_name is set to the name of the .app bundle as it should
           # appear on disk.  This duplicates data from
@@ -372,6 +401,7 @@
           }],
         ],
       }],  # OS=="mac"
+
       # Whether to use multiple cores to compile with visual studio. This is
       # optional because it sometimes causes corruption on VS 2005.
       # It is on by default on VS 2008 and off on VS 2005.
@@ -398,11 +428,13 @@
           'NACL_WIN64',
         ],
       }],
+
       ['OS=="mac" or (OS=="linux" and chromeos==0 and target_arch!="arm")', {
         'use_cups%': 1,
       }, {
         'use_cups%': 0,
       }],
+
       # Set the relative path from this file to the GYP file of the JPEG
       # library used by Chromium.
       ['use_libjpeg_turbo==1', {
@@ -410,17 +442,23 @@
       }, {
         'libjpeg_gyp_path': '../third_party/libjpeg/libjpeg.gyp',
       }],  # use_libjpeg_turbo==1
-    ],
 
-    # NOTE: When these end up in the Mac bundle, we need to replace '-' for '_'
-    # so Cocoa is happy (http://crbug.com/20441).
-    'locales': [
-      'am', 'ar', 'bg', 'bn', 'ca', 'cs', 'da', 'de', 'el', 'en-GB',
-      'en-US', 'es-419', 'es', 'et', 'fa', 'fi', 'fil', 'fr', 'gu', 'he',
-      'hi', 'hr', 'hu', 'id', 'it', 'ja', 'kn', 'ko', 'lt', 'lv',
-      'ml', 'mr', 'nb', 'nl', 'pl', 'pt-BR', 'pt-PT', 'ro', 'ru',
-      'sk', 'sl', 'sr', 'sv', 'sw', 'ta', 'te', 'th', 'tr', 'uk',
-      'vi', 'zh-CN', 'zh-TW',
+      # Setup -D flags passed into grit.
+      ['chromeos==1', {
+        'grit_defines': ['-D', 'chromeos'],
+      }],
+      ['toolkit_views==1', {
+        'grit_defines': ['-D', 'toolkit_views'],
+      }],
+      ['touchui==1', {
+        'grit_defines': ['-D', 'touchui'],
+      }],
+      ['remoting==1', {
+        'grit_defines': ['-D', 'remoting'],
+      }],
+      ['use_titlecase_in_grd_files==1', {
+        'grit_defines': ['-D', 'use_titlecase'],
+      }],
     ],
   },
   'target_defaults': {
@@ -490,6 +528,9 @@
       }],
       ['proprietary_codecs==1', {
         'defines': ['USE_PROPRIETARY_CODECS'],
+      }],
+      ['enable_flapper_hacks==1', {
+        'defines': ['ENABLE_FLAPPER_HACKS=1'],
       }],
       ['fastbuild!=0', {
         'conditions': [
@@ -1095,13 +1136,8 @@
           }],
           ['clang==1', {
             'cflags': [
-              # Don't warn about unused variables, due to a common pattern:
-              #   scoped_deleter unused_variable(&thing_to_delete);
-              '-Wno-unused-variable',
               # Clang spots more unused functions.
               '-Wno-unused-function',
-              # gtest confuses clang.
-              '-Wno-bool-conversions',
               # Don't die on dtoa code that uses a char as an array index.
               '-Wno-char-subscripts',
               # Survive EXPECT_EQ(unnamed_enum, unsigned int) -- see
@@ -1344,6 +1380,7 @@
           'VCLinkerTool': {
             'AdditionalDependencies': [
               'wininet.lib',
+              'dnsapi.lib',
               'version.lib',
               'msimg32.lib',
               'ws2_32.lib',

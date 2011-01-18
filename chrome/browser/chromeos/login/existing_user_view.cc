@@ -33,13 +33,13 @@ class UserEntryTextfield : public TextfieldWithMargin {
 
   // Overridden from views::View:
   virtual bool OnKeyPressed(const views::KeyEvent& e) {
-    if (e.GetKeyCode() == app::VKEY_TAB) {
+    if (e.GetKeyCode() == ui::VKEY_TAB) {
       controller_->SelectUserRelative(e.IsShiftDown() ? -1 : 1);
       return true;
-    } else if (e.GetKeyCode() == app::VKEY_LEFT) {
+    } else if (e.GetKeyCode() == ui::VKEY_LEFT) {
       controller_->SelectUserRelative(-1);
       return true;
-    } else if (e.GetKeyCode() == app::VKEY_RIGHT) {
+    } else if (e.GetKeyCode() == ui::VKEY_RIGHT) {
       controller_->SelectUserRelative(1);
       return true;
     } else {
@@ -48,7 +48,7 @@ class UserEntryTextfield : public TextfieldWithMargin {
   }
 
   virtual bool SkipDefaultKeyEventProcessing(const views::KeyEvent& e) {
-    if (e.GetKeyCode() == app::VKEY_TAB)
+    if (e.GetKeyCode() == ui::VKEY_TAB)
       return true;
     else
       return views::Textfield::SkipDefaultKeyEventProcessing(e);
@@ -65,7 +65,7 @@ ExistingUserView::ExistingUserView(UserController* user_controller)
     : user_controller_(user_controller),
       password_field_(NULL),
       accel_login_off_the_record_(
-        views::Accelerator(app::VKEY_B, false, false, true)),
+        views::Accelerator(ui::VKEY_B, false, false, true)),
       accel_toggle_accessibility_(
           WizardAccessibilityHelper::GetAccelerator()) {
   AddAccelerator(accel_login_off_the_record_);
@@ -102,10 +102,9 @@ bool ExistingUserView::AcceleratorPressed(
   return false;
 }
 
-bool ExistingUserView::HandleKeystroke(
-    views::Textfield* sender,
-    const views::Textfield::Keystroke& keystroke) {
-  if (keystroke.GetKeyboardCode() == app::VKEY_RETURN) {
+bool ExistingUserView::HandleKeyEvent(views::Textfield* sender,
+                                      const views::KeyEvent& key_event) {
+  if (key_event.GetKeyCode() == ui::VKEY_RETURN) {
     if (!password_field_->text().empty())
       user_controller_->OnLogin("", UTF16ToUTF8(password_field_->text()));
   } else {
@@ -117,6 +116,8 @@ bool ExistingUserView::HandleKeystroke(
 
 void ExistingUserView::ContentsChanged(views::Textfield* sender,
                                        const string16& new_contents) {
+  if (!new_contents.empty())
+    user_controller_->ClearErrors();
 }
 
 void ExistingUserView::EnableInputControls(bool enabled) {

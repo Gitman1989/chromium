@@ -1,16 +1,15 @@
-// Copyright (c) 2006-2008 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/options/fonts_languages_window_view.h"
+#include "chrome/browser/ui/views/options/fonts_languages_window_view.h"
 
 #include "app/l10n_util.h"
-#include "chrome/browser/prefs/pref_service.h"
+#include "base/utf_string_conversions.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/views/options/fonts_page_view.h"
-#include "chrome/browser/views/options/languages_page_view.h"
+#include "chrome/browser/ui/views/options/fonts_page_view.h"
+#include "chrome/browser/ui/views/options/languages_page_view.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/common/pref_names.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
@@ -49,7 +48,8 @@ bool FontsLanguagesWindowView::Accept() {
 // FontsLanguagesWindowView, views::WindowDelegate implementation:
 
 std::wstring FontsLanguagesWindowView::GetWindowTitle() const {
-  return l10n_util::GetString(IDS_FONT_LANGUAGE_SETTING_WINDOWS_TITLE);
+  return UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_FONT_LANGUAGE_SETTING_WINDOWS_TITLE));
 }
 
 void FontsLanguagesWindowView::WindowClosing() {
@@ -109,12 +109,12 @@ void FontsLanguagesWindowView::Init() {
   AddChildView(tabs_);
 
   fonts_page_ = new FontsPageView(profile_);
-  tabs_->AddTab(l10n_util::GetString(
-      IDS_FONT_LANGUAGE_SETTING_FONT_TAB_TITLE), fonts_page_);
+  tabs_->AddTab(UTF16ToWide(l10n_util::GetStringUTF16(
+      IDS_FONT_LANGUAGE_SETTING_FONT_TAB_TITLE)), fonts_page_);
 
   languages_page_ = new LanguagesPageView(profile_);
-  tabs_->AddTab(l10n_util::GetString(
-      IDS_FONT_LANGUAGE_SETTING_LANGUAGES_TAB_TITLE), languages_page_);
+  tabs_->AddTab(UTF16ToWide(l10n_util::GetStringUTF16(
+      IDS_FONT_LANGUAGE_SETTING_LANGUAGES_TAB_TITLE)), languages_page_);
 }
 
 void ShowFontsLanguagesWindow(gfx::NativeWindow window,

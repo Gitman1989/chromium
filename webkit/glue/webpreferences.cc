@@ -6,12 +6,12 @@
 
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebRuntimeFeatures.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebKit.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSettings.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebString.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURL.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebView.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebRuntimeFeatures.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSettings.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURL.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "webkit/glue/webkit_glue.h"
 
 using WebKit::WebRuntimeFeatures;
@@ -64,7 +64,9 @@ WebPreferences::WebPreferences()
       show_composited_layer_borders(false),
       accelerated_compositing_enabled(false),
       accelerated_layers_enabled(false),
+      accelerated_video_enabled(false),
       accelerated_2d_canvas_enabled(false),
+      accelerated_plugins_enabled(false),
       memory_info_enabled(false) {
 }
 
@@ -156,15 +158,17 @@ void WebPreferences::Apply(WebView* web_view) const {
   settings->setAccelerated2dCanvasEnabled(accelerated_2d_canvas_enabled);
 
   // Enabling accelerated layers from the command line enabled accelerated
-  // 3D CSS, Video, Plugins, and Animations.
+  // 3D CSS, Video, and Animations.
   settings->setAcceleratedCompositingFor3DTransformsEnabled(
       accelerated_layers_enabled);
   settings->setAcceleratedCompositingForVideoEnabled(
-      accelerated_layers_enabled);
-  settings->setAcceleratedCompositingForPluginsEnabled(
-      accelerated_layers_enabled);
+      accelerated_video_enabled);
   settings->setAcceleratedCompositingForAnimationEnabled(
       accelerated_layers_enabled);
+
+  // Enabling accelerated plugins if specified from the command line.
+  settings->setAcceleratedCompositingForPluginsEnabled(
+      accelerated_plugins_enabled);
 
   // WebGL and accelerated 2D canvas are always gpu composited.
   settings->setAcceleratedCompositingForCanvasEnabled(

@@ -18,27 +18,23 @@
 #include "base/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "net/base/net_util.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebAnimationController.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebBindings.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebConsoleMessage.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDeviceOrientation.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDeviceOrientationClientMock.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDocument.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebElement.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
-#if defined(ENABLE_CLIENT_BASED_GEOLOCATION)
-#include "third_party/WebKit/WebKit/chromium/public/WebGeolocationClientMock.h"
-#else
-#include "third_party/WebKit/WebKit/chromium/public/WebGeolocationServiceMock.h"
-#endif
-#include "third_party/WebKit/WebKit/chromium/public/WebKit.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebScriptSource.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSecurityPolicy.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSettings.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSize.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSpeechInputControllerMock.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURL.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebView.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebAnimationController.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebBindings.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebConsoleMessage.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDeviceOrientation.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDeviceOrientationClientMock.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebElement.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebGeolocationClientMock.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebScriptSource.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSecurityPolicy.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSettings.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSize.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSpeechInputControllerMock.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURL.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "webkit/glue/dom_operations.h"
 #include "webkit/glue/webkit_glue.h"
 #include "webkit/glue/webpreferences.h"
@@ -61,10 +57,6 @@ using WebKit::WebSecurityPolicy;
 using WebKit::WebSize;
 using WebKit::WebString;
 using WebKit::WebURL;
-
-#if !defined(ENABLE_CLIENT_BASED_GEOLOCATION)
-using WebKit::WebGeolocationServiceMock;
-#endif
 
 TestShell* LayoutTestController::shell_ = NULL;
 // Most of these flags need to be cleared in Reset() so that they get turned
@@ -1500,12 +1492,8 @@ void LayoutTestController::setGeolocationPermission(const CppArgumentList& args,
                                                     CppVariant* result) {
   if (args.size() < 1 || !args[0].isBool())
     return;
-#if defined(ENABLE_CLIENT_BASED_GEOLOCATION)
   shell_->geolocation_client_mock()->setPermission(
       args[0].ToBoolean());
-#else
-  shell_->delegate()->SetGeolocationPermission(args[0].ToBoolean());
-#endif
 }
 
 void LayoutTestController::setMockGeolocationPosition(
@@ -1513,26 +1501,16 @@ void LayoutTestController::setMockGeolocationPosition(
   if (args.size() < 3 ||
       !args[0].isNumber() || !args[1].isNumber() || !args[2].isNumber())
     return;
-#if defined(ENABLE_CLIENT_BASED_GEOLOCATION)
   shell_->geolocation_client_mock()->setPosition(
       args[0].ToDouble(), args[1].ToDouble(), args[2].ToDouble());
-#else
-  WebGeolocationServiceMock::setMockGeolocationPosition(
-      args[0].ToDouble(), args[1].ToDouble(), args[2].ToDouble());
-#endif
 }
 
 void LayoutTestController::setMockGeolocationError(const CppArgumentList& args,
                                                    CppVariant* result) {
   if (args.size() < 2 || !args[0].isNumber() || !args[1].isString())
     return;
-#if defined(ENABLE_CLIENT_BASED_GEOLOCATION)
   shell_->geolocation_client_mock()->setError(
       args[0].ToInt32(), WebString::fromUTF8(args[1].ToString()));
-#else
-  WebGeolocationServiceMock::setMockGeolocationError(
-      args[0].ToInt32(), WebString::fromUTF8(args[1].ToString()));
-#endif
 }
 
 void LayoutTestController::markerTextForListItem(const CppArgumentList& args,

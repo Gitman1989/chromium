@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,12 +9,12 @@
 #include <map>
 #include <vector>
 
-#include "app/keyboard_codes.h"
 #include "base/scoped_ptr.h"
 #include "base/singleton.h"
 #include "chrome/browser/chromeos/login/wizard_accessibility_handler.h"
-#include "chrome/browser/views/accessible_view_helper.h"
+#include "chrome/browser/ui/views/accessible_view_helper.h"
 #include "chrome/common/notification_registrar.h"
+#include "ui/base/keycodes/keyboard_codes.h"
 
 class Profile;
 namespace views {

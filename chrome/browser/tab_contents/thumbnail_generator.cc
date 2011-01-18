@@ -23,7 +23,7 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 
 #if defined(OS_WIN)
-#include "app/win_util.h"
+#include "app/win/win_util.h"
 #endif
 
 // Overview
@@ -172,6 +172,45 @@ void ThumbnailGenerator::StartThumbnailing() {
   }
 }
 
+void ThumbnailGenerator::MonitorRenderer(RenderWidgetHost* renderer,
+                                         bool monitor) {
+  Source<RenderWidgetHost> renderer_source = Source<RenderWidgetHost>(renderer);
+  bool currently_monitored =
+      registrar_.IsRegistered(
+        this,
+        NotificationType::RENDER_WIDGET_HOST_WILL_DESTROY_BACKING_STORE,
+        renderer_source);
+  if (monitor |= currently_monitored) {
+    if (monitor) {
+      registrar_.Add(
+          this,
+          NotificationType::RENDER_WIDGET_HOST_WILL_DESTROY_BACKING_STORE,
+          renderer_source);
+      registrar_.Add(
+          this,
+          NotificationType::RENDER_WIDGET_HOST_DID_UPDATE_BACKING_STORE,
+          renderer_source);
+      registrar_.Add(
+          this,
+          NotificationType::RENDER_WIDGET_HOST_DID_RECEIVE_PAINT_AT_SIZE_ACK,
+          renderer_source);
+    } else {
+      registrar_.Remove(
+          this,
+          NotificationType::RENDER_WIDGET_HOST_WILL_DESTROY_BACKING_STORE,
+          renderer_source);
+      registrar_.Remove(
+          this,
+          NotificationType::RENDER_WIDGET_HOST_DID_UPDATE_BACKING_STORE,
+          renderer_source);
+      registrar_.Remove(
+          this,
+          NotificationType::RENDER_WIDGET_HOST_DID_RECEIVE_PAINT_AT_SIZE_ACK,
+          renderer_source);
+    }
+  }
+}
+
 void ThumbnailGenerator::AskForSnapshot(RenderWidgetHost* renderer,
                                         bool prefer_backing_store,
                                         ThumbnailReadyCallback* callback,
@@ -205,7 +244,7 @@ void ThumbnailGenerator::AskForSnapshot(RenderWidgetHost* renderer,
   // Duplicate the handle to the DIB here because the renderer process does not
   // have permission. The duplicated handle is owned by the renderer process,
   // which is responsible for closing it.
-  TransportDIB::Handle renderer_dib_handle = win_util::GetSectionForProcess(
+  TransportDIB::Handle renderer_dib_handle = app::win::GetSectionForProcess(
       thumbnail_dib->handle(),
       renderer->process()->GetHandle(),
       false);
@@ -356,7 +395,7 @@ void ThumbnailGenerator::Observe(NotificationType type,
     case NotificationType::RENDER_VIEW_HOST_CREATED_FOR_TAB: {
       // Install our observer for all new RVHs.
       RenderViewHost* renderer = Details<RenderViewHost>(details).ptr();
-      renderer->set_painting_observer(this);
+      MonitorRenderer(renderer, true);
       break;
     }
 
@@ -370,6 +409,26 @@ void ThumbnailGenerator::Observe(NotificationType type,
     case NotificationType::RENDER_WIDGET_HOST_DESTROYED:
       WidgetDestroyed(Source<RenderWidgetHost>(source).ptr());
       break;
+
+    case NotificationType::RENDER_WIDGET_HOST_WILL_DESTROY_BACKING_STORE:
+      WidgetWillDestroyBackingStore(
+          Source<RenderWidgetHost>(source).ptr(),
+          Details<BackingStore>(details).ptr());
+      break;
+
+    case NotificationType::RENDER_WIDGET_HOST_DID_UPDATE_BACKING_STORE:
+      WidgetDidUpdateBackingStore(Source<RenderWidgetHost>(source).ptr());
+      break;
+
+    case NotificationType::RENDER_WIDGET_HOST_DID_RECEIVE_PAINT_AT_SIZE_ACK: {
+      RenderWidgetHost::PaintAtSizeAckDetails* size_ack_details =
+          Details<RenderWidgetHost::PaintAtSizeAckDetails>(details).ptr();
+      WidgetDidReceivePaintAtSizeAck(
+          Source<RenderWidgetHost>(source).ptr(),
+          size_ack_details->tag,
+          size_ack_details->size);
+      break;
+    }
 
     case NotificationType::TAB_CONTENTS_DISCONNECTED:
       TabContentsDisconnected(Source<TabContents>(source).ptr());

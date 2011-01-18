@@ -4,7 +4,6 @@
 
 #import "chrome/browser/ui/cocoa/browser_window_controller_private.h"
 
-#include "base/mac_util.h"
 #import "base/scoped_nsobject.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/prefs/pref_service.h"
@@ -13,10 +12,9 @@
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/tab_contents/tab_contents_view.h"
 #include "chrome/browser/themes/browser_theme_provider.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #import "chrome/browser/ui/cocoa/fast_resize_view.h"
-#import "chrome/browser/ui/cocoa/find_bar_cocoa_controller.h"
+#import "chrome/browser/ui/cocoa/find_bar/find_bar_cocoa_controller.h"
 #import "chrome/browser/ui/cocoa/floating_bar_backing_view.h"
 #import "chrome/browser/ui/cocoa/framed_browser_window.h"
 #import "chrome/browser/ui/cocoa/fullscreen_controller.h"

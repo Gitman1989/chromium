@@ -9,7 +9,7 @@
 #include <string>
 
 #include "base/basictypes.h"
-#include "base/platform_thread.h"
+#include "base/threading/platform_thread.h"
 #include "base/time.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome_frame/test/chrome_frame_test_utils.h"
@@ -165,6 +165,12 @@ ACTION_P2(AccDoDefaultActionInBrowser, mock, matcher) {
 }
 
 ACTION_P2(AccDoDefaultActionInRenderer, mock, matcher) {
+  AccInWindow<void>(AccDoDefaultAction(matcher),
+                    mock->event_sink()->GetRendererWindow());
+}
+
+ACTION_P3(DelayAccDoDefaultActionInRenderer, mock, matcher, delay) {
+  SleepEx(delay, false);
   AccInWindow<void>(AccDoDefaultAction(matcher),
                     mock->event_sink()->GetRendererWindow());
 }
@@ -341,7 +347,7 @@ ACTION_P(VerifySelectedText, expected_text) {
 ACTION_P3(CloseWhenFileSaved, mock, file, timeout_ms) {
   base::Time start = base::Time::Now();
   while (!file_util::PathExists(file)) {
-    PlatformThread::Sleep(200);
+    base::PlatformThread::Sleep(200);
     if ((base::Time::Now() - start).InMilliseconds() > timeout_ms) {
       ADD_FAILURE() << "File was not saved within timeout";
       break;
@@ -353,7 +359,7 @@ ACTION_P3(CloseWhenFileSaved, mock, file, timeout_ms) {
 ACTION_P2(WaitForFileSave, file, timeout_ms) {
   base::Time start = base::Time::Now();
   while (!file_util::PathExists(file)) {
-    PlatformThread::Sleep(200);
+    base::PlatformThread::Sleep(200);
     if ((base::Time::Now() - start).InMilliseconds() > timeout_ms) {
       ADD_FAILURE() << "File was not saved within timeout";
       break;

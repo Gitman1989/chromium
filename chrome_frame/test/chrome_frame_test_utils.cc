@@ -1,28 +1,25 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome_frame/test/chrome_frame_test_utils.h"
 
-#include <atlbase.h>
-#include <atlwin.h>
+#include <atlapp.h>
+#include <atlmisc.h>
 #include <iepmapi.h>
 #include <sddl.h>
 
-#include "app/clipboard/clipboard.h"
-#include "app/clipboard/scoped_clipboard_writer.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/file_version_info.h"
 #include "base/path_service.h"
 #include "base/process_util.h"
-#include "base/scoped_handle.h"
 #include "base/scoped_ptr.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
-#include "base/win_util.h"
 #include "base/win/registry.h"
+#include "base/win/scoped_handle.h"
 #include "base/win/windows_version.h"
 #include "ceee/ie/common/ceee_util.h"
 #include "chrome/common/chrome_switches.h"
@@ -30,6 +27,8 @@
 #include "chrome/common/chrome_paths_internal.h"
 #include "chrome_frame/utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/clipboard/clipboard.h"
+#include "ui/base/clipboard/scoped_clipboard_writer.h"
 
 namespace chrome_frame_test {
 
@@ -96,7 +95,8 @@ int CloseVisibleWindowsOnAllThreads(HANDLE process) {
     return 0;
   }
 
-  ScopedHandle snapshot(CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0));
+  base::win::ScopedHandle snapshot(
+      CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0));
   if (!snapshot.IsValid()) {
     NOTREACHED();
     return 0;
@@ -310,7 +310,7 @@ BOOL LowIntegrityToken::Impersonate() {
     return ok;
   }
 
-  ScopedHandle process_token(process_token_handle);
+  base::win::ScopedHandle process_token(process_token_handle);
   // Create impersonation low integrity token.
   HANDLE impersonation_token_handle = NULL;
   ok = ::DuplicateTokenEx(process_token,
@@ -323,7 +323,7 @@ BOOL LowIntegrityToken::Impersonate() {
 
   // TODO(stoyan): sandbox/src/restricted_token_utils.cc has
   // SetTokenIntegrityLevel function already.
-  ScopedHandle impersonation_token(impersonation_token_handle);
+  base::win::ScopedHandle impersonation_token(impersonation_token_handle);
   PSID integrity_sid = NULL;
   TOKEN_MANDATORY_LABEL tml = {0};
   ok = ::ConvertStringSidToSid(SDDL_ML_LOW, &integrity_sid);
@@ -489,16 +489,16 @@ std::wstring GetPathAndQueryFromUrl(const std::wstring& url) {
 }
 
 std::wstring GetClipboardText() {
-  Clipboard clipboard;
+  ui::Clipboard clipboard;
   string16 text16;
-  clipboard.ReadText(Clipboard::BUFFER_STANDARD, &text16);
+  clipboard.ReadText(ui::Clipboard::BUFFER_STANDARD, &text16);
   return UTF16ToWide(text16);
 }
 
 void SetClipboardText(const std::wstring& text) {
-  Clipboard clipboard;
+  ui::Clipboard clipboard;
   {
-    ScopedClipboardWriter clipboard_writer(&clipboard);
+    ui::ScopedClipboardWriter clipboard_writer(&clipboard);
     clipboard_writer.WriteText(WideToUTF16(text));
   }
 }
@@ -541,7 +541,7 @@ CloseIeAtEndOfScope::~CloseIeAtEndOfScope() {
 bool DetectRunningCrashService(int timeout_ms) {
   // Wait for the crash_service.exe to be ready for clients.
   base::Time start = base::Time::Now();
-  ScopedHandle new_pipe;
+  base::win::ScopedHandle new_pipe;
 
   while (true) {
     new_pipe.Set(::CreateFile(kCrashServicePipeName,
@@ -565,8 +565,8 @@ bool DetectRunningCrashService(int timeout_ms) {
         // Wait a bit longer
         break;
       default:
-        DLOG(WARNING) << "Unexpected error while checking crash_service.exe's "
-                      << "pipe: " << win_util::FormatLastWin32Error();
+        DPLOG(WARNING) << "Unexpected error while checking crash_service.exe's "
+                       << "pipe.";
         // Go ahead and wait in case it clears up.
         break;
     }

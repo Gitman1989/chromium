@@ -18,10 +18,27 @@ CapturingNetLog::Entry::Entry(EventType type,
 CapturingNetLog::Entry::~Entry() {}
 
 CapturingNetLog::CapturingNetLog(size_t max_num_entries)
-    : last_id_(-1), max_num_entries_(max_num_entries) {
+    : last_id_(-1),
+      max_num_entries_(max_num_entries),
+      log_level_(LOG_ALL_BUT_BYTES) {
 }
 
 CapturingNetLog::~CapturingNetLog() {}
+
+void CapturingNetLog::GetEntries(EntryList* entry_list) const {
+  AutoLock lock(lock_);
+  *entry_list = entries_;
+}
+
+void CapturingNetLog::Clear() {
+  AutoLock lock(lock_);
+  entries_.clear();
+}
+
+void CapturingNetLog::SetLogLevel(NetLog::LogLevel log_level) {
+  AutoLock lock(lock_);
+  log_level_ = log_level;
+}
 
 void CapturingNetLog::AddEntry(EventType type,
                                const base::TimeTicks& time,
@@ -39,17 +56,8 @@ uint32 CapturingNetLog::NextID() {
 }
 
 NetLog::LogLevel CapturingNetLog::GetLogLevel() const {
-  return LOG_ALL_BUT_BYTES;
-}
-
-void CapturingNetLog::GetEntries(EntryList* entry_list) const {
   AutoLock lock(lock_);
-  *entry_list = entries_;
-}
-
-void CapturingNetLog::Clear() {
-  AutoLock lock(lock_);
-  entries_.clear();
+  return log_level_;
 }
 
 CapturingBoundNetLog::CapturingBoundNetLog(const NetLog::Source& source,
@@ -69,6 +77,10 @@ void CapturingBoundNetLog::GetEntries(
 
 void CapturingBoundNetLog::Clear() {
   capturing_net_log_->Clear();
+}
+
+void CapturingBoundNetLog::SetLogLevel(NetLog::LogLevel log_level) {
+  capturing_net_log_->SetLogLevel(log_level);
 }
 
 }  // namespace net

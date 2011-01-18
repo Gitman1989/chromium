@@ -1,8 +1,8 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/location_bar/location_bar_view.h"
+#include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 
 #if defined(OS_LINUX)
 #include <gtk/gtk.h>
@@ -12,6 +12,7 @@
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
 #include "app/theme_provider.h"
+#include "base/command_line.h"
 #include "base/stl_util-inl.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
@@ -36,6 +37,7 @@
 #include "chrome/browser/ui/views/location_bar/page_action_with_badge_view.h"
 #include "chrome/browser/ui/views/location_bar/selected_keyword_view.h"
 #include "chrome/browser/ui/views/location_bar/star_view.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/notification_service.h"
 #include "gfx/canvas_skia.h"
 #include "gfx/color_utils.h"
@@ -47,7 +49,7 @@
 
 #if defined(OS_WIN)
 #include "chrome/browser/ui/views/location_bar/suggested_text_view.h"
-#include "chrome/browser/views/first_run_bubble.h"
+#include "chrome/browser/ui/views/first_run_bubble.h"
 #endif
 
 using views::View;
@@ -67,7 +69,7 @@ const int LocationBarView::kExtensionItemPadding = 5;
 const int LocationBarView::kEdgeItemPadding = kItemPadding;
 const int LocationBarView::kBubblePadding = 1;
 const char LocationBarView::kViewClassName[] =
-    "browser/views/location_bar/LocationBarView";
+    "browser/ui/views/location_bar/LocationBarView";
 
 static const int kEVBubbleBackgroundImages[] = {
   IDR_OMNIBOX_EV_BUBBLE_BACKGROUND_L,
@@ -162,30 +164,16 @@ void LocationBarView::Init() {
       GetWidget()->GetNativeView(), profile_, command_updater_,
       mode_ == POPUP, this));
 #else
-  location_entry_.reset(new AutocompleteEditViewGtk(this, model_, profile_,
-      command_updater_, mode_ == POPUP, this));
-  location_entry_->Init();
-  // Make all the children of the widget visible. NOTE: this won't display
-  // anything, it just toggles the visible flag.
-  gtk_widget_show_all(location_entry_->GetNativeView());
-  // Hide the widget. NativeViewHostGtk will make it visible again as
-  // necessary.
-  gtk_widget_hide(location_entry_->GetNativeView());
-
-  // Associate an accessible name with the location entry.
-  accessible_widget_helper_.reset(new AccessibleWidgetHelper(
-      location_entry_->text_view(), profile_));
-  accessible_widget_helper_->SetWidgetName(
-      location_entry_->text_view(),
-      l10n_util::GetStringUTF8(IDS_ACCNAME_LOCATION));
+  location_entry_.reset(
+      AutocompleteEditViewGtk::Create(
+          this, model_, profile_,
+          command_updater_, mode_ == POPUP, this));
 #endif
-  location_entry_view_ = new views::NativeViewHost;
+
+  location_entry_view_ = location_entry_->AddToView(this);
   location_entry_view_->SetID(VIEW_ID_AUTOCOMPLETE);
-  AddChildView(location_entry_view_);
-  location_entry_view_->set_focus_view(this);
-  location_entry_view_->Attach(location_entry_->GetNativeView());
   location_entry_view_->SetAccessibleName(
-      l10n_util::GetString(IDS_ACCNAME_LOCATION));
+      l10n_util::GetStringUTF16(IDS_ACCNAME_LOCATION));
 
   selected_keyword_view_ = new SelectedKeywordView(
       kSelectedKeywordBackgroundImages, IDR_KEYWORD_SEARCH_MAGNIFIER,
@@ -221,7 +209,7 @@ void LocationBarView::Init() {
   // AutocompleteEditView to close its popup.
   SetNotifyWhenVisibleBoundsInRootChanges(true);
 
-  SetAccessibleName(l10n_util::GetString(IDS_ACCNAME_LOCATION));
+  SetAccessibleName(l10n_util::GetStringUTF16(IDS_ACCNAME_LOCATION));
 
   // Initialize the location entry. We do this to avoid a black flash which is
   // visible when the location entry has just been initialized.
@@ -784,17 +772,13 @@ bool LocationBarView::OnCommitSuggestedText(const std::wstring& typed_text) {
   InstantController* instant = delegate_->GetInstant();
   if (!instant)
     return false;
-
+  std::wstring suggestion;
 #if defined(OS_WIN)
   if (!HasValidSuggestText())
     return false;
-  location_entry_->model()->FinalizeInstantQuery(
-      typed_text,
-      suggested_text_view_->GetText());
-  return true;
-#else
-  return location_entry_->CommitInstantSuggestion();
+  suggestion = suggested_text_view_->GetText();
 #endif
+  return location_entry_->CommitInstantSuggestion(typed_text, suggestion);
 }
 
 bool LocationBarView::AcceptCurrentInstantPreview() {
@@ -845,7 +829,8 @@ void LocationBarView::OnAutocompleteAccept(
     }
   }
 
-  if (delegate_->GetInstant())
+  if (delegate_->GetInstant() &&
+      !location_entry_->model()->popup_model()->IsOpen())
     delegate_->GetInstant()->DestroyPreviewContents();
 
   update_instant_ = true;
@@ -1140,6 +1125,18 @@ void LocationBarView::ShowFirstRunBubble(FirstRun::BubbleType bubble_type) {
 }
 
 void LocationBarView::SetSuggestedText(const string16& input) {
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kInstantAutocompleteImmediately)) {
+    // This method is internally invoked to reset suggest text, so we only do
+    // anything if the text isn't empty.
+    // TODO: if we keep autocomplete, make it so this isn't invoked with empty
+    // text.
+    if (!input.empty()) {
+      location_entry_->model()->FinalizeInstantQuery(location_entry_->GetText(),
+                                                     UTF16ToWide(input));
+    }
+    return;
+  }
 #if defined(OS_WIN)
   // Don't show the suggested text if inline autocomplete is prevented.
   string16 text = location_entry_->model()->UseVerbatimInstant() ?
@@ -1169,7 +1166,7 @@ void LocationBarView::SetSuggestedText(const string16& input) {
   Layout();
   SchedulePaint();
 #else
-  location_entry_->SetInstantSuggestion(UTF16ToUTF8(input));
+  location_entry_->SetInstantSuggestion(input);
 #endif
 }
 

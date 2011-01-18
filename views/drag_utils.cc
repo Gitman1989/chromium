@@ -4,7 +4,6 @@
 
 #include "views/drag_utils.h"
 
-#include "app/os_exchange_data.h"
 #include "app/resource_bundle.h"
 #include "base/file_util.h"
 #include "base/logging.h"
@@ -13,7 +12,10 @@
 #include "gfx/font.h"
 #include "googleurl/src/gurl.h"
 #include "grit/app_resources.h"
+#include "ui/base/dragdrop/os_exchange_data.h"
 #include "views/controls/button/text_button.h"
+
+using ui::OSExchangeData;
 
 namespace drag_utils {
 
@@ -53,7 +55,7 @@ void SetURLAndDragImage(const GURL& url,
       gfx::Point(prefsize.width() / 2, prefsize.height() / 2), data);
 }
 
-void CreateDragImageForFile(const FilePath::StringType& file_name,
+void CreateDragImageForFile(const FilePath& file_name,
                             SkBitmap* icon,
                             OSExchangeData* data_object) {
   DCHECK(icon);
@@ -72,16 +74,15 @@ void CreateDragImageForFile(const FilePath::StringType& file_name,
   // Paint the icon.
   canvas.DrawBitmapInt(*icon, (width - icon->width()) / 2, 0);
 
+  std::wstring name = file_name.BaseName().ToWStringHack();
 #if defined(OS_WIN)
   // Paint the file name. We inset it one pixel to allow room for the halo.
-  std::wstring name = file_util::GetFilenameFromPath(file_name);
   canvas.DrawStringWithHalo(name, font, kFileDragImageTextColor, SK_ColorWHITE,
                             1, icon->height() + kLinkDragImageVPadding + 1,
                             width - 2, font.GetHeight(),
                             gfx::Canvas::TEXT_ALIGN_CENTER);
 #else
-  std::wstring name = FilePath(file_name).BaseName().ToWStringHack();
-  canvas.DrawStringInt(name, font, kFileDragImageTextColor,
+  canvas.DrawStringInt(WideToUTF16Hack(name), font, kFileDragImageTextColor,
                        0, icon->height() + kLinkDragImageVPadding,
                        width, font.GetHeight(), gfx::Canvas::TEXT_ALIGN_CENTER);
 #endif

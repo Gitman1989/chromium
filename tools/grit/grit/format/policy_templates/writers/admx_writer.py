@@ -1,4 +1,4 @@
-# Copyright (c) 2010 The Chromium Authors. All rights reserved.
+# Copyright (c) 2011 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -6,12 +6,12 @@ from xml.dom import minidom
 from grit.format.policy_templates.writers import xml_formatted_writer
 
 
-def GetWriter(config, messages):
+def GetWriter(config):
   '''Factory method for instanciating the ADMXWriter. Every Writer needs a
   GetWriter method because the TemplateFormatter uses this method to
   instantiate a Writer.
   '''
-  return ADMXWriter(['win'], config, messages)
+  return ADMXWriter(['win'], config)
 
 
 class ADMXWriter(xml_formatted_writer.XMLFormattedWriter):
@@ -158,10 +158,22 @@ class ADMXWriter(xml_formatted_writer.XMLFormattedWriter):
     }
     self.AddElement(parent, 'text', attributes)
 
-  def _AddEnumPolicy(self, parent, name, items):
+  def _AddIntPolicy(self, parent, name):
+    '''Generates ADMX elements for an Int-Policy and adds them to the passed
+    parent node.
+    '''
+    attributes = {
+      'id': name,
+      'valueName': name,
+    }
+    self.AddElement(parent, 'decimal', attributes)
+
+  def _AddEnumPolicy(self, parent, policy):
     '''Generates ADMX elements for an Enum-Policy and adds them to the
     passed parent element.
     '''
+    name = policy['name']
+    items = policy['items']
     attributes = {
       'id': name,
       'valueName': name,
@@ -172,7 +184,11 @@ class ADMXWriter(xml_formatted_writer.XMLFormattedWriter):
       item_elem = self.AddElement(enum_elem, 'item', attributes)
       value_elem = self.AddElement(item_elem, 'value')
       attributes = {'value': str(item['value'])}
-      self.AddElement(value_elem, 'decimal', attributes)
+      if policy['type'] == 'int-enum':
+        element_type = 'decimal'
+      else:
+        element_type = 'string'
+      self.AddElement(value_elem, element_type, attributes)
 
   def _AddListPolicy(self, parent, name):
     '''Generates ADMX XML elements for a List-Policy and adds them to the
@@ -249,9 +265,12 @@ class ADMXWriter(xml_formatted_writer.XMLFormattedWriter):
     elif policy_type == 'string':
       parent = self._GetElements(policy_elem)
       self._AddStringPolicy(parent, policy_name)
-    elif policy_type == 'enum':
+    elif policy_type == 'int':
       parent = self._GetElements(policy_elem)
-      self._AddEnumPolicy(parent, policy_name, policy['items'])
+      self._AddIntPolicy(parent, policy_name)
+    elif policy_type in ('int-enum', 'string-enum'):
+      parent = self._GetElements(policy_elem)
+      self._AddEnumPolicy(parent, policy)
     elif policy_type == 'list':
       parent = self._GetElements(policy_elem)
       self._AddListPolicy(parent, policy_name)

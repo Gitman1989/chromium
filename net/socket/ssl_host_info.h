@@ -14,6 +14,7 @@
 #include "net/base/cert_verifier.h"
 #include "net/base/cert_verify_result.h"
 #include "net/base/completion_callback.h"
+#include "net/base/dnsrr_resolver.h"
 #include "net/socket/ssl_client_socket.h"
 
 namespace net {
@@ -55,6 +56,9 @@ class SSLHostInfo {
   // only be called once WaitForDataReady has returned OK or called its
   // callback.
   virtual void Persist() = 0;
+
+  // StartDnsLookup triggers a DNS lookup for the host.
+  void StartDnsLookup(DnsRRResolver* dnsrr_resolver);
 
   struct State {
     State();
@@ -102,6 +106,12 @@ class SSLHostInfo {
     return verification_end_time_;
   }
 
+  // set_cert_verification_finished_time allows the SSL socket to tell us when
+  // it finished verifing the certificate. If the DNS request hasn't finished
+  // by this time then we record how long we would have had to have waited for
+  // it.
+  void set_cert_verification_finished_time();
+
  protected:
   // Parse parses an opaque blob of data and fills out the public member fields
   // of this object. It returns true iff the parse was successful. The public
@@ -119,6 +129,10 @@ class SSLHostInfo {
   // ParseInner is a helper function for Parse.
   bool ParseInner(const std::string& data);
 
+  // DnsComplete is a callback function which is called when our DNS resolution
+  // completes.
+  void DnsComplete(int rv);
+
   // This is the hostname that we'll validate the certificates against.
   const std::string hostname_;
   bool cert_parsing_failed_;
@@ -132,6 +146,13 @@ class SSLHostInfo {
   SingleRequestCertVerifier verifier_;
   scoped_refptr<X509Certificate> cert_;
   scoped_refptr<CancelableCompletionCallback<SSLHostInfo> > callback_;
+
+  DnsRRResolver* dnsrr_resolver_;
+  CompletionCallback* dns_callback_;
+  DnsRRResolver::Handle dns_handle_;
+  RRResponse dns_response_;
+  base::TimeTicks dns_lookup_start_time_;
+  base::TimeTicks cert_verification_finished_time_;
 };
 
 class SSLHostInfoFactory {

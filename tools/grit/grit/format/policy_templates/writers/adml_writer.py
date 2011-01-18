@@ -1,4 +1,4 @@
-# Copyright (c) 2010 The Chromium Authors. All rights reserved.
+# Copyright (c) 2011 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -6,12 +6,12 @@ from xml.dom import minidom
 from grit.format.policy_templates.writers import xml_formatted_writer
 
 
-def GetWriter(config, messages):
+def GetWriter(config):
   '''Factory method for instanciating the ADMLWriter. Every Writer needs a
   GetWriter method because the TemplateFormatter uses this method to
   instantiate a Writer.
   '''
-  return ADMLWriter(['win'], config, messages)
+  return ADMLWriter(['win'], config)
 
 
 class ADMLWriter(xml_formatted_writer.XMLFormattedWriter):
@@ -77,7 +77,7 @@ class ADMLWriter(xml_formatted_writer.XMLFormattedWriter):
     self._AddString(self._string_table_elem, policy_name, policy_caption)
     self._AddString(self._string_table_elem, policy_name + '_Explain',
                     policy_description)
-    presentation_elem  = self.AddElement(
+    presentation_elem = self.AddElement(
         self._presentation_table_elem, 'presentation', {'id': policy_name})
 
     if policy_type == 'main':
@@ -87,7 +87,12 @@ class ADMLWriter(xml_formatted_writer.XMLFormattedWriter):
                                      {'refId': policy_name})
       label_elem = self.AddElement(textbox_elem, 'label')
       label_elem.appendChild(self._doc.createTextNode(policy_label))
-    elif policy_type == 'enum':
+    elif policy_type == 'int':
+      textbox_elem = self.AddElement(presentation_elem, 'decimalTextBox',
+                                     {'refId': policy_name})
+      label_elem = self.AddElement(textbox_elem, 'label')
+      label_elem.appendChild(self._doc.createTextNode(policy_label))
+    elif policy_type in ('int-enum', 'string-enum'):
       for item in policy['items']:
         self._AddString(self._string_table_elem, item['name'], item['caption'])
       dropdownlist_elem = self.AddElement(presentation_elem, 'dropdownList',
@@ -127,7 +132,7 @@ class ADMLWriter(xml_formatted_writer.XMLFormattedWriter):
     the ADMX file but not related to any specific Policy-Group or Policy.
     '''
     self._AddString(string_table_elem, self.config['win_supported_os'],
-                    self.messages[self.config['win_supported_os_msg']])
+                    self.messages['win_supported_winxpsp2']['text'])
     if build == 'chrome':
       self._AddString(string_table_elem, self.config['win_category_path'][0],
                       'Google')

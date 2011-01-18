@@ -1,15 +1,15 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #import "chrome/browser/ui/cocoa/web_drag_source.h"
 
+#include "app/mac/nsimage_cache.h"
 #include "base/file_path.h"
-#include "base/nsimage_cache_mac.h"
 #include "base/string_util.h"
 #include "base/sys_string_conversions.h"
 #include "base/task.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/download/download_manager.h"
@@ -240,7 +240,7 @@ void PromiseWriterTask::Run() {
     position.y -= [dragImage_.get() size].height - imageOffset_.y;
   }
   // Per kwebster, offset arg is ignored, see -_web_DragImageForElement: in
-  // third_party/WebKit/WebKit/mac/Misc/WebNSViewExtras.m.
+  // third_party/WebKit/Source/WebKit/mac/Misc/WebNSViewExtras.m.
   [window dragImage:[self dragImage]
                  at:position
              offset:NSZeroSize
@@ -257,7 +257,9 @@ void PromiseWriterTask::Run() {
     rvh->DragSourceSystemDragEnded();
 
     // Convert |screenPoint| to view coordinates and flip it.
-    NSPoint localPoint = [self convertScreenPoint:screenPoint];
+    NSPoint localPoint = NSMakePoint(0, 0);
+    if ([contentsView_ window])
+      localPoint = [self convertScreenPoint:screenPoint];
     NSRect viewFrame = [contentsView_ frame];
     localPoint.y = viewFrame.size.height - localPoint.y;
     // Flip |screenPoint|.
@@ -277,7 +279,9 @@ void PromiseWriterTask::Run() {
   RenderViewHost* rvh = [contentsView_ tabContents]->render_view_host();
   if (rvh) {
     // Convert |screenPoint| to view coordinates and flip it.
-    NSPoint localPoint = [self convertScreenPoint:screenPoint];
+    NSPoint localPoint = NSMakePoint(0, 0);
+    if ([contentsView_ window])
+      localPoint = [self convertScreenPoint:screenPoint];
     NSRect viewFrame = [contentsView_ frame];
     localPoint.y = viewFrame.size.height - localPoint.y;
     // Flip |screenPoint|.
@@ -406,7 +410,7 @@ void PromiseWriterTask::Run() {
     return dragImage_;
 
   // Default to returning a generic image.
-  return nsimage_cache::ImageNamed(@"nav.pdf");
+  return app::mac::GetCachedImageWithName(@"nav.pdf");
 }
 
 @end  // @implementation WebDragSource (Private)

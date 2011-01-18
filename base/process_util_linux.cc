@@ -22,7 +22,7 @@
 #include "base/string_tokenizer.h"
 #include "base/string_util.h"
 #include "base/sys_info.h"
-#include "base/thread_restrictions.h"
+#include "base/threading/thread_restrictions.h"
 
 namespace {
 
@@ -220,8 +220,7 @@ bool ProcessIterator::CheckForNextProcess() {
 }
 
 bool NamedProcessIterator::IncludeEntry() {
-  // TODO(port): make this also work for non-ASCII filenames
-  if (WideToASCII(executable_name_) != entry().exe_file())
+  if (executable_name_ != entry().exe_file())
     return false;
   return ProcessIterator::IncludeEntry();
 }

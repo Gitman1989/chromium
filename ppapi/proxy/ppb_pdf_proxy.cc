@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,10 +11,10 @@
 #include "base/linked_ptr.h"
 #include "base/logging.h"
 #include "build/build_config.h"
+#include "ppapi/c/private/ppb_pdf.h"
 #include "ppapi/proxy/plugin_dispatcher.h"
 #include "ppapi/proxy/plugin_resource.h"
 #include "ppapi/proxy/ppapi_messages.h"
-#include "webkit/plugins/ppapi/ppb_pdf.h"
 
 namespace pp {
 namespace proxy {
@@ -57,7 +57,7 @@ std::string* PrivateFontFile::AddFontTable(uint32_t table,
 namespace {
 
 PP_Resource GetFontFileWithFallback(
-    PP_Module module_id,
+    PP_Instance instance,
     const PP_FontDescription_Dev* description,
     PP_PrivateFontCharset charset) {
   PluginDispatcher* dispatcher = PluginDispatcher::Get();
@@ -66,7 +66,7 @@ PP_Resource GetFontFileWithFallback(
 
   PP_Resource result = 0;
   dispatcher->Send(new PpapiHostMsg_PPBPDF_GetFontFileWithFallback(
-      INTERFACE_ID_PPB_PDF, module_id, desc, charset, &result));
+      INTERFACE_ID_PPB_PDF, instance, desc, charset, &result));
   if (!result)
     return 0;
 
@@ -125,24 +125,27 @@ InterfaceID PPB_PDF_Proxy::GetInterfaceId() const {
   return INTERFACE_ID_PPB_PDF;
 }
 
-void PPB_PDF_Proxy::OnMessageReceived(const IPC::Message& msg) {
+bool PPB_PDF_Proxy::OnMessageReceived(const IPC::Message& msg) {
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(PPB_PDF_Proxy, msg)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBPDF_GetFontFileWithFallback,
                         OnMsgGetFontFileWithFallback)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBPDF_GetFontTableForPrivateFontFile,
                         OnMsgGetFontTableForPrivateFontFile)
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   // TODO(brettw): handle bad messages!
+  return handled;
 }
 
 void PPB_PDF_Proxy::OnMsgGetFontFileWithFallback(
-    PP_Module module,
+    PP_Instance instance,
     const SerializedFontDescription& in_desc,
     int32_t charset,
     PP_Resource* result) {
   PP_FontDescription_Dev desc;
   in_desc.SetToPPFontDescription(dispatcher(), &desc, false);
-  *result = ppb_pdf_target()->GetFontFileWithFallback(module, &desc,
+  *result = ppb_pdf_target()->GetFontFileWithFallback(instance, &desc,
       static_cast<PP_PrivateFontCharset>(charset));
 }
 

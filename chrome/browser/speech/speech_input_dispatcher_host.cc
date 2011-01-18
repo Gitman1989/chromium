@@ -122,7 +122,8 @@ bool SpeechInputDispatcherHost::OnMessageReceived(
     const IPC::Message& message, bool* message_was_ok) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   bool handled = true;
-  IPC_BEGIN_MESSAGE_MAP_EX(SpeechInputDispatcherHost, message, *message_was_ok)
+  IPC_BEGIN_MESSAGE_MAP_EX(SpeechInputDispatcherHost, message,
+                           *message_was_ok)
     IPC_MESSAGE_HANDLER(ViewHostMsg_SpeechInput_StartRecognition,
                         OnStartRecognition)
     IPC_MESSAGE_HANDLER(ViewHostMsg_SpeechInput_CancelRecognition,

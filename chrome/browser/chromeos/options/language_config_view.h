@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,9 +10,10 @@
 #include <set>
 #include <string>
 
-#include "app/table_model.h"
+#include "base/compiler_specific.h"
 #include "chrome/browser/chromeos/options/language_config_model.h"
-#include "chrome/browser/views/options/options_page_view.h"
+#include "chrome/browser/ui/views/options/options_page_view.h"
+#include "ui/base/models/table_model.h"
 #include "views/controls/button/native_button.h"
 #include "views/controls/combobox/combobox.h"
 #include "views/controls/label.h"
@@ -28,7 +29,7 @@ class InputMethodCheckbox;
 class PreferredLanguageTableModel;
 
 // A dialog box for configuring the languages.
-class LanguageConfigView : public TableModel,
+class LanguageConfigView : public ui::TableModel,
                            public views::ButtonListener,
                            public views::Combobox::Listener,
                            public views::DialogDelegate,
@@ -64,9 +65,9 @@ class LanguageConfigView : public TableModel,
   // LanguageConfigView class, rather than a separate class.
   // TODO(satorux): Implement TableModel as a separate class once the bug
   // is fixed.
-  virtual std::wstring GetText(int row, int column_id);
-  virtual void SetObserver(TableModelObserver* observer);
-  virtual int RowCount();
+  virtual string16 GetText(int row, int column_id) OVERRIDE;
+  virtual void SetObserver(ui::TableModelObserver* observer) OVERRIDE;
+  virtual int RowCount() OVERRIDE;
 
   // views::Combobox::Listener overrides:
   virtual void ItemChanged(views::Combobox* combobox,

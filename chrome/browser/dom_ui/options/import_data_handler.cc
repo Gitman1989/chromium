@@ -4,6 +4,8 @@
 
 #include "chrome/browser/dom_ui/options/import_data_handler.h"
 
+#include <string>
+
 #include "app/l10n_util.h"
 #include "base/basictypes.h"
 #include "base/callback.h"
@@ -11,10 +13,9 @@
 #include "base/string16.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
-#include "base/thread_restrictions.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
-#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"

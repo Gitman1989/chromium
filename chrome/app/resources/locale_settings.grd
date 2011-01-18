@@ -525,11 +525,6 @@
         http://tools.google.com/chrome/intl/[GRITLANGCODE]/welcome.html
       </message>
 
-      <!-- The URL for the "Learn more" page for the usage/crash reporting option in the first run dialog. -->
-      <message name="IDS_LEARN_MORE_REPORTING_URL" translateable="false">
-        http://www.google.com/support/chrome/bin/answer.py?answer=96817&amp;hl=[GRITLANGCODE]
-      </message>
-
       <!-- The width and height of the bookmark manager in characters and lines -->
       <!-- (See above). -->
       <message name="IDS_BOOKMARK_MANAGER_DIALOG_WIDTH_CHARS" use_name_for_id="true">
@@ -542,11 +537,6 @@
       <!-- The language dependent download view size. -->
       <message name="IDS_DOWNLOAD_BIG_PROGRESS_SIZE" use_name_for_id="true">
         52
-      </message>
-
-      <!-- The URL for Chromium project used in About dialog. -->
-      <message name="IDS_CHROMIUM_PROJECT_URL" translateable="false">
-        http://code.google.com/chromium/?hl=[GRITLANGCODE]
       </message>
 
       <!-- The URL for the themes gallery. -->
@@ -675,7 +665,7 @@
 
       <!-- The height of the AutoFill edit Credit Card dialog in lines. -->
       <message name="IDS_AUTOFILL_DIALOG_EDIT_CCARD_HEIGHT_LINES" use_name_for_id="true">
-        9
+        10
       </message>
 
       <!-- The width and height of the Content Settings Exceptions dialog box in -->

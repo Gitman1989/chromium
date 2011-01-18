@@ -16,6 +16,7 @@
 
 namespace net {
 
+class CryptoModule;
 class X509Certificate;
 typedef std::vector<scoped_refptr<X509Certificate> > CertificateList;
 
@@ -29,6 +30,17 @@ typedef std::vector<scoped_refptr<X509Certificate> > CertificateList;
 
 class CertDatabase {
  public:
+  // Stores per-certificate error codes for import failures.
+  struct ImportCertFailure {
+   public:
+    ImportCertFailure(X509Certificate* cert, int err);
+    ~ImportCertFailure();
+
+    scoped_refptr<X509Certificate> certificate;
+    int net_error;
+  };
+  typedef std::vector<ImportCertFailure> ImportCertFailureList;
+
   // Constants that define which usages a certificate is trusted for.
   // They are used in combination with CertType to specify trust for each type
   // of certificate.
@@ -44,17 +56,6 @@ class CertDatabase {
     TRUSTED_EMAIL    = 1 << 1,
     TRUSTED_OBJ_SIGN = 1 << 2,
   };
-
-  // Stores per-certificate error codes for import failures.
-  struct ImportCertFailure {
-   public:
-    ImportCertFailure(X509Certificate* cert, int err);
-    ~ImportCertFailure();
-
-    scoped_refptr<X509Certificate> certificate;
-    int net_error;
-  };
-  typedef std::vector<ImportCertFailure> ImportCertFailureList;
 
   CertDatabase();
 
@@ -72,10 +73,16 @@ class CertDatabase {
   // instance of all certificates.)
   void ListCerts(CertificateList* certs);
 
-  // Import certificates and private keys from PKCS #12 blob.
+  // Get the default module.
+  // The returned pointer must be stored in a scoped_refptr<CryptoModule>.
+  CryptoModule* GetDefaultModule() const;
+
+  // Import certificates and private keys from PKCS #12 blob into the module.
   // Returns OK or a network error code such as ERR_PKCS12_IMPORT_BAD_PASSWORD
   // or ERR_PKCS12_IMPORT_ERROR.
-  int ImportFromPKCS12(const std::string& data, const string16& password);
+  int ImportFromPKCS12(net::CryptoModule* module,
+                       const std::string& data,
+                       const string16& password);
 
   // Export the given certificates and private keys into a PKCS #12 blob,
   // storing into |output|.

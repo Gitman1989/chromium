@@ -8,7 +8,6 @@
 
 #include "app/drag_drop_types.h"
 #include "app/l10n_util.h"
-#include "app/tree_node_iterator.h"
 #include "base/basictypes.h"
 #include "base/file_path.h"
 #include "base/string_number_conversions.h"
@@ -36,9 +35,10 @@
 #include "grit/generated_resources.h"
 #include "net/base/net_util.h"
 #include "views/event.h"
+#include "ui/base/models/tree_node_iterator.h"
 
 #if defined(TOOLKIT_VIEWS)
-#include "app/os_exchange_data.h"
+#include "ui/base/dragdrop/os_exchange_data.h"
 #include "views/drag_utils.h"
 #include "views/widget/root_view.h"
 #include "views/widget/widget.h"
@@ -325,7 +325,7 @@ void DragBookmarks(Profile* profile,
 
 #if defined(TOOLKIT_VIEWS)
   // Set up our OLE machinery
-  OSExchangeData data;
+  ui::OSExchangeData data;
   BookmarkNodeData drag_data(nodes);
   drag_data.Write(profile, &data);
 
@@ -441,7 +441,7 @@ std::vector<const BookmarkNode*> GetMostRecentlyModifiedGroups(
     BookmarkModel* model,
     size_t max_count) {
   std::vector<const BookmarkNode*> nodes;
-  TreeNodeIterator<const BookmarkNode> iterator(model->root_node());
+  ui::TreeNodeIterator<const BookmarkNode> iterator(model->root_node());
   while (iterator.has_next()) {
     const BookmarkNode* parent = iterator.Next();
     if (parent->is_folder() && parent->date_group_modified() > base::Time()) {
@@ -479,7 +479,7 @@ std::vector<const BookmarkNode*> GetMostRecentlyModifiedGroups(
 void GetMostRecentlyAddedEntries(BookmarkModel* model,
                                  size_t count,
                                  std::vector<const BookmarkNode*>* nodes) {
-  TreeNodeIterator<const BookmarkNode> iterator(model->root_node());
+  ui::TreeNodeIterator<const BookmarkNode> iterator(model->root_node());
   while (iterator.has_next()) {
     const BookmarkNode* node = iterator.Next();
     if (node->is_url()) {
@@ -510,7 +510,7 @@ void GetBookmarksContainingText(BookmarkModel* model,
   if (words.empty())
     return;
 
-  TreeNodeIterator<const BookmarkNode> iterator(model->root_node());
+  ui::TreeNodeIterator<const BookmarkNode> iterator(model->root_node());
   while (iterator.has_next()) {
     const BookmarkNode* node = iterator.Next();
     if (node->is_url() && DoesBookmarkContainWords(node, words, languages)) {

@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -17,7 +17,7 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
-#include "chrome/browser/views/window.h"
+#include "chrome/browser/ui/views/window.h"
 #include "gfx/canvas_skia.h"
 #include "gfx/skbitmap_operations.h"
 #include "grit/generated_resources.h"
@@ -82,8 +82,8 @@ const int NetworkMenu::kBarsImagesVLowData[kNumBarsImages] = {
 
 NetworkMenu::NetworkMenu()
     : min_width_(-1) {
-  use_settings_ui_ = CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kEnableTabbedOptions);
+  use_settings_ui_ = !CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kDisableTabbedOptions);
   network_menu_.reset(NetworkMenuUI::CreateMenu2(this));
 }
 
@@ -270,13 +270,13 @@ bool NetworkMenu::ConnectToNetworkAt(int index,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// NetworkMenu, menus::MenuModel implementation:
+// NetworkMenu, ui::MenuModel implementation:
 
 int NetworkMenu::GetItemCount() const {
   return static_cast<int>(menu_items_.size());
 }
 
-menus::MenuModel::ItemType NetworkMenu::GetTypeAt(int index) const {
+ui::MenuModel::ItemType NetworkMenu::GetTypeAt(int index) const {
   return menu_items_[index].type;
 }
 
@@ -291,7 +291,7 @@ const gfx::Font* NetworkMenu::GetLabelFontAt(int index) const {
 }
 
 bool NetworkMenu::IsItemCheckedAt(int index) const {
-  // All menus::MenuModel::TYPE_CHECK menu items are checked.
+  // All ui::MenuModel::TYPE_CHECK menu items are checked.
   return true;
 }
 
@@ -505,7 +505,7 @@ void NetworkMenu::InitMenuItems() {
     if (ethernet_connecting || ethernet_connected)
       flag |= FLAG_ASSOCIATED;
     menu_items_.push_back(
-        MenuItem(menus::MenuModel::TYPE_COMMAND, label,
+        MenuItem(ui::MenuModel::TYPE_COMMAND, label,
                  IconForDisplay(icon, badge), std::string(), flag));
   }
 
@@ -546,7 +546,7 @@ void NetworkMenu::InitMenuItems() {
           && wifi_networks[i]->service_path() == active_wifi->service_path())
         flag |= FLAG_ASSOCIATED;
       menu_items_.push_back(
-          MenuItem(menus::MenuModel::TYPE_COMMAND, label,
+          MenuItem(ui::MenuModel::TYPE_COMMAND, label,
                    IconForDisplay(icon, badge),
                    wifi_networks[i]->service_path(), flag));
     }
@@ -607,7 +607,7 @@ void NetworkMenu::InitMenuItems() {
       if (isActive)
         flag |= FLAG_ASSOCIATED;
       menu_items_.push_back(
-          MenuItem(menus::MenuModel::TYPE_COMMAND, label,
+          MenuItem(ui::MenuModel::TYPE_COMMAND, label,
                    IconForDisplay(icon, badge),
                    cell_networks[i]->service_path(), flag));
       if (isActive) {
@@ -622,7 +622,7 @@ void NetworkMenu::InitMenuItems() {
         }
         if (label.length()) {
           menu_items_.push_back(
-              MenuItem(menus::MenuModel::TYPE_COMMAND,
+              MenuItem(ui::MenuModel::TYPE_COMMAND,
                        label, SkBitmap(),
                        std::string(), FLAG_DISABLED));
         }
@@ -634,7 +634,7 @@ void NetworkMenu::InitMenuItems() {
   if (menu_items_.empty()) {
     label = l10n_util::GetStringFUTF16(IDS_STATUSBAR_NETWORK_MENU_ITEM_INDENT,
                 l10n_util::GetStringUTF16(IDS_STATUSBAR_NO_NETWORKS_MESSAGE));
-    menu_items_.push_back(MenuItem(menus::MenuModel::TYPE_COMMAND, label,
+    menu_items_.push_back(MenuItem(ui::MenuModel::TYPE_COMMAND, label,
         SkBitmap(), std::string(), FLAG_DISABLED));
   }
 
@@ -642,7 +642,7 @@ void NetworkMenu::InitMenuItems() {
   if (wifi_available && wifi_enabled) {
     menu_items_.push_back(MenuItem());  // Separator
     menu_items_.push_back(MenuItem(
-        menus::MenuModel::TYPE_COMMAND,
+        ui::MenuModel::TYPE_COMMAND,
         l10n_util::GetStringUTF16(IDS_OPTIONS_SETTINGS_OTHER_NETWORKS),
         IconForDisplay(*rb.GetBitmapNamed(IDR_STATUSBAR_NETWORK_BARS0_BLACK),
                        SkBitmap()),
@@ -657,7 +657,7 @@ void NetworkMenu::InitMenuItems() {
       // Add 'Scanning...'
       if (cros->wifi_scanning()) {
         label = l10n_util::GetStringUTF16(IDS_STATUSBAR_WIFI_SCANNING_MESSAGE);
-        menu_items_.push_back(MenuItem(menus::MenuModel::TYPE_COMMAND, label,
+        menu_items_.push_back(MenuItem(ui::MenuModel::TYPE_COMMAND, label,
             SkBitmap(), std::string(), FLAG_DISABLED));
       }
 
@@ -665,7 +665,7 @@ void NetworkMenu::InitMenuItems() {
                               IDS_STATUSBAR_NETWORK_DEVICE_ENABLE;
       label = l10n_util::GetStringFUTF16(id,
           l10n_util::GetStringUTF16(IDS_STATUSBAR_NETWORK_DEVICE_WIFI));
-      menu_items_.push_back(MenuItem(menus::MenuModel::TYPE_COMMAND, label,
+      menu_items_.push_back(MenuItem(ui::MenuModel::TYPE_COMMAND, label,
           SkBitmap(), std::string(), FLAG_TOGGLE_WIFI));
     }
 
@@ -674,7 +674,7 @@ void NetworkMenu::InitMenuItems() {
                                   IDS_STATUSBAR_NETWORK_DEVICE_ENABLE;
       label = l10n_util::GetStringFUTF16(id,
           l10n_util::GetStringUTF16(IDS_STATUSBAR_NETWORK_DEVICE_CELLULAR));
-      menu_items_.push_back(MenuItem(menus::MenuModel::TYPE_COMMAND, label,
+      menu_items_.push_back(MenuItem(ui::MenuModel::TYPE_COMMAND, label,
           SkBitmap(), std::string(), FLAG_TOGGLE_CELLULAR));
     }
   }
@@ -682,7 +682,7 @@ void NetworkMenu::InitMenuItems() {
   // Offline mode.
   // TODO(chocobo): Uncomment once we figure out how to do offline mode.
   // menu_items_.push_back(MenuItem(cros->offline_mode() ?
-  //     menus::MenuModel::TYPE_CHECK : menus::MenuModel::TYPE_COMMAND,
+  //     ui::MenuModel::TYPE_CHECK : ui::MenuModel::TYPE_COMMAND,
   //     l10n_util::GetStringUTF16(IDS_STATUSBAR_NETWORK_OFFLINE_MODE),
   //     SkBitmap(), std::string(), FLAG_TOGGLE_OFFLINE));
 
@@ -695,7 +695,7 @@ void NetworkMenu::InitMenuItems() {
     if (!MenuUI::IsEnabled() && connected) {
       std::string ip_address = cros->IPAddress();
       if (!ip_address.empty()) {
-        menu_items_.push_back(MenuItem(menus::MenuModel::TYPE_COMMAND,
+        menu_items_.push_back(MenuItem(ui::MenuModel::TYPE_COMMAND,
             ASCIIToUTF16(cros->IPAddress()), SkBitmap(), std::string(),
                          FLAG_DISABLED));
       }
@@ -704,7 +704,7 @@ void NetworkMenu::InitMenuItems() {
     label = l10n_util::GetStringUTF16(IsBrowserMode() ?
         IDS_STATUSBAR_NETWORK_OPEN_OPTIONS_DIALOG :
         IDS_STATUSBAR_NETWORK_OPEN_PROXY_SETTINGS_DIALOG);
-    menu_items_.push_back(MenuItem(menus::MenuModel::TYPE_COMMAND, label,
+    menu_items_.push_back(MenuItem(ui::MenuModel::TYPE_COMMAND, label,
                                    SkBitmap(), std::string(), FLAG_OPTIONS));
   }
 }

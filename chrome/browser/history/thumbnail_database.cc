@@ -4,6 +4,9 @@
 
 #include "chrome/browser/history/thumbnail_database.h"
 
+#include <algorithm>
+#include <string>
+
 #include "app/sql/statement.h"
 #include "app/sql/transaction.h"
 #include "base/command_line.h"
@@ -16,13 +19,12 @@
 #include "chrome/browser/history/history_publisher.h"
 #include "chrome/browser/history/top_sites.h"
 #include "chrome/browser/history/url_database.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/thumbnail_score.h"
 #include "gfx/codec/jpeg_codec.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 
 #if defined(OS_MACOSX)
-#include "base/mac_util.h"
+#include "base/mac/mac_util.h"
 #endif
 
 namespace history {
@@ -53,11 +55,11 @@ sql::InitStatus ThumbnailDatabase::Init(
 
 #if defined(OS_MACOSX)
   // Exclude the thumbnails file and its journal from backups.
-  mac_util::SetFileBackupExclusion(db_name, true);
+  base::mac::SetFileBackupExclusion(db_name, true);
   FilePath::StringType db_name_string(db_name.value());
   db_name_string += "-journal";
   FilePath db_journal_name(db_name_string);
-  mac_util::SetFileBackupExclusion(db_journal_name, true);
+  base::mac::SetFileBackupExclusion(db_journal_name, true);
 #endif
 
   // Create the tables.

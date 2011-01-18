@@ -1,4 +1,4 @@
-# Copyright (c) 2010 The Chromium Authors. All rights reserved.
+# Copyright (c) 2011 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -31,29 +31,6 @@ class MockMessageDictionary:
   # Dictionary of messages.
   msg_dict = {}
 
-  def __getitem__(self, msg_id):
-    '''Returns a message for an identifier. The identifier is transformed
-    back from IDS_POLICY_DOC... style names to the keys that the writer used.
-    If it is then  key in self.msg_dict, then the message comes from there.
-    Otherwise the returned message is just the transformed version of the
-    identifier. This makes things more simple for testing.
-
-    Args:
-      msg_id: The message identifier.
-
-    Returns:
-      The mock message for msg_id.
-    '''
-    # Do some trickery to get the original message id issued in DocWriter.
-    expected_prefix = 'IDS_POLICY_DOC_'
-    assert msg_id.startswith(expected_prefix)
-    original_msg_id = msg_id[len(expected_prefix):].lower()
-
-    if original_msg_id in self.msg_dict:
-      return self.msg_dict[original_msg_id]
-    return '_test_' + original_msg_id
-
-
 class DocWriterUnittest(writer_unittest_common.WriterUnittestCommon):
   '''Unit tests for DocWriter.'''
 
@@ -65,8 +42,29 @@ class DocWriterUnittest(writer_unittest_common.WriterUnittestCommon):
         'frame_name': 'Chrome Frame',
         'os_name': 'Chrome OS',
         'win_reg_key_name': 'MockKey',
+      })
+    self.writer.messages = {
+      'doc_back_to_top': {'text': '_test_back_to_top'},
+      'doc_data_type': {'text': '_test_data_type'},
+      'doc_description': {'text': '_test_description'},
+      'doc_description_column_title': {
+        'text': '_test_description_column_title'
       },
-      messages=MockMessageDictionary())
+      'doc_example_value': {'text': '_test_example_value'},
+      'doc_feature_dynamic_refresh': {'text': '_test_feature_dynamic_refresh'},
+      'doc_intro': {'text': '_test_intro'},
+      'doc_mac_linux_pref_name': {'text': '_test_mac_linux_pref_name'},
+      'doc_note': {'text': '_test_note'},
+      'doc_name_column_title': {'text': '_test_name_column_title'},
+      'doc_not_supported': {'text': '_test_not_supported'},
+      'doc_since_version': {'text': '_test_since_version'},
+      'doc_supported': {'text': '_test_supported'},
+      'doc_supported_features': {'text': '_test_supported_features'},
+      'doc_supported_on': {'text': '_test_supported_on'},
+      'doc_win_reg_loc': {'text': '_test_win_reg_loc'},
+
+      'doc_bla': {'text': '_test_bla'},
+    }
     self.writer.Init()
 
     # It is not worth testing the exact content of style attributes.
@@ -108,7 +106,7 @@ class DocWriterUnittest(writer_unittest_common.WriterUnittestCommon):
   def testGetLocalizedMessage(self):
     # Test if localized messages are retrieved correctly.
     self.writer.messages = {
-      'IDS_POLICY_DOC_HELLO_WORLD': 'hello, vilag!'
+      'doc_hello_world': {'text': 'hello, vilag!'}
     }
     self.assertEquals(
         self.writer._GetLocalizedMessage('hello_world'),
@@ -153,11 +151,11 @@ class DocWriterUnittest(writer_unittest_common.WriterUnittestCommon):
         e3.toxml(),
         '<z a="b" style="style1;style2;">text</z>')
 
-  def testAddDescription(self):
-    # Test if URLs are replaced and choices of 'enum' policies are listed
+  def testAddDescriptionIntEnum(self):
+    # Test if URLs are replaced and choices of 'int-enum' policies are listed
     # correctly.
     policy = {
-      'type': 'enum',
+      'type': 'int-enum',
       'items': [
         {'value': 0, 'caption': 'Disable foo'},
         {'value': 2, 'caption': 'Solve your problem'},
@@ -173,6 +171,27 @@ See http://policy-explanation.example.com for more details.
         '''<root>This policy disables foo, except in case of bar.
 See <a href="http://policy-explanation.example.com">http://policy-explanation.example.com</a> for more details.
 <ul><li>0 = Disable foo</li><li>2 = Solve your problem</li><li>5 = Enable bar</li></ul></root>''')
+
+  def testAddDescriptionStringEnum(self):
+    # Test if URLs are replaced and choices of 'int-enum' policies are listed
+    # correctly.
+    policy = {
+      'type': 'string-enum',
+      'items': [
+        {'value': "one", 'caption': 'Disable foo'},
+        {'value': "two", 'caption': 'Solve your problem'},
+        {'value': "three", 'caption': 'Enable bar'},
+      ],
+      'desc': '''This policy disables foo, except in case of bar.
+See http://policy-explanation.example.com for more details.
+'''
+    }
+    self.writer._AddDescription(self.doc_root, policy)
+    self.assertEquals(
+        self.doc_root.toxml(),
+        '''<root>This policy disables foo, except in case of bar.
+See <a href="http://policy-explanation.example.com">http://policy-explanation.example.com</a> for more details.
+<ul><li>&quot;one&quot; = Disable foo</li><li>&quot;two&quot; = Solve your problem</li><li>&quot;three&quot; = Enable bar</li></ul></root>''')
 
   def testAddFeatures(self):
     # Test if the list of features of a policy is handled correctly.
@@ -252,11 +271,11 @@ See <a href="http://policy-explanation.example.com">http://policy-explanation.ex
         e2.toxml(),
         '<e2>0x00000000 (Windows), false (Linux), &lt;false /&gt; (Mac)</e2>')
 
-  def testEnumExample(self):
-    # Test representation of 'enum' example values.
+  def testIntEnumExample(self):
+    # Test representation of 'int-enum' example values.
     policy = {
       'name': 'PolicyName',
-      'type': 'enum',
+      'type': 'int-enum',
       'annotations': {
         'example_value': 16
       }
@@ -265,6 +284,20 @@ See <a href="http://policy-explanation.example.com">http://policy-explanation.ex
     self.assertEquals(
         self.doc_root.toxml(),
         '<root>0x00000010 (Windows), 16 (Linux/Mac)</root>')
+
+  def testStringEnumExample(self):
+    # Test representation of 'int-enum' example values.
+    policy = {
+      'name': 'PolicyName',
+      'type': 'string-enum',
+      'annotations': {
+        'example_value': "wacky"
+      }
+    }
+    self.writer._AddExample(self.doc_root, policy)
+    self.assertEquals(
+        self.doc_root.toxml(),
+        '<root>&quot;wacky&quot;</root>')
 
   def testStringExample(self):
     # Test representation of 'string' example values.
@@ -279,6 +312,20 @@ See <a href="http://policy-explanation.example.com">http://policy-explanation.ex
     self.assertEquals(
         self.doc_root.toxml(),
         '<root>&quot;awesome-example&quot;</root>')
+
+  def testIntExample(self):
+    # Test representation of 'int' example values.
+    policy = {
+      'name': 'PolicyName',
+      'type': 'int',
+      'annotations': {
+        'example_value': 26
+      }
+    }
+    self.writer._AddExample(self.doc_root, policy)
+    self.assertEquals(
+        self.doc_root.toxml(),
+        '<root>0x0000001a (Windows), 26 (Linux/Mac)</root>')
 
   def testAddPolicyAttribute(self):
     # Test creating a policy attribute term-definition pair.
@@ -309,7 +356,7 @@ See <a href="http://policy-explanation.example.com">http://policy-explanation.ex
         'example_value': False
       }
     }
-    self.writer.messages.msg_dict['since_version'] = '...$6...'
+    self.writer.messages['doc_since_version'] = {'text': '...$6...'}
     self.writer._AddPolicyDetails(self.doc_root, policy)
     self.assertEquals(
       self.doc_root.toxml(),
@@ -339,7 +386,7 @@ See <a href="http://policy-explanation.example.com">http://policy-explanation.ex
         'problem_href': 'http://www.example.com/5'
       }
     }
-    self.writer.messages.msg_dict['note'] = '...$6...'
+    self.writer.messages['doc_note'] = {'text': '...$6...'}
     self.writer._AddPolicyNote(self.doc_root, policy)
     self.assertEquals(
         self.doc_root.toxml(),
@@ -398,7 +445,7 @@ See <a href="http://policy-explanation.example.com">http://policy-explanation.ex
         'example_value': False
       }
     }
-    self.writer.messages.msg_dict['since_version'] = '..$6..'
+    self.writer.messages['doc_since_version'] = {'text': '..$6..'}
     self.writer._AddPolicySection(self.doc_root, policy)
     self.assertEquals(
       self.doc_root.toxml(),

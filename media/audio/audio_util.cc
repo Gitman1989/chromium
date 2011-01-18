@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -93,7 +93,8 @@ bool AdjustVolume(void* buf,
                   int bytes_per_sample,
                   float volume) {
   DCHECK(buf);
-  DCHECK(volume >= 0.0f && volume <= 1.0f);
+  if (volume < 0.0f || volume > 1.0f)
+    return false;
   if (volume == 1.0f) {
     return true;
   } else if (volume == 0.0f) {
@@ -129,7 +130,8 @@ bool FoldChannels(void* buf,
                   int bytes_per_sample,
                   float volume) {
   DCHECK(buf);
-  DCHECK(volume >= 0.0f && volume <= 1.0f);
+  if (volume < 0.0f || volume > 1.0f)
+    return false;
   if (channels > 2 && channels <= 8 && bytes_per_sample > 0) {
     int sample_count = buflen / (channels * bytes_per_sample);
     if (bytes_per_sample == 1) {
@@ -202,6 +204,25 @@ bool DeinterleaveAudioChannel(void* source,
      break;
   }
   return false;
+}
+
+void InterleaveFloatToInt16(const std::vector<float*>& source,
+                            int16* destination,
+                            size_t number_of_frames) {
+  const float kScale = 32768.0f;
+  int channels = source.size();
+  for (int i = 0; i < channels; ++i) {
+    float* channel_data = source[i];
+    for (size_t j = 0; j < number_of_frames; ++j) {
+      float sample = kScale * channel_data[j];
+      if (sample < -32768.0)
+        sample = -32768.0;
+      else if (sample > 32767.0)
+        sample = 32767.0;
+
+      destination[j * channels + i] = static_cast<int16>(sample);
+    }
+  }
 }
 
 }  // namespace media

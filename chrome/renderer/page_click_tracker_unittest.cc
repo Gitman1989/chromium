@@ -9,10 +9,10 @@
 #include "chrome/renderer/page_click_tracker.h"
 #include "chrome/test/render_view_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDocument.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebInputElement.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSize.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebView.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputElement.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSize.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 
 class TestPageClickListener : public PageClickListener {
  public:
@@ -49,10 +49,14 @@ class TestPageClickListener : public PageClickListener {
 
 // Tests that PageClickTracker does notify correctly when a node is clicked.
 TEST_F(RenderViewTest, PageClickTracker) {
+  // RenderView creates PageClickTracker but it doesn't keep it around.  Rather
+  // than make it do so for the test, we create a new object.
+  PageClickTracker* page_click_tracker = new PageClickTracker(view_);
+
   TestPageClickListener test_listener1;
   TestPageClickListener test_listener2;
-  view_->page_click_tracker()->AddListener(&test_listener1);
-  view_->page_click_tracker()->AddListener(&test_listener2);
+  page_click_tracker->AddListener(&test_listener1);
+  page_click_tracker->AddListener(&test_listener2);
 
   LoadHTML("<form>"
            "  <input type='text' id='text'></input><br>"
@@ -106,14 +110,14 @@ TEST_F(RenderViewTest, PageClickTracker) {
   test_listener1.ClearResults();
 
   // Make sure removing a listener work.
-  view_->page_click_tracker()->RemoveListener(&test_listener1);
+  page_click_tracker->RemoveListener(&test_listener1);
   EXPECT_TRUE(SimulateElementClick("text"));
   EXPECT_FALSE(test_listener1.called_);
   EXPECT_TRUE(test_listener2.called_);
   test_listener2.ClearResults();
 
   // Make sure we don't choke when no listeners are registered.
-  view_->page_click_tracker()->RemoveListener(&test_listener2);
+  page_click_tracker->RemoveListener(&test_listener2);
   EXPECT_TRUE(SimulateElementClick("text"));
   EXPECT_FALSE(test_listener1.called_);
   EXPECT_FALSE(test_listener2.called_);

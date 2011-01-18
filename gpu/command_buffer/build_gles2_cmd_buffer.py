@@ -73,9 +73,9 @@ GL_APICALL void         GL_APIENTRY glClearDepthf (GLclampf depth);
 GL_APICALL void         GL_APIENTRY glClearStencil (GLint s);
 GL_APICALL void         GL_APIENTRY glColorMask (GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha);
 GL_APICALL void         GL_APIENTRY glCompileShader (GLidShader shader);
-GL_APICALL void         GL_APIENTRY glCompressedTexImage2D (GLenumTextureTarget target, GLint level, GLenumCompressedTextureFormat internalformat, GLsizei width, GLsizei height, GLint border, GLsizei imageSize, const void* data);
+GL_APICALL void         GL_APIENTRY glCompressedTexImage2D (GLenumTextureTarget target, GLint level, GLenumCompressedTextureFormat internalformat, GLsizei width, GLsizei height, GLintTextureBorder border, GLsizei imageSize, const void* data);
 GL_APICALL void         GL_APIENTRY glCompressedTexSubImage2D (GLenumTextureTarget target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenumCompressedTextureFormat format, GLsizei imageSize, const void* data);
-GL_APICALL void         GL_APIENTRY glCopyTexImage2D (GLenumTextureTarget target, GLint level, GLenumTextureInternalFormat internalformat, GLint x, GLint y, GLsizei width, GLsizei height, GLint border);
+GL_APICALL void         GL_APIENTRY glCopyTexImage2D (GLenumTextureTarget target, GLint level, GLenumTextureInternalFormat internalformat, GLint x, GLint y, GLsizei width, GLsizei height, GLintTextureBorder border);
 GL_APICALL void         GL_APIENTRY glCopyTexSubImage2D (GLenumTextureTarget target, GLint level, GLint xoffset, GLint yoffset, GLint x, GLint y, GLsizei width, GLsizei height);
 GL_APICALL GLuint       GL_APIENTRY glCreateProgram (void);
 GL_APICALL GLuint       GL_APIENTRY glCreateShader (GLenumShaderType type);
@@ -99,7 +99,7 @@ GL_APICALL void         GL_APIENTRY glEnableVertexAttribArray (GLuint index);
 GL_APICALL void         GL_APIENTRY glFinish (void);
 GL_APICALL void         GL_APIENTRY glFlush (void);
 GL_APICALL void         GL_APIENTRY glFramebufferRenderbuffer (GLenumFrameBufferTarget target, GLenumAttachment attachment, GLenumRenderBufferTarget renderbuffertarget, GLidRenderbuffer renderbuffer);
-GL_APICALL void         GL_APIENTRY glFramebufferTexture2D (GLenumFrameBufferTarget target, GLenumAttachment attachment, GLenumTextureTarget textarget, GLidTexture texture, GLint level);
+GL_APICALL void         GL_APIENTRY glFramebufferTexture2D (GLenumFrameBufferTarget target, GLenumAttachment attachment, GLenumTextureTarget textarget, GLidTexture texture, GLintZeroOnly level);
 GL_APICALL void         GL_APIENTRY glFrontFace (GLenumFaceMode mode);
 GL_APICALL void         GL_APIENTRY glGenBuffers (GLsizeiNotNegative n, GLuint* buffers);
 GL_APICALL void         GL_APIENTRY glGenerateMipmap (GLenumTextureBindTarget target);
@@ -1001,6 +1001,15 @@ _ENUM_LISTS = {
     'invalid': [
       '0',
       '5',
+    ],
+  },
+  'ZeroOnly': {
+    'type': 'GLint',
+    'valid': [
+      '0',
+    ],
+    'invalid': [
+      '1',
     ],
   },
   'FalseOnly': {
@@ -5262,6 +5271,8 @@ class GLGenerator(object):
         "// OpenGL ES interface.\n",
         3)
 
+    file.Write("#include \"ppapi/c/pp_resource.h\"\n\n")
+
     file.Write("#ifndef __gl2_h_\n")
     for (k, v) in _GL_TYPES.iteritems():
       file.Write("typedef %s %s;\n" % (v, k))
@@ -5292,10 +5303,11 @@ class GLGenerator(object):
     file.Write(_LICENSE)
     file.Write("// This file is auto-generated. DO NOT EDIT!\n\n")
 
-    file.Write("#include \"webkit/plugins/ppapi/ppb_graphics_3d_impl.h\"\n\n")
+    file.Write("#include \"webkit/plugins/ppapi/ppb_opengles_impl.h\"\n\n")
 
-    file.Write("#include \"gpu/command_buffer/client/gles2_implementation.h\"")
-    file.Write("\n#include \"ppapi/c/dev/ppb_opengles_dev.h\"\n\n")
+    file.Write("#include \"gpu/command_buffer/client/gles2_implementation.h\"\n")
+    file.Write("#include \"ppapi/c/dev/ppb_opengles_dev.h\"\n")
+    file.Write("#include \"webkit/plugins/ppapi/ppb_context_3d_impl.h\"\n\n")
 
     file.Write("namespace webkit {\n")
     file.Write("namespace ppapi {\n\n")
@@ -5306,19 +5318,19 @@ class GLGenerator(object):
         continue
 
       original_arg = func.MakeTypedOriginalArgString("")
-      context_arg = "PP_Resource context"
+      context_arg = "PP_Resource context_id"
       if len(original_arg):
         arg = context_arg + ", " + original_arg
       else:
         arg = context_arg
       file.Write("%s %s(%s) {\n" % (func.return_type, func.name, arg))
       
-      file.Write("""  scoped_refptr<PPB_Graphics3D_Impl> graphics_3d = 
-      Resource::GetAs<PPB_Graphics3D_Impl>(context);
+      file.Write("""  scoped_refptr<PPB_Context3D_Impl> context =
+      Resource::GetAs<PPB_Context3D_Impl>(context_id);
 """)
 
       return_str = "" if func.return_type == "void" else "return "
-      file.Write("  %sgraphics_3d->impl()->%s(%s);\n" %
+      file.Write("  %scontext->gles2_impl()->%s(%s);\n" %
                  (return_str, func.original_name,
                   func.MakeOriginalArgString("")))
       file.Write("}\n\n")
@@ -5333,7 +5345,7 @@ class GLGenerator(object):
     file.Write("}  // namespace\n")
 
     file.Write("""
-const PPB_OpenGLES2_Dev* PPB_Graphics3D_Impl::GetOpenGLES2Interface() {
+const PPB_OpenGLES2_Dev* PPB_OpenGLES_Impl::GetInterface() {
   return &ppb_opengles2;
 }
 

@@ -4,6 +4,7 @@
 
 #include "chrome/browser/sync/glue/autofill_model_associator.h"
 
+#include <functional>
 #include <vector>
 
 #include "base/task.h"
@@ -12,7 +13,6 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/autofill/autofill_profile.h"
 #include "chrome/browser/browser_thread.h"
-#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/engine/syncapi.h"
 #include "chrome/browser/sync/glue/autofill_change_processor.h"
@@ -22,7 +22,6 @@
 #include "chrome/browser/sync/protocol/autofill_specifics.pb.h"
 #include "chrome/browser/webdata/web_database.h"
 #include "chrome/common/guid.h"
-#include "chrome/common/pref_names.h"
 #include "net/base/escape.h"
 
 using base::TimeTicks;
@@ -237,8 +236,7 @@ bool AutofillModelAssociator::TraverseAndAssociateAllSyncNodes(
 
   bool autofill_profile_not_migrated = HasNotMigratedYet(write_trans);
 
-  if (MigrationLoggingEnabled() &&
-     autofill_profile_not_migrated) {
+  if (VLOG_IS_ON(1) && autofill_profile_not_migrated) {
     VLOG(1) << "[AUTOFILL MIGRATION]"
             << "Printing profiles from web db";
 
@@ -251,7 +249,7 @@ bool AutofillModelAssociator::TraverseAndAssociateAllSyncNodes(
     }
   }
 
-  if (MigrationLoggingEnabled() && autofill_profile_not_migrated) {
+  if (autofill_profile_not_migrated) {
     VLOG(1) << "[AUTOFILL MIGRATION]"
             << "Iterating over sync db";
   }
@@ -271,11 +269,9 @@ bool AutofillModelAssociator::TraverseAndAssociateAllSyncNodes(
     } else if (autofill.has_profile()) {
       // Ignore autofill profiles if we are not upgrading.
       if (autofill_profile_not_migrated) {
-        if (MigrationLoggingEnabled()) {
-          VLOG(1) << "[AUTOFILL MIGRATION] Looking for "
-                  << autofill.profile().name_first()
-                  << autofill.profile().name_last();
-        }
+        VLOG(1) << "[AUTOFILL MIGRATION] Looking for "
+                << autofill.profile().name_first()
+                << autofill.profile().name_last();
         AddNativeProfileIfNeeded(
             autofill.profile(),
             bundle,
@@ -355,19 +351,15 @@ void AutofillModelAssociator::AddNativeProfileIfNeeded(
       profile, all_profiles_from_db);
 
   if (profile_in_web_db != NULL) {
-    if (MigrationLoggingEnabled()) {
-      VLOG(1) << "[AUTOFILL MIGRATION]"
-              << "Node found in web db. So associating";
-    }
+    VLOG(1) << "[AUTOFILL MIGRATION]"
+            << "Node found in web db. So associating";
     int64 sync_id = node.GetId();
     std::string guid = profile_in_web_db->guid();
     Associate(&guid, sync_id);
     return;
   } else {  // Create a new node.
-    if (MigrationLoggingEnabled()) {
-      VLOG(1) << "[AUTOFILL MIGRATION]"
-              << "Node not found in web db so creating and associating";
-    }
+    VLOG(1) << "[AUTOFILL MIGRATION]"
+            << "Node not found in web db so creating and associating";
     std::string guid = guid::GenerateGUID();
     Associate(&guid, node.GetId());
     AutoFillProfile* p = new AutoFillProfile(guid);
@@ -555,11 +547,9 @@ bool AutofillModelAssociator::HasNotMigratedYet(
   }
 
   if (autofill_migration_state == syncable::INSUFFICIENT_INFO_TO_DETERMINE) {
-      if (MigrationLoggingEnabled()) {
-        VLOG(1) << "[AUTOFILL MIGRATION]"
-                << "current autofill migration state is insufficient info to"
-                << "determine.";
-      }
+      VLOG(1) << "[AUTOFILL MIGRATION]"
+              << "current autofill migration state is insufficient info to"
+              << "determine.";
       sync_api::ReadNode autofill_profile_root_node(trans);
       if (!autofill_profile_root_node.InitByTagLookup(
           browser_sync::kAutofillProfileTag) ||
@@ -568,29 +558,20 @@ bool AutofillModelAssociator::HasNotMigratedYet(
         sync_service()->backend()->SetAutofillMigrationState(
             syncable::NOT_MIGRATED);
 
-        if (MigrationLoggingEnabled()) {
-          VLOG(1) << "[AUTOFILL MIGRATION]"
-                  << "Current autofill migration state is NOT Migrated because"
-                  << "legacy autofill root node is present whereas new "
-                  << "Autofill profile root node is absent.";
-        }
+        VLOG(1) << "[AUTOFILL MIGRATION]"
+                << "Current autofill migration state is NOT Migrated because"
+                << "legacy autofill root node is present whereas new "
+                << "Autofill profile root node is absent.";
         return true;
       }
 
       sync_service()->backend()->SetAutofillMigrationState(syncable::MIGRATED);
 
-      if (MigrationLoggingEnabled()) {
-          VLOG(1) << "[AUTOFILL MIGRATION]"
-                  << "Current autofill migration state is migrated.";
-      }
+      VLOG(1) << "[AUTOFILL MIGRATION]"
+              << "Current autofill migration state is migrated.";
   }
 
   return false;
 }
 
-bool AutofillModelAssociator::MigrationLoggingEnabled() {
-  // [TODO] enable logging via a command line flag.
-  return false;
-}
 }  // namespace browser_sync
-

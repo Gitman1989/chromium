@@ -759,17 +759,18 @@ void ScreenLocker::OnLoginFailure(const LoginFailure& error) {
   // Don't enable signout button here as we're showing
   // MessageBubble.
 
-  std::wstring msg = l10n_util::GetString(IDS_LOGIN_ERROR_AUTHENTICATING);
+  string16 msg = l10n_util::GetStringUTF16(IDS_LOGIN_ERROR_AUTHENTICATING);
   const std::string error_text = error.GetErrorString();
   if (!error_text.empty())
-    msg += L"\n" + ASCIIToWide(error_text);
+    msg += ASCIIToUTF16("\n") + ASCIIToUTF16(error_text);
 
   InputMethodLibrary* input_method_library =
       CrosLibrary::Get()->GetInputMethodLibrary();
   if (input_method_library->GetNumActiveInputMethods() > 1)
-    msg += L"\n" + l10n_util::GetString(IDS_LOGIN_ERROR_KEYBOARD_SWITCH_HINT);
+    msg += ASCIIToUTF16("\n") +
+        l10n_util::GetStringUTF16(IDS_LOGIN_ERROR_KEYBOARD_SWITCH_HINT);
 
-  ShowErrorBubble(msg, BubbleBorder::BOTTOM_LEFT);
+  ShowErrorBubble(UTF16ToWide(msg), BubbleBorder::BOTTOM_LEFT);
 }
 
 void ScreenLocker::OnLoginSuccess(
@@ -791,7 +792,7 @@ void ScreenLocker::OnLoginSuccess(
     ProfileSyncService* service = profile->GetProfileSyncService(username);
     if (service && !service->HasSyncSetupCompleted()) {
       // If sync has failed somehow, try setting the sync passphrase here.
-      service->SetPassphrase(password, false);
+      service->SetPassphrase(password, false, true);
     }
   }
 
@@ -872,6 +873,7 @@ void ScreenLocker::EnableInput() {
 void ScreenLocker::Signout() {
   if (!error_info_) {
     UserMetrics::RecordAction(UserMetricsAction("ScreenLocker_Signout"));
+    WmIpc::instance()->NotifyAboutSignout();
     if (CrosLibrary::Get()->EnsureLoaded()) {
       CrosLibrary::Get()->GetLoginLibrary()->StopSession("");
     }
@@ -992,7 +994,7 @@ ScreenLocker::~ScreenLocker() {
     MessageLoopForUI::current()->RemoveObserver(input_event_observer_.get());
   if (locker_input_event_observer_.get()) {
     lock_widget_->GetFocusManager()->UnregisterAccelerator(
-        views::Accelerator(app::VKEY_ESCAPE, false, false, false), this);
+        views::Accelerator(ui::VKEY_ESCAPE, false, false, false), this);
     MessageLoopForUI::current()->RemoveObserver(
         locker_input_event_observer_.get());
   }
@@ -1027,7 +1029,7 @@ void ScreenLocker::ScreenLockReady() {
 
   if (background_view_->ScreenSaverEnabled()) {
     lock_widget_->GetFocusManager()->RegisterAccelerator(
-        views::Accelerator(app::VKEY_ESCAPE, false, false, false), this);
+        views::Accelerator(ui::VKEY_ESCAPE, false, false, false), this);
     locker_input_event_observer_.reset(new LockerInputEventObserver(this));
     MessageLoopForUI::current()->AddObserver(
         locker_input_event_observer_.get());

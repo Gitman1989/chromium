@@ -5,7 +5,7 @@
 #include "base/message_loop.h"
 #include "base/ref_counted.h"
 #include "base/scoped_ptr.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "ipc/ipc_channel_proxy.h"
 #include "ipc/ipc_logging.h"
 #include "ipc/ipc_message_utils.h"
@@ -96,20 +96,22 @@ bool ChannelProxy::Context::TryFilters(const Message& message) {
 }
 
 // Called on the IPC::Channel thread
-void ChannelProxy::Context::OnMessageReceived(const Message& message) {
+bool ChannelProxy::Context::OnMessageReceived(const Message& message) {
   // First give a chance to the filters to process this message.
   if (!TryFilters(message))
     OnMessageReceivedNoFilter(message);
+  return true;
 }
 
 // Called on the IPC::Channel thread
-void ChannelProxy::Context::OnMessageReceivedNoFilter(const Message& message) {
+bool ChannelProxy::Context::OnMessageReceivedNoFilter(const Message& message) {
   // NOTE: This code relies on the listener's message loop not going away while
   // this thread is active.  That should be a reasonable assumption, but it
   // feels risky.  We may want to invent some more indirect way of referring to
   // a MessageLoop if this becomes a problem.
   listener_message_loop_->PostTask(FROM_HERE, NewRunnableMethod(
       this, &Context::OnDispatchMessage, message));
+  return true;
 }
 
 // Called on the IPC::Channel thread

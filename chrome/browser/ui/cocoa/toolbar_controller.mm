@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,11 +8,9 @@
 
 #include "app/l10n_util.h"
 #include "app/l10n_util_mac.h"
-#include "app/menus/accelerator_cocoa.h"
-#include "app/menus/menu_model.h"
+#include "app/mac/nsimage_cache.h"
 #include "app/resource_bundle.h"
-#include "base/mac_util.h"
-#include "base/nsimage_cache_mac.h"
+#include "base/mac/mac_util.h"
 #include "base/singleton.h"
 #include "base/sys_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
@@ -45,7 +43,7 @@
 #import "chrome/browser/ui/cocoa/reload_button.h"
 #import "chrome/browser/ui/cocoa/toolbar_view.h"
 #import "chrome/browser/ui/cocoa/view_id_util.h"
-#import "chrome/browser/ui/cocoa/wrench_menu_controller.h"
+#import "chrome/browser/ui/cocoa/wrench_menu/wrench_menu_controller.h"
 #include "chrome/browser/ui/toolbar/toolbar_model.h"
 #include "chrome/browser/ui/toolbar/wrench_menu_model.h"
 #include "chrome/common/notification_details.h"
@@ -57,6 +55,8 @@
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "ui/base/models/accelerator_cocoa.h"
+#include "ui/base/models/menu_model.h"
 
 namespace {
 
@@ -101,16 +101,16 @@ const CGFloat kWrenchMenuLeftPadding = 3.0;
 namespace ToolbarControllerInternal {
 
 // A C++ delegate that handles the accelerators in the wrench menu.
-class WrenchAcceleratorDelegate : public menus::AcceleratorProvider {
+class WrenchAcceleratorDelegate : public ui::AcceleratorProvider {
  public:
   virtual bool GetAcceleratorForCommandId(int command_id,
-      menus::Accelerator* accelerator_generic) {
+      ui::Accelerator* accelerator_generic) {
     // Downcast so that when the copy constructor is invoked below, the key
     // string gets copied, too.
-    menus::AcceleratorCocoa* out_accelerator =
-        static_cast<menus::AcceleratorCocoa*>(accelerator_generic);
+    ui::AcceleratorCocoa* out_accelerator =
+        static_cast<ui::AcceleratorCocoa*>(accelerator_generic);
     AcceleratorsCocoa* keymap = AcceleratorsCocoa::GetInstance();
-    const menus::AcceleratorCocoa* accelerator =
+    const ui::AcceleratorCocoa* accelerator =
         keymap->GetAcceleratorForCommand(command_id);
     if (accelerator) {
       *out_accelerator = *accelerator;
@@ -170,7 +170,7 @@ class NotificationBridge : public NotificationObserver {
        nibFileNamed:(NSString*)nibName {
   DCHECK(model && commands && profile && [nibName length]);
   if ((self = [super initWithNibName:nibName
-                              bundle:mac_util::MainAppBundle()])) {
+                              bundle:base::mac::MainAppBundle()])) {
     toolbarModel_ = model;
     commands_ = commands;
     profile_ = profile;
@@ -235,13 +235,18 @@ class NotificationBridge : public NotificationObserver {
   // images loaded directly from nibs in a framework to not get their "template"
   // flags set properly. Thus, despite the images being set on the buttons in
   // the xib, we must set them in code.
-  [backButton_ setImage:nsimage_cache::ImageNamed(kBackButtonImageName)];
-  [forwardButton_ setImage:nsimage_cache::ImageNamed(kForwardButtonImageName)];
-  [reloadButton_
-      setImage:nsimage_cache::ImageNamed(kReloadButtonReloadImageName)];
-  [homeButton_ setImage:nsimage_cache::ImageNamed(kHomeButtonImageName)];
-  [wrenchButton_ setImage:nsimage_cache::ImageNamed(kWrenchButtonImageName)];
+  [backButton_ setImage:app::mac::GetCachedImageWithName(kBackButtonImageName)];
+  [forwardButton_ setImage:
+      app::mac::GetCachedImageWithName(kForwardButtonImageName)];
+  [reloadButton_ setImage:
+      app::mac::GetCachedImageWithName(kReloadButtonReloadImageName)];
+  [homeButton_ setImage:
+      app::mac::GetCachedImageWithName(kHomeButtonImageName)];
+  [wrenchButton_ setImage:
+      app::mac::GetCachedImageWithName(kWrenchButtonImageName)];
   [self badgeWrenchMenuIfNeeded];
+
+  [wrenchButton_ setOpenMenuOnClick:YES];
 
   [backButton_ setShowsBorderOnlyWhileMouseInside:YES];
   [forwardButton_ setShowsBorderOnlyWhileMouseInside:YES];
@@ -553,7 +558,8 @@ class NotificationBridge : public NotificationObserver {
 
   NSImage* badge =
       ResourceBundle::GetSharedInstance().GetNativeImageNamed(badgeResource);
-  NSImage* wrenchImage = nsimage_cache::ImageNamed(kWrenchButtonImageName);
+  NSImage* wrenchImage =
+      app::mac::GetCachedImageWithName(kWrenchButtonImageName);
   NSSize wrenchImageSize = [wrenchImage size];
   NSSize badgeSize = [badge size];
 

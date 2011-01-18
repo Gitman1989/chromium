@@ -13,7 +13,7 @@
 #include "base/pickle.h"
 #include "base/stl_util-inl.h"
 #include "base/string_util.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "base/version.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
@@ -356,7 +356,8 @@ void UserScriptMaster::Observe(NotificationType type,
     }
     case NotificationType::EXTENSION_UNLOADED: {
       // Remove any content scripts.
-      const Extension* extension = Details<const Extension>(details).ptr();
+      const Extension* extension =
+          Details<UnloadedExtensionInfo>(details)->extension;
       UserScriptList new_lone_scripts;
       for (UserScriptList::iterator iter = lone_scripts_.begin();
            iter != lone_scripts_.end(); ++iter) {

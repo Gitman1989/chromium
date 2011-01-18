@@ -1,22 +1,22 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/keyword_editor_view.h"
+#include "chrome/browser/ui/views/keyword_editor_view.h"
 
+#include <string>
 #include <vector>
 
 #include "app/l10n_util.h"
 #include "base/stl_util-inl.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_model.h"
 #include "chrome/browser/search_engines/template_url_table_model.h"
-#include "chrome/browser/views/browser_dialogs.h"
-#include "chrome/browser/views/first_run_search_engine_view.h"
+#include "chrome/browser/ui/views/browser_dialogs.h"
+#include "chrome/browser/ui/views/first_run_search_engine_view.h"
 #include "chrome/common/pref_names.h"
 #include "gfx/point.h"
 #include "googleurl/src/gurl.h"
@@ -126,7 +126,8 @@ bool KeywordEditorView::CanResize() const {
 }
 
 std::wstring KeywordEditorView::GetWindowTitle() const {
-  return l10n_util::GetString(IDS_SEARCH_ENGINES_EDITOR_WINDOW_TITLE);
+  return UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_SEARCH_ENGINES_EDITOR_WINDOW_TITLE));
 }
 
 std::wstring KeywordEditorView::GetWindowName() const {
@@ -152,40 +153,41 @@ views::View* KeywordEditorView::GetContentsView() {
 }
 
 void KeywordEditorView::Init() {
-  std::vector<TableColumn> columns;
+  std::vector<ui::TableColumn> columns;
   columns.push_back(
-      TableColumn(IDS_SEARCH_ENGINES_EDITOR_DESCRIPTION_COLUMN,
-                  TableColumn::LEFT, -1, .75));
+      ui::TableColumn(IDS_SEARCH_ENGINES_EDITOR_DESCRIPTION_COLUMN,
+                      ui::TableColumn::LEFT, -1, .75));
   columns.back().sortable = true;
   columns.push_back(
-      TableColumn(IDS_SEARCH_ENGINES_EDITOR_KEYWORD_COLUMN,
-                  TableColumn::LEFT, -1, .25));
+      ui::TableColumn(IDS_SEARCH_ENGINES_EDITOR_KEYWORD_COLUMN,
+                      ui::TableColumn::LEFT, -1, .25));
   columns.back().sortable = true;
   table_view_ = new views::TableView(controller_->table_model(), columns,
       views::ICON_AND_TEXT, false, true, true);
   table_view_->SetObserver(this);
 
-  add_button_ = new views::NativeButton(
-      this, l10n_util::GetString(IDS_SEARCH_ENGINES_EDITOR_NEW_BUTTON));
+  add_button_ = new views::NativeButton(this, UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_SEARCH_ENGINES_EDITOR_NEW_BUTTON)));
   add_button_->SetEnabled(controller_->loaded());
   add_button_->AddAccelerator(
-      views::Accelerator(app::VKEY_A, false, false, true));
+      views::Accelerator(ui::VKEY_A, false, false, true));
   add_button_->SetAccessibleKeyboardShortcut(L"A");
 
-  edit_button_ = new views::NativeButton(
-      this, l10n_util::GetString(IDS_SEARCH_ENGINES_EDITOR_EDIT_BUTTON));
+  edit_button_ = new views::NativeButton(this, UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_SEARCH_ENGINES_EDITOR_EDIT_BUTTON)));
   edit_button_->SetEnabled(false);
 
-  remove_button_ = new views::NativeButton(
-      this, l10n_util::GetString(IDS_SEARCH_ENGINES_EDITOR_REMOVE_BUTTON));
+  remove_button_ = new views::NativeButton(this, UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_SEARCH_ENGINES_EDITOR_REMOVE_BUTTON)));
   remove_button_->SetEnabled(false);
   remove_button_->AddAccelerator(
-      views::Accelerator(app::VKEY_R, false, false, true));
+      views::Accelerator(ui::VKEY_R, false, false, true));
   remove_button_->SetAccessibleKeyboardShortcut(L"R");
 
   make_default_button_ = new views::NativeButton(
       this,
-      l10n_util::GetString(IDS_SEARCH_ENGINES_EDITOR_MAKE_DEFAULT_BUTTON));
+      UTF16ToWide(l10n_util::GetStringUTF16(
+          IDS_SEARCH_ENGINES_EDITOR_MAKE_DEFAULT_BUTTON)));
   make_default_button_->SetEnabled(false);
 
   InitLayoutManager();

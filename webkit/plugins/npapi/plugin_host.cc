@@ -1,9 +1,11 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "webkit/plugins/npapi/plugin_host.h"
 
+#include "app/gfx/gl/gl_context.h"
+#include "app/gfx/gl/gl_implementation.h"
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/scoped_ptr.h"
@@ -15,8 +17,8 @@
 #include "net/base/net_util.h"
 #include "third_party/npapi/bindings/npapi_extensions.h"
 #include "third_party/npapi/bindings/npruntime.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebBindings.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebKit.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebBindings.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
 #include "webkit/glue/webkit_glue.h"
 #include "webkit/plugins/npapi/default_plugin_shared.h"
 #include "webkit/plugins/npapi/npapi_extension_thunk.h"
@@ -51,7 +53,21 @@ static PluginInstance* FindInstance(NPP id) {
 static bool SupportsSharingAcceleratedSurfaces() {
   int32 major, minor, bugfix;
   base::SysInfo::OperatingSystemVersionNumbers(&major, &minor, &bugfix);
-  return major > 10 || (major == 10 && minor > 5);
+  bool isSnowLeopardOrLater = major > 10 || (major == 10 && minor > 5);
+  if (!isSnowLeopardOrLater)
+    return false;
+  // We also need to be running with desktop GL and not the software
+  // OSMesa renderer in order to share accelerated surfaces between
+  // processes.
+  gfx::GLImplementation implementation = gfx::GetGLImplementation();
+  if (implementation == gfx::kGLImplementationNone) {
+    // Not initialized yet.
+    if (!gfx::GLContext::InitializeOneOff()) {
+      return false;
+    }
+    implementation = gfx::GetGLImplementation();
+  }
+  return (implementation == gfx::kGLImplementationDesktopGL);
 }
 #endif
 
@@ -292,24 +308,17 @@ using webkit::npapi::WebPlugin;
 
 // Allocates memory from the host's memory space.
 void* NPN_MemAlloc(uint32_t size) {
-  scoped_refptr<PluginHost> host(PluginHost::Singleton());
-  if (host != NULL) {
-    // Note: We must use the same allocator/deallocator
-    // that is used by the javascript library, as some of the
-    // JS APIs will pass memory to the plugin which the plugin
-    // will attempt to free.
-    return malloc(size);
-  }
-  return NULL;
+  // Note: We must use the same allocator/deallocator
+  // that is used by the javascript library, as some of the
+  // JS APIs will pass memory to the plugin which the plugin
+  // will attempt to free.
+  return malloc(size);
 }
 
 // Deallocates memory from the host's memory space
 void NPN_MemFree(void* ptr) {
-  scoped_refptr<PluginHost> host(PluginHost::Singleton());
-  if (host != NULL) {
-    if (ptr != NULL && ptr != reinterpret_cast<void*>(-1))
-      free(ptr);
-  }
+  if (ptr != NULL && ptr != reinterpret_cast<void*>(-1))
+    free(ptr);
 }
 
 // Requests that the host free a specified amount of memory.
@@ -460,7 +469,7 @@ static NPError PostURLNotify(NPP id,
           base::SysNativeMBToWide(file_path_ascii));
     }
 
-    base::PlatformFileInfo post_file_info = {0};
+    base::PlatformFileInfo post_file_info;
     if (!file_util::GetFileInfo(file_path, &post_file_info) ||
         post_file_info.is_directory)
       return NPERR_FILE_NOT_FOUND;

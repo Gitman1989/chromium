@@ -6,22 +6,26 @@
 
 #include <vector>
 
-#include "app/keyboard_code_conversion_win.h"
-#include "app/keyboard_codes.h"
 #include "app/l10n_util_win.h"
 #include "app/resource_bundle.h"
+#include "app/win/hwnd_util.h"
 #include "base/i18n/rtl.h"
 #include "base/logging.h"
 #include "base/stl_util-inl.h"
-#include "base/win_util.h"
+#include "base/win/win_util.h"
 #include "gfx/canvas_skia.h"
 #include "gfx/canvas_skia_paint.h"
 #include "gfx/favicon_size.h"
 #include "gfx/icon_util.h"
 #include "gfx/point.h"
 #include "grit/app_resources.h"
+#include "ui/base/keycodes/keyboard_codes.h"
+#include "ui/base/keycodes/keyboard_code_conversion_win.h"
 #include "views/focus/focus_manager.h"
 #include "views/widget/widget.h"
+
+using ui::TreeModel;
+using ui::TreeModelNode;
 
 namespace views {
 
@@ -336,8 +340,7 @@ HWND TreeView::CreateNativeControl(HWND parent_container) {
                                 parent_container, NULL, NULL, NULL);
   SetWindowLongPtr(tree_view_, GWLP_USERDATA,
                    reinterpret_cast<LONG_PTR>(&wrapper_));
-  original_handler_ = win_util::SetWindowProc(tree_view_,
-                                              &TreeWndProc);
+  original_handler_ = app::win::SetWindowProc(tree_view_, &TreeWndProc);
   l10n_util::AdjustUIFontForWindow(tree_view_);
 
   if (model_) {
@@ -441,7 +444,7 @@ LRESULT TreeView::OnNotify(int w_param, LPNMHDR l_param) {
         NMTVKEYDOWN* key_down_message =
             reinterpret_cast<NMTVKEYDOWN*>(l_param);
         controller_->OnTreeViewKeyDown(
-            app::KeyboardCodeForWindowsKeyCode(key_down_message->wVKey));
+            ui::KeyboardCodeForWindowsKeyCode(key_down_message->wVKey));
       }
       break;
 
@@ -451,7 +454,7 @@ LRESULT TreeView::OnNotify(int w_param, LPNMHDR l_param) {
   return 0;
 }
 
-bool TreeView::OnKeyDown(app::KeyboardCode virtual_key_code) {
+bool TreeView::OnKeyDown(ui::KeyboardCode virtual_key_code) {
   if (virtual_key_code == VK_F2) {
     if (!GetEditingNode()) {
       TreeModelNode* selected_node = GetSelectedNode();
@@ -459,13 +462,13 @@ bool TreeView::OnKeyDown(app::KeyboardCode virtual_key_code) {
         StartEditing(selected_node);
     }
     return true;
-  } else if (virtual_key_code == app::VKEY_RETURN && !process_enter_) {
+  } else if (virtual_key_code == ui::VKEY_RETURN && !process_enter_) {
     Widget* widget = GetWidget();
     DCHECK(widget);
     Accelerator accelerator(Accelerator(virtual_key_code,
-                                        win_util::IsShiftPressed(),
-                                        win_util::IsCtrlPressed(),
-                                        win_util::IsAltPressed()));
+                                        base::win::IsShiftPressed(),
+                                        base::win::IsCtrlPressed(),
+                                        base::win::IsAltPressed()));
     GetFocusManager()->ProcessAccelerator(accelerator);
     return true;
   }

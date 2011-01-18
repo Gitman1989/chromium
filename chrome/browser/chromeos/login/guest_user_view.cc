@@ -5,6 +5,7 @@
 #include "chrome/browser/chromeos/login/guest_user_view.h"
 
 #include "app/l10n_util.h"
+#include "base/utf_string_conversions.h"
 #include "chrome/browser/chromeos/login/user_controller.h"
 #include "chrome/browser/chromeos/login/wizard_accessibility_helper.h"
 #include "grit/generated_resources.h"
@@ -22,7 +23,7 @@ class UserEntryButton : public login::WideButton {
 
   // Overridden from views::View:
   virtual bool OnKeyPressed(const views::KeyEvent& e) {
-    if (e.GetKeyCode() == app::VKEY_TAB) {
+    if (e.GetKeyCode() == ui::VKEY_TAB) {
       user_controller_->SelectUserRelative(e.IsShiftDown() ? -1 : 1);
       return true;
     }
@@ -30,7 +31,7 @@ class UserEntryButton : public login::WideButton {
   }
 
   virtual bool SkipDefaultKeyEventProcessing(const views::KeyEvent& e) {
-    if (e.GetKeyCode() == app::VKEY_TAB)
+    if (e.GetKeyCode() == ui::VKEY_TAB)
       return true;
     return WideButton::SkipDefaultKeyEventProcessing(e);
   }
@@ -48,11 +49,11 @@ GuestUserView::GuestUserView(UserController* uc)
       accel_toggle_accessibility_(
           WizardAccessibilityHelper::GetAccelerator()),
       accel_login_off_the_record_(
-          views::Accelerator(app::VKEY_B, false, false, true)),
+          views::Accelerator(ui::VKEY_B, false, false, true)),
       accel_previous_pod_by_arrow_(
-          views::Accelerator(app::VKEY_LEFT, false, false, false)),
+          views::Accelerator(ui::VKEY_LEFT, false, false, false)),
       accel_next_pod_by_arrow_(
-          views::Accelerator(app::VKEY_RIGHT, false, false, false)) {
+          views::Accelerator(ui::VKEY_RIGHT, false, false, false)) {
   AddAccelerator(accel_toggle_accessibility_);
   AddAccelerator(accel_login_off_the_record_);
   AddAccelerator(accel_previous_pod_by_arrow_);
@@ -64,7 +65,7 @@ void GuestUserView::RecreateFields() {
   submit_button_ = new UserEntryButton(
       this,
       user_controller_,
-      l10n_util::GetString(IDS_ENTER_GUEST_SESSION_BUTTON));
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_ENTER_GUEST_SESSION_BUTTON)));
   AddChildView(submit_button_);
   Layout();
   SchedulePaint();

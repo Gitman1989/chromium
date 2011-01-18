@@ -53,9 +53,9 @@
 #include "net/base/escape.h"
 #include "net/url_request/url_request.h"
 #include "webkit/glue/webmenuitem.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebContextMenuData.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebMediaPlayerAction.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebTextDirection.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebContextMenuData.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebMediaPlayerAction.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebTextDirection.h"
 
 using WebKit::WebContextMenuData;
 using WebKit::WebMediaPlayerAction;
@@ -230,7 +230,7 @@ void RenderViewContextMenu::AppendExtensionItems(
   if (submenu_items.empty()) {
     menu_model_.AddItem(menu_id, title);
   } else {
-    menus::SimpleMenuModel* submenu = new menus::SimpleMenuModel(this);
+    ui::SimpleMenuModel* submenu = new ui::SimpleMenuModel(this);
     extension_menu_models_.push_back(submenu);
     menu_model_.AddSubMenu(menu_id, title, submenu);
     RecursivelyAppendExtensionItems(submenu_items, can_cross_incognito, submenu,
@@ -242,7 +242,7 @@ void RenderViewContextMenu::AppendExtensionItems(
 void RenderViewContextMenu::RecursivelyAppendExtensionItems(
     const ExtensionMenuItem::List& items,
     bool can_cross_incognito,
-    menus::SimpleMenuModel* menu_model,
+    ui::SimpleMenuModel* menu_model,
     int *index) {
   string16 selection_text = PrintableSelectionText();
   ExtensionMenuItem::Type last_type = ExtensionMenuItem::NORMAL;
@@ -273,7 +273,7 @@ void RenderViewContextMenu::RecursivelyAppendExtensionItems(
       if (children.size() == 0) {
         menu_model->AddItem(menu_id, title);
       } else {
-        menus::SimpleMenuModel* submenu = new menus::SimpleMenuModel(this);
+        ui::SimpleMenuModel* submenu = new ui::SimpleMenuModel(this);
         extension_menu_models_.push_back(submenu);
         menu_model->AddSubMenu(menu_id, title, submenu);
         RecursivelyAppendExtensionItems(children, can_cross_incognito,
@@ -399,6 +399,9 @@ void RenderViewContextMenu::InitMenu() {
     case WebContextMenuData::MediaTypeAudio:
       AppendAudioItems();
       break;
+    case WebContextMenuData::MediaTypePlugin:
+      AppendPluginItems();
+      break;
   }
 
   if (params_.is_editable)
@@ -522,6 +525,18 @@ void RenderViewContextMenu::AppendMediaItems() {
                                        IDS_CONTENT_CONTEXT_LOOP);
   menu_model_.AddCheckItemWithStringId(IDC_CONTENT_CONTEXT_CONTROLS,
                                        IDS_CONTENT_CONTEXT_CONTROLS);
+}
+
+void RenderViewContextMenu::AppendPluginItems() {
+  if (params_.page_url == params_.src_url) {
+    // Full page plugin, so show page menu items.
+    if (params_.link_url.is_empty() && params_.selection_text.empty())
+      AppendPageItems();
+  } else {
+    menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_SAVEAVAS,
+                                    IDS_CONTENT_CONTEXT_SAVEPAGEAS);
+    menu_model_.AddItemWithStringId(IDC_PRINT, IDS_CONTENT_CONTEXT_PRINT);
+  }
 }
 
 void RenderViewContextMenu::AppendPageItems() {
@@ -935,6 +950,9 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
       return !params_.misspelled_word.empty();
 
     case IDC_PRINT:
+      return params_.media_type == WebContextMenuData::MediaTypeNone ||
+        params_.media_flags & WebContextMenuData::MediaCanPrint;
+
     case IDC_CONTENT_CONTEXT_SEARCHWEBFOR:
     case IDC_CONTENT_CONTEXT_GOTOURL:
     case IDC_SPELLCHECK_SUGGESTION_0:
@@ -1212,7 +1230,11 @@ void RenderViewContextMenu::ExecuteCommand(int id) {
       break;
 
     case IDC_PRINT:
-      source_tab_contents_->PrintPreview();
+      if (params_.media_type == WebContextMenuData::MediaTypeNone) {
+        source_tab_contents_->PrintPreview();
+      } else {
+        source_tab_contents_->render_view_host()->PrintNodeUnderContextMenu();
+      }
       break;
 
     case IDC_VIEW_SOURCE:
@@ -1376,6 +1398,10 @@ void RenderViewContextMenu::ExecuteCommand(int id) {
   }
 }
 
+void RenderViewContextMenu::MenuClosed() {
+  source_tab_contents_->render_view_host()->ContextMenuClosed();
+}
+
 bool RenderViewContextMenu::IsDevCommandEnabled(int id) const {
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
   if (command_line.HasSwitch(switches::kAlwaysEnableDevTools))
@@ -1392,16 +1418,6 @@ bool RenderViewContextMenu::IsDevCommandEnabled(int id) const {
 
   // Don't inspect HTML dialogs (doesn't work anyway).
   if (active_entry->url().SchemeIs(chrome::kGearsScheme))
-    return false;
-
-#if defined NDEBUG
-  bool debug_mode = false;
-#else
-  bool debug_mode = true;
-#endif
-  // Don't inspect new tab UI, etc.
-  if (active_entry->url().SchemeIs(chrome::kChromeUIScheme) && !debug_mode &&
-      active_entry->url().host() != chrome::kChromeUIDevToolsHost)
     return false;
 
   // Don't inspect about:network, about:memory, etc.

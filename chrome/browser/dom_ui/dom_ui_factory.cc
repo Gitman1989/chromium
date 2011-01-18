@@ -23,6 +23,7 @@
 #include "chrome/browser/dom_ui/remoting_ui.h"
 #include "chrome/browser/dom_ui/options/options_ui.h"
 #include "chrome/browser/dom_ui/slideshow_ui.h"
+#include "chrome/browser/dom_ui/sync_internals_ui.h"
 #include "chrome/browser/dom_ui/textfields_ui.h"
 #include "chrome/browser/extensions/extension_dom_ui.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -96,7 +97,7 @@ static DOMUIFactoryFunction GetDOMUIFactoryFunction(Profile* profile,
   if (url.host() == chrome::kChromeUIDialogHost)
     return &NewDOMUI<ConstrainedHtmlUI>;
 
-  ExtensionService* service = profile->GetExtensionService();
+  ExtensionService* service = profile ? profile->GetExtensionService() : NULL;
   if (service && service->ExtensionBindingsAllowed(url))
     return &NewDOMUI<ExtensionDOMUI>;
 
@@ -157,8 +158,6 @@ static DOMUIFactoryFunction GetDOMUIFactoryFunction(Profile* profile,
 #if defined(TOUCH_UI)
   if (url.host() == chrome::kChromeUIKeyboardHost)
     return &NewDOMUI<KeyboardUI>;
-  if (url.host() == chrome::kChromeUILoginHost)
-    return &NewDOMUI<chromeos::LoginUI>;
 #endif
   if (url.host() == chrome::kChromeUIGpuInternalsHost)
     return &NewDOMUI<GpuInternalsUI>;
@@ -166,6 +165,8 @@ static DOMUIFactoryFunction GetDOMUIFactoryFunction(Profile* profile,
     return &NewDOMUI<NetInternalsUI>;
   if (url.host() == chrome::kChromeUIPluginsHost)
     return &NewDOMUI<PluginsUI>;
+  if (url.host() == chrome::kChromeUISyncInternalsHost)
+    return &NewDOMUI<SyncInternalsUI>;
 #if defined(ENABLE_REMOTING)
   if (url.host() == chrome::kChromeUIRemotingHost) {
     if (CommandLine::ForCurrentProcess()->HasSwitch(
@@ -202,8 +203,8 @@ static DOMUIFactoryFunction GetDOMUIFactoryFunction(Profile* profile,
     return &NewDOMUI<chromeos::NetworkMenuUI>;
 #else
   if (url.host() == chrome::kChromeUISettingsHost) {
-    if (CommandLine::ForCurrentProcess()->HasSwitch(
-        switches::kEnableTabbedOptions)) {
+    if (!CommandLine::ForCurrentProcess()->HasSwitch(
+        switches::kDisableTabbedOptions)) {
       return &NewDOMUI<OptionsUI>;
     }
   }
@@ -213,6 +214,11 @@ static DOMUIFactoryFunction GetDOMUIFactoryFunction(Profile* profile,
       return &NewDOMUI<PrintPreviewUI>;
     }
   }
+#endif  // defined(OS_CHROMEOS)
+
+#if defined(OS_CHROMEOS) && defined(TOUCH_UI)
+  if (url.host() == chrome::kChromeUILoginHost)
+    return &NewDOMUI<chromeos::LoginUI>;
 #endif
 
   if (url.spec() == chrome::kChromeUIConstrainedHTMLTestURL)
@@ -248,8 +254,9 @@ bool DOMUIFactory::IsURLAcceptableForDOMUI(Profile* profile, const GURL& url) {
       // It's possible to load about:blank in a DOM UI renderer.
       // See http://crbug.com/42547
       url.spec() == chrome::kAboutBlankURL ||
-      // about:crash, about:hang, and about:shorthang are allowed.
+      // about:crash, about:kill, about:hang, and about:shorthang are allowed.
       url.spec() == chrome::kAboutCrashURL ||
+      url.spec() == chrome::kAboutKillURL ||
       url.spec() == chrome::kAboutHangURL ||
       url.spec() == chrome::kAboutShorthangURL;
 }

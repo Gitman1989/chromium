@@ -102,10 +102,10 @@ class TextRun_Dev {
 class Font_Dev : public Resource {
  public:
   // Creates an is_null() Font object.
-  Font_Dev() {}
+  Font_Dev();
 
   explicit Font_Dev(PP_Resource resource);
-  explicit Font_Dev(const FontDescription_Dev& description);
+  explicit Font_Dev(Instance* instance, const FontDescription_Dev& description);
   Font_Dev(const Font_Dev& other);
 
   Font_Dev& operator=(const Font_Dev& other);

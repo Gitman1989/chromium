@@ -8,16 +8,19 @@
 #include <string>
 
 #include "app/l10n_util.h"
+#include "base/lazy_instance.h"
 #include "base/lock.h"
 #include "base/ref_counted.h"
-#include "base/lazy_instance.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_thread.h"
+#include "chrome/browser/platform_util.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/speech/speech_input_bubble_controller.h"
 #include "chrome/browser/speech/speech_recognizer.h"
 #include "chrome/browser/tab_contents/infobar_delegate.h"
 #include "chrome/browser/tab_contents/tab_util.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "grit/generated_resources.h"
 #include "media/audio/audio_manager.h"
@@ -135,7 +138,6 @@ class SpeechInputManagerImpl : public SpeechInputManager,
   // Starts/restarts recognition for an existing request.
   void StartRecognitionForRequest(int caller_id);
 
-  SpeechInputManagerDelegate* delegate_;
   typedef std::map<int, SpeechInputRequest> SpeechRecognizerMap;
   SpeechRecognizerMap requests_;
   int recording_caller_id_;

@@ -7,7 +7,7 @@
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
 #include "base/metrics/histogram.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_child_process_host.h"
 #include "chrome/browser/browser_thread.h"
@@ -36,7 +36,7 @@
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "net/base/escape.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebNotificationPresenter.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebNotificationPresenter.h"
 
 using WebKit::WebNotificationPresenter;
 using WebKit::WebTextDirection;
@@ -317,7 +317,8 @@ void DesktopNotificationService::Observe(NotificationType type,
   } else if (NotificationType::EXTENSION_UNLOADED == type) {
     // Remove all notifications currently shown or queued by the extension
     // which was unloaded.
-    Extension* extension = Details<Extension>(details).ptr();
+    const Extension* extension =
+        Details<UnloadedExtensionInfo>(details)->extension;
     if (extension)
       ui_manager_->CancelAllBySourceOrigin(extension->url());
   } else if (NotificationType::PROFILE_DESTROYED == type) {

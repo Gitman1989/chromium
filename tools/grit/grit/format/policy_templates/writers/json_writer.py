@@ -1,4 +1,4 @@
-# Copyright (c) 2010 The Chromium Authors. All rights reserved.
+# Copyright (c) 2011 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -7,12 +7,12 @@ from xml.dom import minidom
 from grit.format.policy_templates.writers import template_writer
 
 
-def GetWriter(config, messages):
+def GetWriter(config):
   '''Factory method for creating JsonWriter objects.
   See the constructor of TemplateWriter for description of
   arguments.
   '''
-  return JsonWriter(['linux'], config, messages)
+  return JsonWriter(['linux'], config)
 
 
 class JsonWriter(template_writer.TemplateWriter):
@@ -22,10 +22,15 @@ class JsonWriter(template_writer.TemplateWriter):
   files.
   '''
 
+  def PreprocessPolicies(self, policy_list):
+    return self.FlattenGroupsAndSortPolicies(policy_list)
+
   def WritePolicy(self, policy):
     example_value = policy['annotations']['example_value']
     if policy['type'] == 'string':
       example_value_str = '"' + example_value + '"'
+    elif policy['type'] == 'int':
+      example_value_str = str(example_value)
     elif policy['type'] == 'list':
       if example_value == []:
         example_value_str = '[]'
@@ -36,8 +41,10 @@ class JsonWriter(template_writer.TemplateWriter):
         example_value_str = 'true'
       else:
         example_value_str = 'false'
-    elif policy['type'] == 'enum':
-      example_value_str = example_value
+    elif policy['type'] == 'string-enum':
+      example_value_str = '"%s"' % example_value;
+    elif policy['type'] == 'int-enum':
+      example_value_str = str(example_value)
     else:
       raise Exception('unknown policy type %s:' % policy['type'])
 

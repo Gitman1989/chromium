@@ -1,10 +1,12 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/options/general_page_view.h"
+#include "chrome/browser/ui/views/options/general_page_view.h"
 
-#include "app/combobox_model.h"
+#include <string>
+#include <vector>
+
 #include "app/l10n_util.h"
 #include "base/callback.h"
 #include "base/message_loop.h"
@@ -23,7 +25,6 @@
 #include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_model.h"
 #include "chrome/browser/search_engines/template_url_model_observer.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/options/show_options_url.h"
 #include "chrome/browser/ui/views/keyword_editor_view.h"
 #include "chrome/browser/ui/views/options/managed_prefs_banner_view.h"
@@ -34,6 +35,7 @@
 #include "chrome/installer/util/browser_distribution.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
+#include "ui/base/models/combobox_model.h"
 #include "views/controls/button/radio_button.h"
 #include "views/controls/label.h"
 #include "views/controls/table/table_view.h"
@@ -74,7 +76,7 @@ class OptionsGroupContents : public views::View {
 ///////////////////////////////////////////////////////////////////////////////
 // SearchEngineListModel
 
-class SearchEngineListModel : public ComboboxModel,
+class SearchEngineListModel : public ui::ComboboxModel,
                               public TemplateURLModelObserver {
  public:
   explicit SearchEngineListModel(Profile* profile);
@@ -84,7 +86,7 @@ class SearchEngineListModel : public ComboboxModel,
   // so that when the TemplateURLModel changes the combobox can be updated.
   void SetCombobox(views::Combobox* combobox);
 
-  // ComboboxModel overrides:
+  // ui::ComboboxModel overrides:
   virtual int GetItemCount();
   virtual string16 GetItemAt(int index);
 
@@ -323,8 +325,8 @@ void GeneralPageView::ContentsChanged(views::Textfield* sender,
   }
 }
 
-bool GeneralPageView::HandleKeystroke(views::Textfield* sender,
-                                      const views::Textfield::Keystroke&) {
+bool GeneralPageView::HandleKeyEvent(views::Textfield* sender,
+                                     const views::KeyEvent& key_event) {
   return false;
 }
 
@@ -465,21 +467,21 @@ void GeneralPageView::SetDefaultBrowserUIState(
   default_browser_use_as_default_button_->SetEnabled(button_enabled);
   default_browser_use_as_default_button_->SetNeedElevation(true);
   if (state == ShellIntegration::STATE_IS_DEFAULT) {
-    default_browser_status_label_->SetText(
-      l10n_util::GetStringF(IDS_OPTIONS_DEFAULTBROWSER_DEFAULT,
-                            l10n_util::GetString(IDS_PRODUCT_NAME)));
+    default_browser_status_label_->SetText(UTF16ToWide(
+        l10n_util::GetStringFUTF16(IDS_OPTIONS_DEFAULTBROWSER_DEFAULT,
+            l10n_util::GetStringUTF16(IDS_PRODUCT_NAME))));
     default_browser_status_label_->SetColor(kDefaultBrowserLabelColor);
     Layout();
   } else if (state == ShellIntegration::STATE_NOT_DEFAULT) {
-    default_browser_status_label_->SetText(
-        l10n_util::GetStringF(IDS_OPTIONS_DEFAULTBROWSER_NOTDEFAULT,
-                              l10n_util::GetString(IDS_PRODUCT_NAME)));
+    default_browser_status_label_->SetText(UTF16ToWide(
+        l10n_util::GetStringFUTF16(IDS_OPTIONS_DEFAULTBROWSER_NOTDEFAULT,
+            l10n_util::GetStringUTF16(IDS_PRODUCT_NAME))));
     default_browser_status_label_->SetColor(kNotDefaultBrowserLabelColor);
     Layout();
   } else if (state == ShellIntegration::STATE_UNKNOWN) {
-    default_browser_status_label_->SetText(
-        l10n_util::GetStringF(IDS_OPTIONS_DEFAULTBROWSER_UNKNOWN,
-                              l10n_util::GetString(IDS_PRODUCT_NAME)));
+    default_browser_status_label_->SetText(UTF16ToWide(
+        l10n_util::GetStringFUTF16(IDS_OPTIONS_DEFAULTBROWSER_UNKNOWN,
+            l10n_util::GetStringUTF16(IDS_PRODUCT_NAME))));
     default_browser_status_label_->SetColor(kNotDefaultBrowserLabelColor);
     Layout();
   }
@@ -487,34 +489,38 @@ void GeneralPageView::SetDefaultBrowserUIState(
 
 void GeneralPageView::SetDefaultBrowserUIStateForSxS() {
   default_browser_use_as_default_button_->SetEnabled(false);
-  default_browser_status_label_->SetText(
-    l10n_util::GetStringF(IDS_OPTIONS_DEFAULTBROWSER_SXS,
-                          l10n_util::GetString(IDS_PRODUCT_NAME)));
+  default_browser_status_label_->SetText(UTF16ToWide(
+        l10n_util::GetStringFUTF16(IDS_OPTIONS_DEFAULTBROWSER_SXS,
+            l10n_util::GetStringUTF16(IDS_PRODUCT_NAME))));
   default_browser_status_label_->SetColor(kNotDefaultBrowserLabelColor);
   Layout();
 }
 
 void GeneralPageView::InitStartupGroup() {
-  startup_homepage_radio_ = new views::RadioButton(
-      l10n_util::GetString(IDS_OPTIONS_STARTUP_SHOW_DEFAULT_AND_NEWTAB),
+  startup_homepage_radio_ = new views::RadioButton(UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_OPTIONS_STARTUP_SHOW_DEFAULT_AND_NEWTAB)),
       kStartupRadioGroup);
   startup_homepage_radio_->set_listener(this);
-  startup_last_session_radio_ = new views::RadioButton(
-      l10n_util::GetString(IDS_OPTIONS_STARTUP_SHOW_LAST_SESSION),
+  startup_last_session_radio_ = new views::RadioButton(UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_OPTIONS_STARTUP_SHOW_LAST_SESSION)),
       kStartupRadioGroup);
   startup_last_session_radio_->set_listener(this);
   startup_last_session_radio_->SetMultiLine(true);
   startup_custom_radio_ = new views::RadioButton(
-      l10n_util::GetString(IDS_OPTIONS_STARTUP_SHOW_PAGES),
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_OPTIONS_STARTUP_SHOW_PAGES)),
       kStartupRadioGroup);
   startup_custom_radio_->set_listener(this);
   startup_add_custom_page_button_ = new views::NativeButton(
-      this, l10n_util::GetString(IDS_OPTIONS_STARTUP_ADD_BUTTON));
+      this,
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_OPTIONS_STARTUP_ADD_BUTTON)));
   startup_remove_custom_page_button_ = new views::NativeButton(
-      this, l10n_util::GetString(IDS_OPTIONS_STARTUP_REMOVE_BUTTON));
+      this,
+      UTF16ToWide(
+          l10n_util::GetStringUTF16(IDS_OPTIONS_STARTUP_REMOVE_BUTTON)));
   startup_remove_custom_page_button_->SetEnabled(false);
   startup_use_current_page_button_ = new views::NativeButton(
-      this, l10n_util::GetString(IDS_OPTIONS_STARTUP_USE_CURRENT));
+      this,
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_OPTIONS_STARTUP_USE_CURRENT)));
 
   startup_custom_pages_table_model_.reset(
       new CustomHomePagesTableModel(profile()));
@@ -581,18 +587,19 @@ void GeneralPageView::InitStartupGroup() {
   layout->AddView(button_stack);
 
   startup_group_ = new OptionsGroupView(
-      contents, l10n_util::GetString(IDS_OPTIONS_STARTUP_GROUP_NAME),
+      contents,
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_OPTIONS_STARTUP_GROUP_NAME)),
       std::wstring(), true);
 }
 
 void GeneralPageView::InitHomepageGroup() {
   homepage_use_newtab_radio_ = new views::RadioButton(
-      l10n_util::GetString(IDS_OPTIONS_HOMEPAGE_USE_NEWTAB),
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_OPTIONS_HOMEPAGE_USE_NEWTAB)),
       kHomePageRadioGroup);
   homepage_use_newtab_radio_->set_listener(this);
   homepage_use_newtab_radio_->SetMultiLine(true);
   homepage_use_url_radio_ = new views::RadioButton(
-      l10n_util::GetString(IDS_OPTIONS_HOMEPAGE_USE_URL),
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_OPTIONS_HOMEPAGE_USE_URL)),
       kHomePageRadioGroup);
   homepage_use_url_radio_->set_listener(this);
   homepage_use_url_textfield_ = new views::Textfield;
@@ -600,7 +607,7 @@ void GeneralPageView::InitHomepageGroup() {
   homepage_use_url_textfield_->set_default_width_in_chars(
       kHomePageTextfieldWidthChars);
   homepage_show_home_button_checkbox_ = new views::Checkbox(
-      l10n_util::GetString(IDS_OPTIONS_HOMEPAGE_SHOW_BUTTON));
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_OPTIONS_HOMEPAGE_SHOW_BUTTON)));
   homepage_show_home_button_checkbox_->set_listener(this);
   homepage_show_home_button_checkbox_->SetMultiLine(true);
 
@@ -637,7 +644,8 @@ void GeneralPageView::InitHomepageGroup() {
                   GridLayout::FILL, GridLayout::LEADING);
 
   homepage_group_ = new OptionsGroupView(
-      contents, l10n_util::GetString(IDS_OPTIONS_HOMEPAGE_GROUP_NAME),
+      contents,
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_OPTIONS_HOMEPAGE_GROUP_NAME)),
       std::wstring(), true);
 }
 
@@ -651,14 +659,16 @@ void GeneralPageView::InitDefaultSearchGroup() {
 
   default_search_manage_engines_button_ = new views::NativeButton(
       this,
-      l10n_util::GetString(IDS_OPTIONS_DEFAULTSEARCH_MANAGE_ENGINES_LINK));
+      UTF16ToWide(l10n_util::GetStringUTF16(
+          IDS_OPTIONS_DEFAULTSEARCH_MANAGE_ENGINES_LINK)));
 
   instant_checkbox_ = new views::Checkbox(
-      l10n_util::GetString(IDS_INSTANT_PREF));
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_INSTANT_PREF)));
   instant_checkbox_->SetMultiLine(false);
   instant_checkbox_->set_listener(this);
 
-  instant_link_ = new views::Link(l10n_util::GetString(IDS_LEARN_MORE));
+  instant_link_ = new views::Link(UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_LEARN_MORE)));
   instant_link_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
   instant_link_->SetController(this);
 
@@ -702,12 +712,14 @@ void GeneralPageView::InitDefaultSearchGroup() {
   layout->AddPaddingRow(0, 0);
 
   layout->StartRow(0, link_column_set_id);
-  layout->AddView(
-      new views::Label(l10n_util::GetString(IDS_INSTANT_PREF_WARNING)));
+  layout->AddView(new views::Label(UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_INSTANT_PREF_WARNING))));
   layout->AddView(instant_link_);
 
   default_search_group_ = new OptionsGroupView(
-      contents, l10n_util::GetString(IDS_OPTIONS_DEFAULTSEARCH_GROUP_NAME),
+      contents,
+      UTF16ToWide(
+          l10n_util::GetStringUTF16(IDS_OPTIONS_DEFAULTSEARCH_GROUP_NAME)),
       std::wstring(), true);
 }
 
@@ -718,8 +730,9 @@ void GeneralPageView::InitDefaultBrowserGroup() {
       views::Label::ALIGN_LEFT);
   default_browser_use_as_default_button_ = new views::NativeButton(
       this,
-      l10n_util::GetStringF(IDS_OPTIONS_DEFAULTBROWSER_USEASDEFAULT,
-                            l10n_util::GetString(IDS_PRODUCT_NAME)));
+      UTF16ToWide(
+          l10n_util::GetStringFUTF16(IDS_OPTIONS_DEFAULTBROWSER_USEASDEFAULT,
+              l10n_util::GetStringUTF16(IDS_PRODUCT_NAME))));
 
   using views::GridLayout;
   using views::ColumnSet;
@@ -741,7 +754,9 @@ void GeneralPageView::InitDefaultBrowserGroup() {
   layout->AddView(default_browser_use_as_default_button_);
 
   default_browser_group_ = new OptionsGroupView(
-      contents, l10n_util::GetString(IDS_OPTIONS_DEFAULTBROWSER_GROUP_NAME),
+      contents,
+      UTF16ToWide(
+          l10n_util::GetStringUTF16(IDS_OPTIONS_DEFAULTBROWSER_GROUP_NAME)),
       std::wstring(), false);
 
   if (BrowserDistribution::GetDistribution()->CanSetAsDefault())

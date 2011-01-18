@@ -8,20 +8,20 @@
 #import <Foundation/Foundation.h>
 #import <objc/objc-runtime.h>
 
+#include "app/data_pack.h"
 #include "base/base_paths.h"
-#include "base/data_pack.h"
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "base/mac_util.h"
+#include "base/mac/mac_util.h"
 #include "base/path_service.h"
 #include "base/string16.h"
 #include "grit/webkit_resources.h"
-#include "third_party/WebKit/WebKit/mac/WebCoreSupport/WebSystemInterface.h"
+#include "third_party/WebKit/Source/WebKit/mac/WebCoreSupport/WebSystemInterface.h"
 #include "webkit/plugins/npapi/plugin_list.h"
 #import "webkit/support/drt_application_mac.h"
 #import "webkit/tools/test_shell/mac/DumpRenderTreePasteboard.h"
 
-static base::DataPack* g_resource_data_pack = NULL;
+static app::DataPack* g_resource_data_pack = NULL;
 
 namespace webkit_support {
 
@@ -102,9 +102,9 @@ void AfterInitialize(bool unit_test_mode) {
     return;  // We don't have a resource pack when running the unit-tests.
 
   // Load a data pack.
-  g_resource_data_pack = new base::DataPack;
+  g_resource_data_pack = new app::DataPack;
   NSString* resource_path =
-      [mac_util::MainAppBundle() pathForResource:@"DumpRenderTree"
+      [base::mac::MainAppBundle() pathForResource:@"DumpRenderTree"
                                           ofType:@"pak"];
   FilePath resources_pak_path([resource_path fileSystemRepresentation]);
   if (!g_resource_data_pack->Load(resources_pak_path)) {
@@ -177,7 +177,7 @@ string16 GetLocalizedString(int message_id) {
 static FilePath GetResourcesFilePath() {
   FilePath path;
   // We assume the application is bundled.
-  if (!mac_util::AmIBundled()) {
+  if (!base::mac::AmIBundled()) {
     LOG(FATAL) << "Failed to locate resources. The applicaiton is not bundled.";
   }
   PathService::Get(base::DIR_EXE, &path);

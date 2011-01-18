@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -126,11 +126,22 @@ class TextfieldViewsModel {
     return GetVisibleText(0U, text_.length());
   }
 
- private:
-  friend class NativeTextfieldViews;
+  // Cuts the currently selected text and puts it to clipboard. Returns true
+  // if text has changed after cutting.
+  bool Cut();
+
+  // Copies the currently selected text and puts it to clipboard.
+  void Copy();
+
+  // Pastes text from the clipboard at current cursor position. Returns true
+  // if text has changed after pasting.
+  bool Paste();
 
   // Tells if any text is selected.
   bool HasSelection() const;
+
+ private:
+  friend class NativeTextfieldViews;
 
   // Deletes the selected text.
   void DeleteSelection();

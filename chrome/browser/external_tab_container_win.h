@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,10 +15,9 @@
 #include "chrome/browser/automation/automation_resource_message_filter.h"
 #include "chrome/browser/net/chrome_url_request_context.h"
 #include "chrome/browser/tab_contents/tab_contents_delegate.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/views/frame/browser_bubble_host.h"
-#include "chrome/browser/views/infobars/infobar_container.h"
-#include "chrome/browser/views/unhandled_keyboard_event_handler.h"
+#include "chrome/browser/ui/views/frame/browser_bubble_host.h"
+#include "chrome/browser/ui/views/infobars/infobar_container.h"
+#include "chrome/browser/ui/views/unhandled_keyboard_event_handler.h"
 #include "chrome/common/navigation_types.h"
 #include "chrome/common/notification_observer.h"
 #include "chrome/common/notification_registrar.h"
@@ -26,16 +25,14 @@
 #include "views/widget/widget_win.h"
 
 class AutomationProvider;
+class Browser;
 class Profile;
 class TabContentsContainer;
 class RenderViewContextMenuViews;
+struct NavigationInfo;
 
 namespace app {
 class ViewProp;
-}
-
-namespace IPC {
-struct NavigationInfo;
 }
 
 // This class serves as the container window for an external tab.
@@ -225,7 +222,7 @@ class ExternalTabContainer : public TabContentsDelegate,
   virtual void OnDestroy();
   virtual void OnFinalMessage(HWND window);
 
-  bool InitNavigationInfo(IPC::NavigationInfo* nav_info,
+  bool InitNavigationInfo(NavigationInfo* nav_info,
                           NavigationType::Type nav_type,
                           int relative_offset);
   void Navigate(const GURL& url, const GURL& referrer);

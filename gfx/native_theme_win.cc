@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,6 +11,8 @@
 
 #include "base/logging.h"
 #include "base/scoped_handle.h"
+#include "base/win/scoped_gdi_object.h"
+#include "base/win/scoped_hdc.h"
 #include "base/win/windows_version.h"
 #include "gfx/gdi_util.h"
 #include "gfx/rect.h"
@@ -189,9 +191,9 @@ HRESULT NativeTheme::PaintMenuArrow(ThemeName theme,
       // are needed for RTL locales on Vista.  So use a memory DC and mirror
       // the region with GDI's StretchBlt.
       Rect r(*rect);
-      ScopedHDC mem_dc(CreateCompatibleDC(hdc));
-      ScopedBitmap mem_bitmap(CreateCompatibleBitmap(hdc, r.width(),
-                                                     r.height()));
+      base::win::ScopedHDC mem_dc(CreateCompatibleDC(hdc));
+      base::win::ScopedBitmap mem_bitmap(CreateCompatibleBitmap(hdc, r.width(),
+                                                                r.height()));
       HGDIOBJ old_bitmap = SelectObject(mem_dc, mem_bitmap);
       // Copy and horizontally mirror the background from hdc into mem_dc. Use
       // a negative-width source rect, starting at the rightmost pixel.
@@ -750,12 +752,12 @@ HRESULT NativeTheme::PaintFrameControl(HDC hdc,
   const int height = rect->bottom - rect->top;
 
   // DrawFrameControl for menu arrow/check wants a monochrome bitmap.
-  ScopedBitmap mask_bitmap(CreateBitmap(width, height, 1, 1, NULL));
+  base::win::ScopedBitmap mask_bitmap(CreateBitmap(width, height, 1, 1, NULL));
 
   if (mask_bitmap == NULL)
     return E_OUTOFMEMORY;
 
-  ScopedHDC bitmap_dc(CreateCompatibleDC(NULL));
+  base::win::ScopedHDC bitmap_dc(CreateCompatibleDC(NULL));
   HGDIOBJ org_bitmap = SelectObject(bitmap_dc, mask_bitmap);
   RECT local_rect = { 0, 0, width, height };
   DrawFrameControl(bitmap_dc, &local_rect, type, state);

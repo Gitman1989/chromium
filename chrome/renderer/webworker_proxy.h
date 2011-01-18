@@ -11,7 +11,7 @@
 #include "base/basictypes.h"
 #include "chrome/renderer/webworker_base.h"
 #include "ipc/ipc_channel.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebWorker.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebWorker.h"
 
 class ChildThread;
 class GURL;
@@ -43,7 +43,7 @@ class WebWorkerProxy : public WebKit::WebWorker, private WebWorkerBase {
   virtual void clientDestroyed();
 
   // IPC::Channel::Listener implementation.
-  virtual void OnMessageReceived(const IPC::Message& message);
+  virtual bool OnMessageReceived(const IPC::Message& message);
 
  private:
   void CancelCreation();

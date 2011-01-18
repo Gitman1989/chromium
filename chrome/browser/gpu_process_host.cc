@@ -9,7 +9,7 @@
 #include "base/command_line.h"
 #include "base/metrics/histogram.h"
 #include "base/string_piece.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "chrome/browser/browser_thread.h"
 #include "chrome/browser/gpu_blacklist.h"
 #include "chrome/browser/gpu_process_host_ui_shim.h"
@@ -22,6 +22,7 @@
 #include "chrome/common/gpu_info.h"
 #include "chrome/common/gpu_messages.h"
 #include "chrome/common/render_messages.h"
+#include "chrome/gpu/gpu_thread.h"
 #include "grit/browser_resources.h"
 #include "ipc/ipc_channel_handle.h"
 #include "ipc/ipc_switches.h"
@@ -38,10 +39,16 @@
 
 namespace {
 
+enum GPUBlacklistTestResult {
+  BLOCKED,
+  ALLOWED,
+  BLACKLIST_TEST_RESULT_MAX
+};
+
 enum GPUProcessLifetimeEvent {
-  kLaunched,
-  kCrashed,
-  kGPUProcessLifetimeEvent_Max
+  LAUNCED,
+  CRASHED,
+  GPU_PROCESS_LIFETIME_EVENT_MAX
   };
 
 // Tasks used by this file
@@ -77,10 +84,40 @@ void RouteOnUIThread(const IPC::Message& message) {
 }
 }  // anonymous namespace
 
+class GpuMainThread : public base::Thread {
+ public:
+  explicit GpuMainThread(const std::string& channel_id)
+      : base::Thread("CrGpuMain"),
+        channel_id_(channel_id) {
+  }
+
+  ~GpuMainThread() {
+    Stop();
+  }
+
+ protected:
+  virtual void Init() {
+    // Must be created on GPU thread.
+    gpu_thread_.reset(new GpuThread(channel_id_));
+    gpu_thread_->Init(base::Time::Now());
+  }
+
+  virtual void CleanUp() {
+    // Must be destroyed on GPU thread.
+    gpu_thread_.reset();
+  }
+
+ private:
+  scoped_ptr<GpuThread> gpu_thread_;
+  std::string channel_id_;
+  DISALLOW_COPY_AND_ASSIGN(GpuMainThread);
+};
+
 GpuProcessHost::GpuProcessHost()
     : BrowserChildProcessHost(GPU_PROCESS, NULL),
       initialized_(false),
-      initialized_successfully_(false) {
+      initialized_successfully_(false),
+      blacklist_result_recorded_(false) {
   DCHECK_EQ(sole_instance_, static_cast<GpuProcessHost*>(NULL));
 }
 
@@ -97,6 +134,9 @@ bool GpuProcessHost::EnsureInitialized() {
   if (!initialized_) {
     initialized_ = true;
     initialized_successfully_ = Init();
+    if (initialized_successfully_) {
+      Send(new GpuMsg_Initialize());
+    }
   }
   return initialized_successfully_;
 }
@@ -132,13 +172,14 @@ bool GpuProcessHost::Send(IPC::Message* msg) {
   return BrowserChildProcessHost::Send(msg);
 }
 
-void GpuProcessHost::OnMessageReceived(const IPC::Message& message) {
+bool GpuProcessHost::OnMessageReceived(const IPC::Message& message) {
   DCHECK(CalledOnValidThread());
 
   if (message.routing_id() == MSG_ROUTING_CONTROL)
-    OnControlMessageReceived(message);
-  else
-    RouteOnUIThread(message);
+    return OnControlMessageReceived(message);
+
+  RouteOnUIThread(message);
+  return true;
 }
 
 void GpuProcessHost::EstablishGpuChannel(int renderer_id,
@@ -178,7 +219,7 @@ GpuProcessHost::SynchronizationRequest::SynchronizationRequest(
 
 GpuProcessHost::SynchronizationRequest::~SynchronizationRequest() {}
 
-void GpuProcessHost::OnControlMessageReceived(const IPC::Message& message) {
+bool GpuProcessHost::OnControlMessageReceived(const IPC::Message& message) {
   DCHECK(CalledOnValidThread());
 
   IPC_BEGIN_MESSAGE_MAP(GpuProcessHost, message)
@@ -202,6 +243,8 @@ void GpuProcessHost::OnControlMessageReceived(const IPC::Message& message) {
     // handle it.
     IPC_MESSAGE_UNHANDLED(RouteOnUIThread(message))
   IPC_END_MESSAGE_MAP()
+
+  return true;
 }
 
 void GpuProcessHost::OnChannelEstablished(
@@ -215,20 +258,31 @@ void GpuProcessHost::OnChannelEstablished(
   const ChannelRequest& request = sent_requests_.front();
   // Currently if any of the GPU features are blacklised, we don't establish a
   // GPU channel.
+  GPUBlacklistTestResult test_result;
   if (gpu_feature_flags.flags() != 0) {
     Send(new GpuMsg_CloseChannel(channel_handle));
     SendEstablishChannelReply(IPC::ChannelHandle(), gpu_info, request.filter);
+    test_result = BLOCKED;
   } else {
     SendEstablishChannelReply(channel_handle, gpu_info, request.filter);
+    test_result = ALLOWED;
+  }
+  if (!blacklist_result_recorded_) {
+    UMA_HISTOGRAM_ENUMERATION("GPU.BlacklistTestResults",
+                              test_result, BLACKLIST_TEST_RESULT_MAX);
+    blacklist_result_recorded_ = true;
   }
   sent_requests_.pop();
 }
 
 void GpuProcessHost::OnSynchronizeReply() {
-  const SynchronizationRequest& request =
-      queued_synchronization_replies_.front();
-  SendSynchronizationReply(request.reply, request.filter);
-  queued_synchronization_replies_.pop();
+  // Guard against race conditions in abrupt GPU process termination.
+  if (queued_synchronization_replies_.size() > 0) {
+    const SynchronizationRequest& request =
+        queued_synchronization_replies_.front();
+    SendSynchronizationReply(request.reply, request.filter);
+    queued_synchronization_replies_.pop();
+  }
 }
 
 #if defined(OS_LINUX)
@@ -477,19 +531,35 @@ void GpuProcessHost::SendSynchronizationReply(
   filter->Send(reply);
 }
 
+void GpuProcessHost::SendOutstandingReplies() {
+  // First send empty channel handles for all EstablishChannel requests.
+  while (!sent_requests_.empty()) {
+    const ChannelRequest& request = sent_requests_.front();
+    SendEstablishChannelReply(IPC::ChannelHandle(), GPUInfo(), request.filter);
+    sent_requests_.pop();
+  }
+
+  // Now unblock all renderers waiting for synchronization replies.
+  while (!queued_synchronization_replies_.empty()) {
+    OnSynchronizeReply();
+  }
+}
+
 bool GpuProcessHost::CanShutdown() {
   return true;
 }
 
 void GpuProcessHost::OnChildDied() {
+  SendOutstandingReplies();
   // Located in OnChildDied because OnProcessCrashed suffers from a race
   // condition on Linux. The GPU process will only die if it crashes.
   UMA_HISTOGRAM_ENUMERATION("GPU.GPUProcessLifetimeEvents",
-                            kCrashed, kGPUProcessLifetimeEvent_Max);
+                            CRASHED, GPU_PROCESS_LIFETIME_EVENT_MAX);
   BrowserChildProcessHost::OnChildDied();
 }
 
 void GpuProcessHost::OnProcessCrashed(int exit_code) {
+  SendOutstandingReplies();
   if (++g_gpu_crash_count >= kGpuMaxCrashCount) {
     // The gpu process is too unstable to use. Disable it for current session.
     RenderViewHostDelegateHelper::set_gpu_enabled(false);
@@ -503,6 +573,28 @@ bool GpuProcessHost::CanLaunchGpuProcess() const {
 
 bool GpuProcessHost::LaunchGpuProcess() {
   const CommandLine& browser_command_line = *CommandLine::ForCurrentProcess();
+
+  // TODO(apatrick): This cannot be a UI message pump on Linux because glib is
+  // not thread safe. Changing this to an IO message pump does not completely
+  // resolve the problem, most likely because we're sharing a connection to the
+  // X server with the browser.
+#if !defined(OS_LINUX)
+
+  // If the single-process switch is present, just launch the GPU service in a
+  // new thread in the browser process.
+  if (browser_command_line.HasSwitch(switches::kSingleProcess)) {
+    GpuMainThread* thread = new GpuMainThread(channel_id());
+
+    base::Thread::Options options;
+    options.message_loop_type = MessageLoop::TYPE_UI;
+
+    if (!thread->StartWithOptions(options))
+      return false;
+
+    return true;
+  }
+#endif
+
   CommandLine::StringType gpu_launcher =
       browser_command_line.GetSwitchValueNative(switches::kGpuLauncher);
 
@@ -547,7 +639,7 @@ bool GpuProcessHost::LaunchGpuProcess() {
       cmd_line);
 
   UMA_HISTOGRAM_ENUMERATION("GPU.GPUProcessLifetimeEvents",
-                            kLaunched, kGPUProcessLifetimeEvent_Max);
+                            LAUNCED, GPU_PROCESS_LIFETIME_EVENT_MAX);
   return true;
 }
 

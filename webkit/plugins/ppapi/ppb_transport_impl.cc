@@ -5,7 +5,7 @@
 #include "webkit/plugins/ppapi/ppb_transport_impl.h"
 
 #include "base/singleton.h"
-#include "base/thread_local.h"
+#include "base/threading/thread_local.h"
 #include "ppapi/c/dev/ppb_transport_dev.h"
 #include "webkit/plugins/ppapi/common.h"
 #include "webkit/plugins/ppapi/plugin_module.h"
@@ -18,7 +18,7 @@ namespace {
 
 // Creates a new transport object with the specified name
 // using the specified protocol.
-PP_Resource CreateTransport(PP_Module module,
+PP_Resource CreateTransport(PP_Instance instance,
                             const char* name,
                             const char* proto) {
   // TODO(juberti): implement me
@@ -118,8 +118,8 @@ const PPB_Transport_Dev ppb_transport = {
 
 }  // namespace
 
-PPB_Transport_Impl::PPB_Transport_Impl(PluginModule* module)
-    : Resource(module) {
+PPB_Transport_Impl::PPB_Transport_Impl(PluginInstance* instance)
+    : Resource(instance) {
   // TODO(juberti): impl
 }
 

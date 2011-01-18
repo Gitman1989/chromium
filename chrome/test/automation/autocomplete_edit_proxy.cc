@@ -6,6 +6,7 @@
 
 #include <vector>
 
+#include "base/threading/platform_thread.h"
 #include "chrome/common/automation_constants.h"
 #include "chrome/common/automation_messages.h"
 #include "chrome/test/automation/automation_proxy.h"
@@ -22,7 +23,7 @@ bool AutocompleteEditProxy::GetText(std::wstring* text) const {
   }
   bool result = false;
   sender_->Send(new AutomationMsg_AutocompleteEditGetText(
-      0, handle_, &result, text));
+      handle_, &result, text));
   return result;
 }
 
@@ -31,7 +32,7 @@ bool AutocompleteEditProxy::WaitForFocus() const {
     return false;
   bool edit_exists = false;
   sender_->Send(new AutomationMsg_WaitForAutocompleteEditFocus(
-      0, handle_, &edit_exists));
+      handle_, &edit_exists));
   return edit_exists;
 }
 
@@ -40,7 +41,7 @@ bool AutocompleteEditProxy::SetText(const std::wstring& text) {
     return false;
   bool result = false;
   sender_->Send(new AutomationMsg_AutocompleteEditSetText(
-      0, handle_, text, &result));
+      handle_, text, &result));
   return result;
 }
 
@@ -53,7 +54,7 @@ bool AutocompleteEditProxy::IsQueryInProgress(bool* query_in_progress) const {
   }
   bool edit_exists = false;
   sender_->Send(new AutomationMsg_AutocompleteEditIsQueryInProgress(
-      0, handle_, &edit_exists, query_in_progress));
+      handle_, &edit_exists, query_in_progress));
   return edit_exists;
 }
 
@@ -66,7 +67,7 @@ bool AutocompleteEditProxy::WaitForQuery(int wait_timeout_ms) const {
   while (TimeTicks::Now() - start < timeout) {
     if (IsQueryInProgress(&query_in_progress) && !query_in_progress)
       return true;
-    PlatformThread::Sleep(automation::kSleepTime);
+    base::PlatformThread::Sleep(automation::kSleepTime);
   }
   // If we get here the query is still in progress.
   return false;
@@ -81,6 +82,6 @@ bool AutocompleteEditProxy::GetAutocompleteMatches(Matches* matches) const {
   }
   bool edit_exists = false;
   sender_->Send(new AutomationMsg_AutocompleteEditGetMatches(
-      0, handle_, &edit_exists, matches));
+      handle_, &edit_exists, matches));
   return edit_exists;
 }

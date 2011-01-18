@@ -13,6 +13,7 @@ namespace pp {
 
 class CompletionCallback;
 class ImageData;
+class Instance;
 class Point;
 class Rect;
 
@@ -27,12 +28,11 @@ class Graphics2D : public Resource {
 
   // Allocates a new 2D graphics context with the given size in the browser,
   // resulting object will be is_null() if the allocation failed.
-  Graphics2D(const Size& size, bool is_always_opaque);
+  Graphics2D(Instance* instance, const Size& size, bool is_always_opaque);
 
   virtual ~Graphics2D();
 
   Graphics2D& operator=(const Graphics2D& other);
-  void swap(Graphics2D& other);
 
   const Size& size() const { return size_; }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,18 +9,19 @@
 #include "ppapi/c/pp_errors.h"
 #include "ppapi/c/ppb_url_loader.h"
 #include "ppapi/c/trusted/ppb_url_loader_trusted.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDocument.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebElement.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebKit.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebKitClient.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPluginContainer.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSecurityOrigin.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLLoader.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLRequest.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLResponse.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebElement.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebKitClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginContainer.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSecurityOrigin.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLLoader.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLRequest.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLResponse.h"
 #include "webkit/appcache/web_application_cache_host_impl.h"
 #include "webkit/plugins/ppapi/common.h"
+#include "webkit/plugins/ppapi/plugin_module.h"
 #include "webkit/plugins/ppapi/ppapi_plugin_instance.h"
 #include "webkit/plugins/ppapi/ppb_url_request_info_impl.h"
 #include "webkit/plugins/ppapi/ppb_url_response_info_impl.h"
@@ -195,8 +196,7 @@ WebKit::WebFrame* GetFrame(PluginInstance* instance) {
 
 PPB_URLLoader_Impl::PPB_URLLoader_Impl(PluginInstance* instance,
                                        bool main_document_loader)
-    : Resource(instance->module()),
-      instance_(instance),
+    : Resource(instance),
       main_document_loader_(main_document_loader),
       pending_callback_(),
       bytes_sent_(0),
@@ -208,12 +208,9 @@ PPB_URLLoader_Impl::PPB_URLLoader_Impl(PluginInstance* instance,
       done_status_(PP_ERROR_WOULDBLOCK),
       has_universal_access_(false),
       status_callback_(NULL) {
-  instance->AddObserver(this);
 }
 
 PPB_URLLoader_Impl::~PPB_URLLoader_Impl() {
-  if (instance_)
-    instance_->RemoveObserver(this);
 }
 
 // static
@@ -230,61 +227,59 @@ PPB_URLLoader_Impl* PPB_URLLoader_Impl::AsPPB_URLLoader_Impl() {
   return this;
 }
 
+void PPB_URLLoader_Impl::LastPluginRefWasDeleted(bool instance_destroyed) {
+  Resource::LastPluginRefWasDeleted(instance_destroyed);
+  if (instance_destroyed) {
+    // Free the WebKit request when the instance has been destroyed to avoid
+    // using bandwidth just in case this object lives longer than the instance.
+    loader_.reset();
+  }
+}
+
 int32_t PPB_URLLoader_Impl::Open(PPB_URLRequestInfo_Impl* request,
                                  PP_CompletionCallback callback) {
+  int32_t rv = ValidateCallback(callback);
+  if (rv != PP_OK)
+    return rv;
+
   if (loader_.get())
     return PP_ERROR_INPROGRESS;
 
-  // We only support non-blocking calls.
-  if (!callback.func)
-    return PP_ERROR_BADARGUMENT;
-
-  WebFrame* frame = GetFrame(instance_);
+  WebFrame* frame = GetFrame(instance());
   if (!frame)
     return PP_ERROR_FAILED;
   WebURLRequest web_request(request->ToWebURLRequest(frame));
 
-  int32_t rv = CanRequest(frame, web_request.url());
+  rv = CanRequest(frame, web_request.url());
   if (rv != PP_OK)
     return rv;
 
-  frame->dispatchWillSendRequest(web_request);
-
-  // Sets the appcache host id to allow retrieval from the appcache.
-  if (WebApplicationCacheHostImpl* appcache_host =
-          WebApplicationCacheHostImpl::FromFrame(frame)) {
-    appcache_host->willStartSubResourceRequest(web_request);
-  }
-
-  loader_.reset(WebKit::webKitClient()->createURLLoader());
+  loader_.reset(frame->createAssociatedURLLoader());
   if (!loader_.get())
     return PP_ERROR_FAILED;
 
   loader_->loadAsynchronously(web_request, this);
 
   request_info_ = scoped_refptr<PPB_URLRequestInfo_Impl>(request);
-  pending_callback_ = callback;
 
   // Notify completion when we receive a redirect or response headers.
+  RegisterCallback(callback);
   return PP_ERROR_WOULDBLOCK;
 }
 
 int32_t PPB_URLLoader_Impl::FollowRedirect(PP_CompletionCallback callback) {
-  if (pending_callback_.func)
-    return PP_ERROR_INPROGRESS;
-
-  // We only support non-blocking calls.
-  if (!callback.func)
-    return PP_ERROR_BADARGUMENT;
-
-  WebURL redirect_url = GURL(response_info_->redirect_url());
-
-  int32_t rv = CanRequest(GetFrame(instance_), redirect_url);
+  int32_t rv = ValidateCallback(callback);
   if (rv != PP_OK)
     return rv;
 
-  pending_callback_ = callback;
+  WebURL redirect_url = GURL(response_info_->redirect_url());
+
+  rv = CanRequest(GetFrame(instance()), redirect_url);
+  if (rv != PP_OK)
+    return rv;
+
   loader_->setDefersLoading(false);  // Allow the redirect to continue.
+  RegisterCallback(callback);
   return PP_ERROR_WOULDBLOCK;
 }
 
@@ -316,15 +311,12 @@ bool PPB_URLLoader_Impl::GetDownloadProgress(
 int32_t PPB_URLLoader_Impl::ReadResponseBody(char* buffer,
                                              int32_t bytes_to_read,
                                              PP_CompletionCallback callback) {
+  int32_t rv = ValidateCallback(callback);
+  if (rv != PP_OK)
+    return rv;
   if (!response_info_ || response_info_->body())
     return PP_ERROR_FAILED;
   if (bytes_to_read <= 0 || !buffer)
-    return PP_ERROR_BADARGUMENT;
-  if (pending_callback_.func)
-    return PP_ERROR_INPROGRESS;
-
-  // We only support non-blocking calls.
-  if (!callback.func)
     return PP_ERROR_BADARGUMENT;
 
   user_buffer_ = buffer;
@@ -340,23 +332,24 @@ int32_t PPB_URLLoader_Impl::ReadResponseBody(char* buffer,
     return done_status_;
   }
 
-  pending_callback_ = callback;
+  RegisterCallback(callback);
   return PP_ERROR_WOULDBLOCK;
 }
 
 int32_t PPB_URLLoader_Impl::FinishStreamingToFile(
     PP_CompletionCallback callback) {
+  int32_t rv = ValidateCallback(callback);
+  if (rv != PP_OK)
+    return rv;
   if (!response_info_ || !response_info_->body())
     return PP_ERROR_FAILED;
-  if (pending_callback_.func)
-    return PP_ERROR_INPROGRESS;
 
   // We may have already reached EOF.
   if (done_status_ != PP_ERROR_WOULDBLOCK)
     return done_status_;
 
   // Wait for didFinishLoading / didFail.
-  pending_callback_ = callback;
+  RegisterCallback(callback);
   return PP_ERROR_WOULDBLOCK;
 }
 
@@ -364,9 +357,11 @@ void PPB_URLLoader_Impl::Close() {
   if (loader_.get()) {
     loader_->cancel();
   } else if (main_document_loader_) {
-    WebFrame* frame = instance_->container()->element().document().frame();
+    WebFrame* frame = instance()->container()->element().document().frame();
     frame->stopLoading();
   }
+  // TODO(viettrungluu): Check what happens to the callback (probably the
+  // wrong thing). May need to post abort here. crbug.com/69457
 }
 
 void PPB_URLLoader_Impl::GrantUniversalAccess() {
@@ -387,7 +382,7 @@ void PPB_URLLoader_Impl::willSendRequest(
     loader_->setDefersLoading(true);
     RunCallback(PP_OK);
   } else {
-    int32_t rv = CanRequest(GetFrame(instance_), new_request.url());
+    int32_t rv = CanRequest(GetFrame(instance()), new_request.url());
     if (rv != PP_OK) {
       loader_->setDefersLoading(true);
       RunCallback(rv);
@@ -431,7 +426,7 @@ void PPB_URLLoader_Impl::didReceiveData(WebURLLoader* loader,
   if (user_buffer_) {
     RunCallback(FillUserBuffer());
   } else {
-    DCHECK(!pending_callback_.func);
+    DCHECK(!pending_callback_.get() || pending_callback_->completed());
   }
 }
 
@@ -448,47 +443,37 @@ void PPB_URLLoader_Impl::didFail(WebURLLoader* loader,
   RunCallback(done_status_);
 }
 
-void PPB_URLLoader_Impl::InstanceDestroyed(PluginInstance* instance) {
-  // When the instance is destroyed, we force delete any associated loads.
-  DCHECK(instance == instance_);
-  instance_ = NULL;
+int32_t PPB_URLLoader_Impl::ValidateCallback(PP_CompletionCallback callback) {
+  // We only support non-blocking calls.
+  if (!callback.func)
+    return PP_ERROR_BADARGUMENT;
 
-  // Normally the only ref to this class will be from the plugin which
-  // ForceDeletePluginResourceRefs will free. We don't want our object to be
-  // deleted out from under us until the function completes.
-  scoped_refptr<PPB_URLLoader_Impl> death_grip(this);
+  if (pending_callback_.get() && !pending_callback_->completed())
+    return PP_ERROR_INPROGRESS;
 
-  // Force delete any plugin refs to us. If the instance is being deleted, we
-  // don't want to allow the requests to continue to use bandwidth and send us
-  // callbacks (for which we might have no plugin).
-  ResourceTracker *tracker = ResourceTracker::Get();
-  PP_Resource loader_resource = GetReferenceNoAddRef();
-  if (loader_resource)
-    tracker->ForceDeletePluginResourceRefs(loader_resource);
+  return PP_OK;
+}
 
-  // Also force free the response from the plugin, both the plugin's ref(s)
-  // and ours.
-  if (response_info_.get()) {
-    PP_Resource response_info_resource = response_info_->GetReferenceNoAddRef();
-    if (response_info_resource)
-      tracker->ForceDeletePluginResourceRefs(response_info_resource);
-    response_info_ = NULL;
-  }
+void PPB_URLLoader_Impl::RegisterCallback(PP_CompletionCallback callback) {
+  DCHECK(callback.func);
+  DCHECK(!pending_callback_.get() || pending_callback_->completed());
 
-  // Free the WebKit request.
-  loader_.reset();
-
-  // Often, |this| will be deleted at the end of this function when death_grip
-  // goes out of scope.
+  PP_Resource resource_id = GetReferenceNoAddRef();
+  CHECK(resource_id);
+  pending_callback_ = new TrackedCompletionCallback(
+      instance()->module()->GetCallbackTracker(), resource_id, callback);
 }
 
 void PPB_URLLoader_Impl::RunCallback(int32_t result) {
-  if (!pending_callback_.func)
+  // This may be null only when this is a main document loader.
+  if (!pending_callback_.get()) {
+    CHECK(main_document_loader_);
     return;
+  }
 
-  PP_CompletionCallback callback = {0};
-  std::swap(callback, pending_callback_);
-  PP_RunCompletionCallback(&callback, result);
+  scoped_refptr<TrackedCompletionCallback> callback;
+  callback.swap(pending_callback_);
+  callback->Run(result);  // Will complete abortively if necessary.
 }
 
 size_t PPB_URLLoader_Impl::FillUserBuffer() {
@@ -507,7 +492,7 @@ size_t PPB_URLLoader_Impl::FillUserBuffer() {
 
 void PPB_URLLoader_Impl::SaveResponse(const WebKit::WebURLResponse& response) {
   scoped_refptr<PPB_URLResponseInfo_Impl> response_info(
-      new PPB_URLResponseInfo_Impl(module()));
+      new PPB_URLResponseInfo_Impl(instance()));
   if (response_info->Initialize(response))
     response_info_ = response_info;
 }
@@ -537,7 +522,7 @@ void PPB_URLLoader_Impl::UpdateStatus() {
       // getting download progress when they happen to set the upload progress
       // flag.
       status_callback_(
-          instance_->pp_instance(), pp_resource,
+          instance()->pp_instance(), pp_resource,
           RecordUploadProgress() ? bytes_sent_ : -1,
           RecordUploadProgress() ?  total_bytes_to_be_sent_ : -1,
           RecordDownloadProgress() ? bytes_received_ : -1,

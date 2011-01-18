@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,16 +10,17 @@
 #include "base/message_loop.h"
 #include "base/path_service.h"
 #include "base/string_util.h"
+#include "base/threading/platform_thread.h"
 #include "chrome/common/child_process.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_l10n_util.h"
 #include "chrome/common/logging_chrome.h"
 #include "chrome/common/main_function_params.h"
 #include "chrome/utility/utility_thread.h"
 
 #if defined(OS_WIN)
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/sandbox_init_wrapper.h"
 #include "sandbox/src/sandbox.h"
 #endif  // defined(OS_WIN)
@@ -28,7 +29,7 @@
 int UtilityMain(const MainFunctionParams& parameters) {
   // The main message loop of the utility process.
   MessageLoop main_message_loop;
-  PlatformThread::SetName("CrUtilityMain");
+  base::PlatformThread::SetName("CrUtilityMain");
 
   SystemMonitor system_monitor;
   HighResolutionTimerManager hi_res_timer_manager;

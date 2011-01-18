@@ -1,11 +1,11 @@
-// Copyright (c) 2006-2008 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef WEBKIT_TOOLS_TEST_SHELL_TEST_SHELL_REQUEST_CONTEXT_H__
-#define WEBKIT_TOOLS_TEST_SHELL_TEST_SHELL_REQUEST_CONTEXT_H__
+#ifndef WEBKIT_TOOLS_TEST_SHELL_TEST_SHELL_REQUEST_CONTEXT_H_
+#define WEBKIT_TOOLS_TEST_SHELL_TEST_SHELL_REQUEST_CONTEXT_H_
 
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "net/http/http_cache.h"
 #include "net/url_request/url_request_context.h"
 
@@ -15,8 +15,8 @@ namespace webkit_blob {
 class BlobStorageController;
 }
 
-// A basic URLRequestContext that only provides an in-memory cookie store.
-class TestShellRequestContext : public URLRequestContext {
+// A basic net::URLRequestContext that only provides an in-memory cookie store.
+class TestShellRequestContext : public net::URLRequestContext {
  public:
   // Use an in-memory cache
   TestShellRequestContext();
@@ -42,4 +42,4 @@ class TestShellRequestContext : public URLRequestContext {
   scoped_ptr<webkit_blob::BlobStorageController> blob_storage_controller_;
 };
 
-#endif  // WEBKIT_TOOLS_TEST_SHELL_TEST_SHELL_REQUEST_CONTEXT_H__
+#endif  // WEBKIT_TOOLS_TEST_SHELL_TEST_SHELL_REQUEST_CONTEXT_H_

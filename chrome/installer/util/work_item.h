@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -15,10 +15,13 @@
 #include <string>
 #include <vector>
 
+#include "base/basictypes.h"
+
 class CopyTreeWorkItem;
 class CreateDirWorkItem;
 class CreateRegKeyWorkItem;
 class DeleteTreeWorkItem;
+class DeleteRegKeyWorkItem;
 class DeleteRegValueWorkItem;
 class FilePath;
 class MoveTreeWorkItem;
@@ -37,6 +40,14 @@ class WorkItem {
     IF_DIFFERENT,  // Overwrite if different. Currently only applies to file.
     IF_NOT_PRESENT,  // Copy only if file/directory do not exist already.
     NEW_NAME_IF_IN_USE  // Copy to a new path if dest is in use(only files).
+  };
+
+  // Abstract base class for the conditions used by ConditionWorkItemList.
+  // TODO(robertshield): Move this out of WorkItem.
+  class Condition {
+   public:
+    virtual ~Condition() {}
+    virtual bool ShouldRun() const = 0;
   };
 
   virtual ~WorkItem();
@@ -62,12 +73,17 @@ class WorkItem {
   static CreateRegKeyWorkItem* CreateCreateRegKeyWorkItem(
       HKEY predefined_root, const std::wstring& path);
 
+  // Create a DeleteRegKeyWorkItem that deletes a registry key at the given
+  // path.
+  static DeleteRegKeyWorkItem* CreateDeleteRegKeyWorkItem(
+      HKEY predefined_root, const std::wstring& path);
+
   // Create a DeleteRegValueWorkItem that deletes a registry value
   static DeleteRegValueWorkItem* CreateDeleteRegValueWorkItem(
       HKEY predefined_root,
       const std::wstring& key_path,
       const std::wstring& value_name,
-      bool is_str_type);
+      DWORD type);
 
   // Create a DeleteTreeWorkItem that recursively deletes a file system
   // hierarchy at the given root path. A key file can be optionally specified
@@ -99,6 +115,14 @@ class WorkItem {
       const std::wstring& value_name,
       DWORD value_data, bool overwrite);
 
+  // Create a SetRegValueWorkItem that sets a registry value with REG_QWORD type
+  // at the key with specified path.
+  static SetRegValueWorkItem* CreateSetRegValueWorkItem(
+      HKEY predefined_root,
+      const std::wstring& key_path,
+      const std::wstring& value_name,
+      int64 value_data, bool overwrite);
+
   // Add a SelfRegWorkItem that registers or unregisters a DLL at the
   // specified path.
   static SelfRegWorkItem* CreateSelfRegWorkItem(const std::wstring& dll_path,
@@ -114,6 +138,11 @@ class WorkItem {
   // not abort execution if an item in the list fails.
   static WorkItemList* CreateNoRollbackWorkItemList();
 
+  // Create a conditional work item list that will execute only if
+  // condition->ShouldRun() returns true. The WorkItemList instance
+  // assumes ownership of condition.
+  static WorkItemList* CreateConditionalWorkItemList(Condition* condition);
+
   // Perform the actions of WorkItem. Returns true if success, returns false
   // otherwise.
   // If the WorkItem is transactional, then Do() is done as a transaction.
@@ -126,12 +155,29 @@ class WorkItem {
   // best effort.
   virtual void Rollback() = 0;
 
-  // Return true if the WorkItem is transactional, return false if
-  // non-transactional.
-  virtual bool IsTransactional() { return false; }
+  // If called with true, this WorkItem may return true from its Do() method
+  // even on failure and Rollback will have no effect.
+  void set_ignore_failure(bool ignore_failure) {
+    ignore_failure_ = ignore_failure;
+  }
+
+  // Sets an optional log message that a work item may use to print additional
+  // instance-specific information.
+  void set_log_message(const std::string& log_message) {
+    log_message_ = log_message;
+  }
+
+  // Retrieves the optional log message. The retrieved string may be empty.
+  std::string log_message() { return log_message_; }
 
  protected:
   WorkItem();
+
+  // Specifies whether this work item my fail to complete and yet still
+  // return true from Do().
+  bool ignore_failure_;
+
+  std::string log_message_;
 };
 
 #endif  // CHROME_INSTALLER_UTIL_WORK_ITEM_H_

@@ -15,7 +15,7 @@
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "base/version.h"
 #include "chrome/browser/browser_list.h"
 #include "chrome/browser/debugger/devtools_manager.h"
@@ -37,8 +37,6 @@
 #include "chrome/browser/tab_contents/background_contents.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/tab_contents/tab_contents_view.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_icon_set.h"
 #include "chrome/common/extensions/user_script.h"
@@ -124,6 +122,8 @@ void ExtensionsUIHTMLSource::StartDataRequest(const std::string& path,
       ASCIIToUTF16("'>") +
       l10n_util::GetStringUTF16(IDS_GET_MORE_EXTENSIONS) +
       ASCIIToUTF16("</a>"));
+  localized_strings.SetString("extensionCrashed",
+      l10n_util::GetStringUTF16(IDS_EXTENSIONS_CRASHED_EXTENSION));
   localized_strings.SetString("extensionDisabled",
       l10n_util::GetStringUTF16(IDS_EXTENSIONS_DISABLED_EXTENSION));
   localized_strings.SetString("inDevelopment",
@@ -350,7 +350,7 @@ void ExtensionsDOMHandler::HandleRequestExtensionsData(const ListValue* args) {
           extensions_service_.get(),
           *extension,
           GetActivePagesForExtension(*extension),
-          true));  // enabled
+          true, false));  // enabled, terminated
       extension_icons->push_back(PickExtensionIcon(*extension));
     }
   }
@@ -362,7 +362,20 @@ void ExtensionsDOMHandler::HandleRequestExtensionsData(const ListValue* args) {
           extensions_service_.get(),
           *extension,
           GetActivePagesForExtension(*extension),
-          false));  // enabled
+          false, false));  // enabled, terminated
+      extension_icons->push_back(PickExtensionIcon(*extension));
+    }
+  }
+  extensions = extensions_service_->terminated_extensions();
+  std::vector<ExtensionPage> empty_pages;
+  for (ExtensionList::const_iterator extension = extensions->begin();
+       extension != extensions->end(); ++extension) {
+    if (ShouldShowExtension(*extension)) {
+      extensions_list->Append(CreateExtensionDetailValue(
+          extensions_service_.get(),
+          *extension,
+          empty_pages,  // Terminated process has no active pages.
+          false, true));  // enabled, terminated
       extension_icons->push_back(PickExtensionIcon(*extension));
     }
   }
@@ -390,8 +403,6 @@ void ExtensionsDOMHandler::OnIconsLoaded(DictionaryValue* json) {
   registrar_.Add(this, NotificationType::EXTENSION_PROCESS_CREATED,
       NotificationService::AllSources());
   registrar_.Add(this, NotificationType::EXTENSION_UNLOADED,
-      NotificationService::AllSources());
-  registrar_.Add(this, NotificationType::EXTENSION_UNLOADED_DISABLED,
       NotificationService::AllSources());
   registrar_.Add(this, NotificationType::EXTENSION_UPDATE_DISABLED,
       NotificationService::AllSources());
@@ -613,8 +624,8 @@ void ExtensionsDOMHandler::HandlePackMessage(const ListValue* args) {
 
 void ExtensionsDOMHandler::OnPackSuccess(const FilePath& crx_file,
                                          const FilePath& pem_file) {
-  ShowAlert(WideToUTF8(PackExtensionJob::StandardSuccessMessage(crx_file,
-                                                                pem_file)));
+  ShowAlert(UTF16ToUTF8(PackExtensionJob::StandardSuccessMessage(crx_file,
+                                                                 pem_file)));
 
   ListValue results;
   dom_ui_->CallJavascriptFunction(L"hidePackDialog", results);
@@ -711,7 +722,6 @@ void ExtensionsDOMHandler::Observe(NotificationType type,
     case NotificationType::EXTENSION_LOADED:
     case NotificationType::EXTENSION_PROCESS_CREATED:
     case NotificationType::EXTENSION_UNLOADED:
-    case NotificationType::EXTENSION_UNLOADED_DISABLED:
     case NotificationType::EXTENSION_UPDATE_DISABLED:
     case NotificationType::EXTENSION_FUNCTION_DISPATCHER_CREATED:
     case NotificationType::EXTENSION_FUNCTION_DISPATCHER_DESTROYED:
@@ -794,7 +804,7 @@ static bool ExtensionWantsFileAccess(const Extension* extension) {
 // Static
 DictionaryValue* ExtensionsDOMHandler::CreateExtensionDetailValue(
     ExtensionService* service, const Extension* extension,
-    const std::vector<ExtensionPage>& pages, bool enabled) {
+    const std::vector<ExtensionPage>& pages, bool enabled, bool terminated) {
   DictionaryValue* extension_data = new DictionaryValue();
 
   extension_data->SetString("id", extension->id());
@@ -802,6 +812,7 @@ DictionaryValue* ExtensionsDOMHandler::CreateExtensionDetailValue(
   extension_data->SetString("description", extension->description());
   extension_data->SetString("version", extension->version()->GetString());
   extension_data->SetBoolean("enabled", enabled);
+  extension_data->SetBoolean("terminated", terminated);
   extension_data->SetBoolean("enabledIncognito",
       service ? service->IsIncognitoEnabled(extension) : false);
   extension_data->SetBoolean("wantsFileAccess",

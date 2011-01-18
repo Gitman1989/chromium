@@ -11,9 +11,9 @@
 #include <set>
 #include <string>
 
-#include "base/non_thread_safe.h"
 #include "base/ref_counted.h"
 #include "base/scoped_ptr.h"
+#include "base/threading/non_thread_safe.h"
 #include "base/values.h"
 
 class DefaultPrefStore;
@@ -31,7 +31,7 @@ namespace subtle {
 class PrefMemberBase;
 };
 
-class PrefService : public NonThreadSafe {
+class PrefService : public base::NonThreadSafe {
  public:
   // A helper class to store all the information associated with a preference.
   class Preference {
@@ -230,8 +230,7 @@ class PrefService : public NonThreadSafe {
               PrefStore* extension_prefs,
               PrefStore* command_line_prefs,
               PersistentPrefStore* user_prefs,
-              PrefStore* recommended_prefs,
-              Profile* profile);
+              PrefStore* recommended_prefs);
 
   // The PrefNotifier handles registering and notifying preference observers.
   // It is created and owned by this PrefService. Subclasses may access it for

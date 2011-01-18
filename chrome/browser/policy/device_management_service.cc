@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -27,18 +27,18 @@ namespace {
 // Custom request context implementation that allows to override the user agent,
 // amongst others. Wraps a baseline request context from which we reuse the
 // networking components.
-class DeviceManagementRequestContext : public URLRequestContext {
+class DeviceManagementRequestContext : public net::URLRequestContext {
  public:
-  explicit DeviceManagementRequestContext(URLRequestContext* base_context);
+  explicit DeviceManagementRequestContext(net::URLRequestContext* base_context);
   virtual ~DeviceManagementRequestContext();
 
  private:
-  // Overriden from URLRequestContext.
+  // Overridden from net::URLRequestContext:
   virtual const std::string& GetUserAgent(const GURL& url) const;
 };
 
 DeviceManagementRequestContext::DeviceManagementRequestContext(
-    URLRequestContext* base_context) {
+    net::URLRequestContext* base_context) {
   // Share resolver, proxy service and ssl bits with the baseline context. This
   // is important so we don't make redundant requests (e.g. when resolving proxy
   // auto configuration).
@@ -76,17 +76,17 @@ class DeviceManagementRequestContextGetter : public URLRequestContextGetter {
       URLRequestContextGetter* base_context_getter)
       : base_context_getter_(base_context_getter) {}
 
-  // URLRequestContextGetter overrides.
-  virtual URLRequestContext* GetURLRequestContext();
+  // Overridden from URLRequestContextGetter:
+  virtual net::URLRequestContext* GetURLRequestContext();
   virtual scoped_refptr<base::MessageLoopProxy> GetIOMessageLoopProxy() const;
 
  private:
-  scoped_refptr<URLRequestContext> context_;
+  scoped_refptr<net::URLRequestContext> context_;
   scoped_refptr<URLRequestContextGetter> base_context_getter_;
 };
 
 
-URLRequestContext*
+net::URLRequestContext*
 DeviceManagementRequestContextGetter::GetURLRequestContext() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   if (!context_) {
@@ -174,7 +174,7 @@ void DeviceManagementService::StartJob(DeviceManagementJob* job) {
 void DeviceManagementService::OnURLFetchComplete(
     const URLFetcher* source,
     const GURL& url,
-    const URLRequestStatus& status,
+    const net::URLRequestStatus& status,
     int response_code,
     const ResponseCookies& cookies,
     const std::string& data) {

@@ -1,20 +1,19 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
 #include <atlbase.h>
 #include <atlcom.h>
 
-#include "app/win_util.h"
+#include "app/win/scoped_com_initializer.h"
+#include "chrome_frame/test/chrome_frame_test_utils.h"
 #include "chrome_frame/test/test_server.h"
-#include "testing/gtest/include/gtest/gtest.h"
-#include "testing/gmock/include/gmock/gmock.h"
-#include "testing/gmock_mutant.h"
-
+#include "chrome_frame/test/test_with_web_server.h"
 #include "chrome_frame/urlmon_url_request.h"
 #include "chrome_frame/urlmon_url_request_private.h"
-#include "chrome_frame/test/chrome_frame_test_utils.h"
-#include "chrome_frame/test/http_server.h"
-#include "chrome_frame/test/test_with_web_server.h"
+#include "testing/gmock_mutant.h"
+#include "testing/gmock/include/gmock/gmock.h"
+#include "testing/gtest/include/gtest/gtest.h"
 
 using testing::CreateFunctor;
 
@@ -42,7 +41,7 @@ class MockUrlDelegate : public PluginUrlRequestDelegate {
       const std::string& redirect_url, int redirect_status));
   MOCK_METHOD2(OnReadComplete, void(int request_id, const std::string& data));
   MOCK_METHOD2(OnResponseEnd, void(int request_id,
-                                   const URLRequestStatus& status));
+                                   const net::URLRequestStatus& status));
   MOCK_METHOD4(OnCookiesRetrieved, void(bool success, const GURL& url,
       const std::string& cookie, int cookie_id));
 
@@ -73,7 +72,7 @@ TEST(UrlmonUrlRequestTest, Simple1) {
       chrome_frame_test::GetTestDataFolder());
   mock_server.ExpectAndServeAnyRequests(CFInvocation(CFInvocation::NONE));
 
-  win_util::ScopedCOMInitializer init_com;
+  app::win::ScopedCOMInitializer init_com;
   CComObjectStackEx<UrlmonUrlRequest> request;
 
   request.AddRef();
@@ -121,7 +120,7 @@ TEST(UrlmonUrlRequestTest, Head) {
   test_server::SimpleResponse head_response("/head", "");
   server.AddResponse(&head_response);
 
-  win_util::ScopedCOMInitializer init_com;
+  app::win::ScopedCOMInitializer init_com;
   CComObjectStackEx<UrlmonUrlRequest> request;
 
   request.AddRef();
@@ -157,7 +156,7 @@ TEST(UrlmonUrlRequestTest, Head) {
 TEST(UrlmonUrlRequestTest, UnreachableUrl) {
   MockUrlDelegate mock;
   chrome_frame_test::TimedMsgLoop loop;
-  win_util::ScopedCOMInitializer init_com;
+  app::win::ScopedCOMInitializer init_com;
   CComObjectStackEx<UrlmonUrlRequest> request;
 
   testing::StrictMock<MockWebServer> mock_server(1337, L"127.0.0.1",
@@ -186,7 +185,8 @@ TEST(UrlmonUrlRequestTest, UnreachableUrl) {
     .WillOnce(QUIT_LOOP_SOON(loop, 2));
 
   EXPECT_CALL(mock, OnResponseEnd(1, testing::Property(
-              &URLRequestStatus::os_error, net::ERR_TUNNEL_CONNECTION_FAILED)))
+              &net::URLRequestStatus::os_error,
+              net::ERR_TUNNEL_CONNECTION_FAILED)))
     .Times(testing::AtMost(1));
 
   request.Start();
@@ -202,7 +202,7 @@ TEST(UrlmonUrlRequestTest, ZeroLengthResponse) {
       chrome_frame_test::GetTestDataFolder());
   mock_server.ExpectAndServeAnyRequests(CFInvocation(CFInvocation::NONE));
 
-  win_util::ScopedCOMInitializer init_com;
+  app::win::ScopedCOMInitializer init_com;
   CComObjectStackEx<UrlmonUrlRequest> request;
 
   request.AddRef();
@@ -232,21 +232,20 @@ TEST(UrlmonUrlRequestTest, ZeroLengthResponse) {
   // Invoke read. Only now the response end ("server closed the connection")
   // is supposed to be delivered.
   EXPECT_CALL(mock, OnResponseEnd(1, testing::Property(
-                                     &URLRequestStatus::is_success, true)))
-      .Times(1);
+      &net::URLRequestStatus::is_success, true))).Times(1);
   request.Read(512);
   request.Release();
 }
 
 ACTION_P4(ManagerRead, loop, mgr, request_id, bytes_to_read) {
   loop->PostDelayedTask(FROM_HERE, NewRunnableMethod(mgr,
-      &UrlmonUrlRequestManager::ReadUrlRequest, 0, request_id,
+      &UrlmonUrlRequestManager::ReadUrlRequest, request_id,
       bytes_to_read), 0);
 }
 ACTION_P3(ManagerEndRequest, loop, mgr, request_id) {
   loop->PostDelayedTask(FROM_HERE, NewRunnableMethod(mgr,
-      &UrlmonUrlRequestManager::EndUrlRequest, 0, request_id,
-      URLRequestStatus()), 0);
+      &UrlmonUrlRequestManager::EndUrlRequest, request_id,
+      net::URLRequestStatus()), 0);
 }
 
 // Simplest test - retrieve file from local web server.
@@ -260,7 +259,7 @@ TEST(UrlmonUrlRequestManagerTest, Simple1) {
 
   scoped_ptr<UrlmonUrlRequestManager> mgr(new UrlmonUrlRequestManager());
   mgr->set_delegate(&mock);
-  IPC::AutomationURLRequest r1(
+  AutomationURLRequest r1(
       WideToUTF8(mock_server.Resolve(L"chrome_frame_window_open.html")),
       "get", "", "", NULL, 0, 0);
 
@@ -278,7 +277,7 @@ TEST(UrlmonUrlRequestManagerTest, Simple1) {
     .Times(1)
     .WillOnce(QUIT_LOOP_SOON(loop, 2));
 
-  mgr->StartUrlRequest(0, 1, r1);
+  mgr->StartUrlRequest(1, r1);
   loop.RunFor(kChromeFrameLongNavigationTimeoutInSeconds);
   mgr.reset();
 }
@@ -293,7 +292,7 @@ TEST(UrlmonUrlRequestManagerTest, Abort1) {
 
   scoped_ptr<UrlmonUrlRequestManager> mgr(new UrlmonUrlRequestManager());
   mgr->set_delegate(&mock);
-  IPC::AutomationURLRequest r1(
+  AutomationURLRequest r1(
       WideToUTF8(mock_server.Resolve(L"chrome_frame_window_open.html")),
       "get", "", "", NULL, 0, 0);
 
@@ -310,7 +309,7 @@ TEST(UrlmonUrlRequestManagerTest, Abort1) {
   EXPECT_CALL(mock, OnResponseEnd(1, testing::_))
     .Times(0);
 
-  mgr->StartUrlRequest(0, 1, r1);
+  mgr->StartUrlRequest(1, r1);
   loop.RunFor(kChromeFrameLongNavigationTimeoutInSeconds);
   mgr.reset();
 }

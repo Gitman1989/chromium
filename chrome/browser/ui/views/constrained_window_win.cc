@@ -1,13 +1,15 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/constrained_window_win.h"
+#include "chrome/browser/ui/views/constrained_window_win.h"
+
+#include <algorithm>
 
 #include "app/resource_bundle.h"
-#include "app/win_util.h"
+#include "app/win/hwnd_util.h"
+#include "app/win/win_util.h"
 #include "chrome/app/chrome_command_ids.h"
-#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/tab_contents/tab_contents_view.h"
@@ -16,7 +18,6 @@
 #include "chrome/browser/ui/window_sizer.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/notification_service.h"
-#include "chrome/common/pref_names.h"
 #include "gfx/canvas.h"
 #include "gfx/font.h"
 #include "gfx/path.h"
@@ -197,7 +198,7 @@ class ConstrainedWindowFrameView
 
   SkColor GetTitleColor() const {
     return (container_->owner()->profile()->IsOffTheRecord() ||
-        !win_util::ShouldUseVistaFrame()) ? SK_ColorWHITE : SK_ColorBLACK;
+        !app::win::ShouldUseVistaFrame()) ? SK_ColorWHITE : SK_ColorBLACK;
   }
 
   // Loads the appropriate set of WindowResources for the frame view.
@@ -534,7 +535,7 @@ gfx::Rect ConstrainedWindowFrameView::CalculateClientAreaBounds(
 }
 
 void ConstrainedWindowFrameView::InitWindowResources() {
-  resources_.reset(win_util::ShouldUseVistaFrame() ?
+  resources_.reset(app::win::ShouldUseVistaFrame() ?
     static_cast<views::WindowResources*>(new VistaWindowResources) :
     new XPWindowResources);
 }
@@ -543,7 +544,7 @@ void ConstrainedWindowFrameView::InitWindowResources() {
 void ConstrainedWindowFrameView::InitClass() {
   static bool initialized = false;
   if (!initialized) {
-    title_font_ = new gfx::Font(win_util::GetWindowTitleFont());
+    title_font_ = new gfx::Font(app::win::GetWindowTitleFont());
     initialized = true;
   }
 }

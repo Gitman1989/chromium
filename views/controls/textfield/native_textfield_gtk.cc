@@ -14,6 +14,7 @@
 #include "gfx/skia_utils_gtk.h"
 #include "views/controls/textfield/gtk_views_entry.h"
 #include "views/controls/textfield/gtk_views_textview.h"
+#include "views/controls/textfield/native_textfield_views.h"
 #include "views/controls/textfield/textfield.h"
 #include "views/widget/widget_gtk.h"
 
@@ -257,10 +258,6 @@ void NativeTextfieldGtk::UpdateEnabled() {
   SetEnabled(textfield_->IsEnabled());
 }
 
-bool NativeTextfieldGtk::IsPassword() {
-  return textfield_->IsPassword();
-}
-
 gfx::Insets NativeTextfieldGtk::CalculateInsets() {
   if (!native_view())
     return gfx::Insets();
@@ -329,8 +326,9 @@ void NativeTextfieldGtk::UpdateVerticalMargins() {
   }
 }
 
-void NativeTextfieldGtk::SetFocus() {
+bool NativeTextfieldGtk::SetFocus() {
   Focus();
+  return true;
 }
 
 View* NativeTextfieldGtk::GetView() {
@@ -345,6 +343,23 @@ bool NativeTextfieldGtk::IsIMEComposing() const {
   return false;
 }
 
+bool NativeTextfieldGtk::HandleKeyPressed(const views::KeyEvent& e) {
+  return false;
+}
+
+bool NativeTextfieldGtk::HandleKeyReleased(const views::KeyEvent& e) {
+  return false;
+}
+
+void NativeTextfieldGtk::HandleWillGainFocus() {
+}
+
+void NativeTextfieldGtk::HandleDidGainFocus() {
+}
+
+void NativeTextfieldGtk::HandleWillLoseFocus() {
+}
+
 // static
 gboolean NativeTextfieldGtk::OnKeyPressEventHandler(
     GtkWidget* widget,
@@ -357,8 +372,7 @@ gboolean NativeTextfieldGtk::OnKeyPressEvent(GdkEventKey* event) {
   Textfield::Controller* controller = textfield_->GetController();
   if (controller) {
     KeyEvent key_event(event);
-    Textfield::Keystroke ks(&key_event);
-    return controller->HandleKeystroke(textfield_, ks);
+    return controller->HandleKeyEvent(textfield_, key_event);
   }
   return false;
 }
@@ -381,8 +395,7 @@ gboolean NativeTextfieldGtk::OnActivate() {
   Textfield::Controller* controller = textfield_->GetController();
   if (controller) {
     KeyEvent views_key_event(key_event);
-    Textfield::Keystroke ks(&views_key_event);
-    handled = controller->HandleKeystroke(textfield_, ks);
+    handled = controller->HandleKeyEvent(textfield_, views_key_event);
   }
 
   WidgetGtk* widget = static_cast<WidgetGtk*>(GetWidget());
@@ -444,6 +457,22 @@ void NativeTextfieldGtk::NativeControlCreated(GtkWidget* widget) {
   // In order to properly trigger Accelerators bound to VKEY_RETURN, we need to
   // send an event when the widget gets the activate signal.
   g_signal_connect(widget, "activate", G_CALLBACK(OnActivateHandler), this);
+}
+
+bool NativeTextfieldGtk::IsPassword() {
+  return textfield_->IsPassword();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// NativeTextfieldWrapper:
+
+// static
+NativeTextfieldWrapper* NativeTextfieldWrapper::CreateWrapper(
+    Textfield* field) {
+  if (NativeTextfieldViews::IsTextfieldViewsEnabled()) {
+    return new NativeTextfieldViews(field);
+  }
+  return new NativeTextfieldGtk(field);
 }
 
 }  // namespace views

@@ -19,10 +19,10 @@
 <link rel="stylesheet" href="autofill_edit_creditcard_overlay.css">
 <link rel="stylesheet" href="autofill_options.css">
 <link rel="stylesheet" href="browser_options_page.css">
-<link rel="stylesheet" href="clear_browser_data_overlay.css">
+<link rel="stylesheet" href="clear_browser_data.css">
 <link rel="stylesheet" href="content_settings.css">
 <link rel="stylesheet" href="cookies_view.css">
-<link rel="stylesheet" href="edit_search_engine_overlay.css">
+<link rel="stylesheet" href="font_settings.css">
 <link rel="stylesheet" href="password_manager.css">
 <link rel="stylesheet" href="password_manager_list.css">
 <link rel="stylesheet" href="personal_options.css">
@@ -60,6 +60,7 @@
 <script src="preferences.js"></script>
 <script src="pref_ui.js"></script>
 <script src="deletable_item_list.js"></script>
+<script src="inline_editable_list.js"></script>
 <script src="list_inline_header_selection_controller.js"></script>
 <script src="options_page.js"></script>
 <if expr="pp_ifdef('chromeos')">
@@ -106,16 +107,16 @@
 <script src="alert_overlay.js"></script>
 <script src="autofill_edit_address_overlay.js"></script>
 <script src="autofill_edit_creditcard_overlay.js"></script>
+<script src="autofill_options_list.js"></script>
 <script src="autofill_options.js"></script>
 <script src="browser_options.js"></script>
 <script src="browser_options_startup_page_list.js"></script>
-<script src="clear_browser_data_overlay.js"></script>
+<script src="clear_browser_data.js"></script>
 <script src="content_settings.js"></script>
 <script src="content_settings_exceptions_area.js"></script>
 <script src="content_settings_ui.js"></script>
 <script src="cookies_tree.js"></script>
 <script src="cookies_view.js"></script>
-<script src="edit_search_engine_overlay.js"></script>
 <script src="font_settings.js"></script>
 <script src="font_settings_ui.js"></script>
 <script src="import_data_overlay.js"></script>
@@ -138,8 +139,6 @@
   <include src="alert_overlay.html">
   <include src="autofill_edit_address_overlay.html">
   <include src="autofill_edit_creditcard_overlay.html">
-  <include src="clear_browser_data_overlay.html">
-  <include src="edit_search_engine_overlay.html">
   <include src="import_data_overlay.html">
   <include src="instant_confirm_overlay.html">
   <if expr="pp_ifdef('chromeos')">
@@ -203,6 +202,7 @@
            <include src="password_manager.html">
            <include src="search_engine_manager.html">
            <include src="startup_page_manager.html">
+           <include src="clear_browser_data.html">
          </div>
        </div>
        <div id="subpage-sheet-container-2"

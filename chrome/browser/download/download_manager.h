@@ -143,6 +143,9 @@ class DownloadManager
   // deleted is returned back to the caller.
   int RemoveAllDownloads();
 
+  // Remove the download with id |download_id| from |active_downloads_|.
+  void RemoveFromActiveList(int32 download_id);
+
   // Called when a Save Page As download is started. Transfers ownership
   // of |download_item| to the DownloadManager.
   void SavePageAsDownloadStarted(DownloadItem* download_item);
@@ -188,6 +191,9 @@ class DownloadManager
   DownloadHistory* download_history() { return download_history_.get(); }
 
   DownloadPrefs* download_prefs() { return download_prefs_.get(); }
+
+  // Creates the download item.  Must be called on the UI thread.
+  void CreateDownloadItem(DownloadCreateInfo* info);
 
   // Clears the last download path, used to initialize "save as" dialogs.
   void ClearLastDownloadPath();
@@ -249,7 +255,7 @@ class DownloadManager
   // Called back after a target path for the file to be downloaded to has been
   // determined, either automatically based on the suggested file name, or by
   // the user in a Save As dialog box.
-  void CreateDownloadItem(DownloadCreateInfo* info,
+  void AttachDownloadItem(DownloadCreateInfo* info,
                           const FilePath& target_path);
 
   // Download cancel helper function.
@@ -293,36 +299,51 @@ class DownloadManager
   // containers; no-op if NDEBUG.
   void AssertContainersConsistent() const;
 
-  // 'downloads_' is the owning set for all downloads known to the
+  // |downloads_| is the owning set for all downloads known to the
   // DownloadManager.  This includes downloads started by the user in
   // this session, downloads initialized from the history system, and
   // "save page as" downloads.  All other DownloadItem containers in
   // the DownloadManager are maps; they do not own the DownloadItems.
-  // Note that this is the only place that "save page as" downloads are
+  // Note that this is the only place (with any functional implications;
+  // see save_page_as_downloads_ below) that "save page as" downloads are
   // kept, as the DownloadManager's only job is to hold onto those
   // until destruction.
   //
-  // 'history_downloads_' is map of all downloads in this profile. The key
+  // |history_downloads_| is map of all downloads in this profile. The key
   // is the handle returned by the history system, which is unique
   // across sessions.
   //
-  // 'in_progress_' is a map of all downloads that are in progress and that have
+  // |active_downloads_| is a map of all downloads that are currently being
+  // processed. The key is the ID assigned by the ResourceDispatcherHost,
+  // which is unique for the current session.
+  //
+  // |in_progress_| is a map of all downloads that are in progress and that have
   // not yet received a valid history handle. The key is the ID assigned by the
   // ResourceDispatcherHost, which is unique for the current session.
   //
+  // |save_page_as_downloads_| (if defined) is a collection of all the
+  // downloads the "save page as" system has given to us to hold onto
+  // until we are destroyed.  It is only used for debugging.
+  //
   // When a download is created through a user action, the corresponding
-  // DownloadItem* is placed in 'in_progress_' and remains there until it has
-  // received a valid handle from the history system. Once it has a valid
-  // handle, the DownloadItem* is placed in the 'history_downloads_'
-  // map.  When the download is complete, it is removed from
-  // 'in_progress_'.  Downloads from past sessions read from a
+  // DownloadItem* is placed in |active_downloads_| and remains there until the
+  // download has finished.  It is also placed in |in_progress_| and remains
+  // there until it has received a valid handle from the history system. Once
+  // it has a valid handle, the DownloadItem* is placed in the
+  // |history_downloads_| map.  When the download is complete, it is removed
+  // from |in_progress_|.  Downloads from past sessions read from a
   // persisted state from the history system are placed directly into
-  // 'history_downloads_' since they have valid handles in the history system.
-  std::set<DownloadItem*> downloads_;
-
+  // |history_downloads_| since they have valid handles in the history system.
+  typedef std::set<DownloadItem*> DownloadSet;
   typedef base::hash_map<int64, DownloadItem*> DownloadMap;
+
+  DownloadSet downloads_;
   DownloadMap history_downloads_;
   DownloadMap in_progress_;
+  DownloadMap active_downloads_;
+#if !defined(NDEBUG)
+  DownloadSet save_page_as_downloads_;
+#endif
 
   // True if the download manager has been initialized and requires a shutdown.
   bool shutdown_needed_;

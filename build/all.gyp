@@ -44,7 +44,7 @@
         '../third_party/ots/ots.gyp:*',
         '../third_party/qcms/qcms.gyp:*',
         '../third_party/sqlite/sqlite.gyp:*',
-        '../third_party/WebKit/WebKit/chromium/WebKit.gyp:*',
+        '../third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:*',
         '../third_party/zlib/zlib.gyp:*',
         '../webkit/support/webkit_support.gyp:*',
         '../webkit/webkit.gyp:*',
@@ -188,7 +188,7 @@
             '../sandbox/sandbox.gyp:sbox_unittests',
             '../sandbox/sandbox.gyp:sbox_validation_tests',
             '../views/views.gyp:views_unittests',
-            '../third_party/WebKit/WebKit/chromium/WebKit.gyp:copy_TestNetscapePlugIn',
+            '../third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:copy_TestNetscapePlugIn',
             # TODO(nsylvain) ui_tests.exe depends on test_shell_common.
             # This should:
             # 1) not be the case. OR.
@@ -203,7 +203,7 @@
       'type': 'none',
       'dependencies': [
         '../chrome/chrome.gyp:gpu_tests',
-        '../third_party/WebKit/WebKit/chromium/WebKit.gyp:DumpRenderTree',
+        '../third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:DumpRenderTree',
       ],
     }
   ],
@@ -353,7 +353,7 @@
             '../printing/printing.gyp:printing_unittests',
             '../remoting/remoting.gyp:remoting_unittests',
             '../third_party/cacheinvalidation/cacheinvalidation.gyp:cacheinvalidation_unittests',
-            '../third_party/WebKit/WebKit/chromium/WebKit.gyp:copy_TestNetscapePlugIn',
+            '../third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:copy_TestNetscapePlugIn',
             # TODO(nsylvain) ui_tests.exe depends on test_shell_common.
             # This should:
             # 1) not be the case. OR.
@@ -391,7 +391,7 @@
         },
       ],  # targets
       'conditions': [
-        ['(branding=="Chrome" and buildtype=="Official")', {
+        ['branding=="Chrome"', {
           'targets': [
             {
               'target_name': 'chrome_official_builder',
@@ -400,6 +400,7 @@
                 '../chrome/app/locales/locales.gyp:*',
                 '../chrome/chrome.gyp:crash_service',
                 '../chrome/chrome.gyp:page_cycler_tests',
+                '../chrome/chrome.gyp:policy_templates',
                 '../chrome/chrome.gyp:pyautolib',
                 '../chrome/chrome.gyp:reliability_tests',
                 '../chrome/chrome.gyp:startup_tests',
@@ -408,13 +409,19 @@
                 '../chrome_frame/chrome_frame.gyp:chrome_frame_unittests',
                 '../chrome_frame/chrome_frame.gyp:npchrome_frame',
                 '../courgette/courgette.gyp:courgette',
-                '../pdf/pdf.gyp:pdf',
                 '../third_party/adobe/flash/flash_player.gyp:flash_player',
                 '../webkit/webkit.gyp:test_shell',
               ],
+              'conditions': [
+                ['internal_pdf', {
+                  'dependencies': [
+                    '../pdf/pdf.gyp:pdf',
+                  ],
+                }], # internal_pdf
+              ]
             },
           ], # targets
-        }], # (branding=="Chrome" and buildtype=="Official")
+        }], # branding=="Chrome"
        ], # conditions
     }], # OS="win"
     ['chromeos==1', {

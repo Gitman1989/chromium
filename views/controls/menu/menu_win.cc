@@ -6,16 +6,16 @@
 
 #include <string>
 
-#include "app/keyboard_codes.h"
 #include "app/l10n_util.h"
 #include "app/l10n_util_win.h"
+#include "app/win/window_impl.h"
 #include "base/logging.h"
 #include "base/stl_util-inl.h"
 #include "base/string_util.h"
 #include "gfx/canvas_skia.h"
 #include "gfx/font.h"
 #include "gfx/rect.h"
-#include "gfx/window_impl.h"
+#include "ui/base/keycodes/keyboard_codes.h"
 #include "views/accelerator.h"
 
 namespace views {
@@ -62,7 +62,7 @@ static int ChromeGetMenuItemID(HMENU hMenu, int pos) {
 // to intercept right clicks on the HMENU and notify the delegate as well as
 // for drawing icons.
 //
-class MenuHostWindow : public gfx::WindowImpl {
+class MenuHostWindow : public app::win::WindowImpl {
  public:
   MenuHostWindow(MenuWin* menu, HWND parent_window) : menu_(menu) {
     int extended_style = 0;
@@ -407,7 +407,7 @@ void MenuWin::AddMenuItemInternal(int index,
   if (label.empty() && !delegate()) {
     // No label and no delegate; don't add an empty menu.
     // It appears under some circumstance we're getting an empty label
-    // (l10n_util::GetString(IDS_TASK_MANAGER) returns ""). This shouldn't
+    // (l10n_util::GetStringUTF16(IDS_TASK_MANAGER) returns ""). This shouldn't
     // happen, but I'm working over the crash here.
     NOTREACHED();
     return;
@@ -443,7 +443,7 @@ void MenuWin::AddMenuItemInternal(int index,
       delegate()->GetLabel(item_id) : label);
 
   // Find out if there is a shortcut we need to append to the label.
-  views::Accelerator accelerator(app::VKEY_UNKNOWN, false, false, false);
+  views::Accelerator accelerator(ui::VKEY_UNKNOWN, false, false, false);
   if (delegate() && delegate()->GetAcceleratorInfo(item_id, &accelerator)) {
     actual_label += L'\t';
     actual_label += accelerator.GetShortcutText();

@@ -22,16 +22,24 @@ class MockConfigurationPolicyProvider : public ConfigurationPolicyProvider {
   virtual ~MockConfigurationPolicyProvider();
 
   void AddPolicy(ConfigurationPolicyType policy, Value* value);
+  void RemovePolicy(ConfigurationPolicyType policy);
+
+  void SetInitializationComplete(bool initialization_complete);
 
   // ConfigurationPolicyProvider method overrides.
   virtual bool Provide(ConfigurationPolicyStoreInterface* store);
-
-  MOCK_METHOD0(NotifyStoreOfPolicyChange, void());
+  virtual bool IsInitializationComplete() const;
 
  private:
+  // ConfigurationPolicyProvider overrides:
+  virtual void AddObserver(ConfigurationPolicyProvider::Observer* observer) {}
+  virtual void RemoveObserver(
+      ConfigurationPolicyProvider::Observer* observer) {}
+
   typedef std::map<ConfigurationPolicyType, Value*> PolicyMap;
 
   PolicyMap policy_map_;
+  bool initialization_complete_;
 };
 
 }  // namespace policy

@@ -43,7 +43,8 @@ ImageData::ImageData(PassRef, PP_Resource resource)
   PassRefAndInitData(resource);
 }
 
-ImageData::ImageData(PP_ImageDataFormat format,
+ImageData::ImageData(Instance* instance,
+                     PP_ImageDataFormat format,
                      const Size& size,
                      bool init_to_zero)
     : data_(NULL) {
@@ -53,20 +54,15 @@ ImageData::ImageData(PP_ImageDataFormat format,
     return;
 
   PassRefAndInitData(get_interface<PPB_ImageData>()->Create(
-      Module::Get()->pp_module(), format, &size.pp_size(),
+      instance->pp_instance(), format, &size.pp_size(),
       BoolToPPBool(init_to_zero)));
 }
 
 ImageData& ImageData::operator=(const ImageData& other) {
-  ImageData copy(other);
-  swap(copy);
+  Resource::operator=(other);
+  desc_ = other.desc_;
+  data_ = other.data_;
   return *this;
-}
-
-void ImageData::swap(ImageData& other) {
-  Resource::swap(other);
-  std::swap(desc_, other.desc_);
-  std::swap(data_, other.data_);
 }
 
 const uint32_t* ImageData::GetAddr32(const Point& coord) const {

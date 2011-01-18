@@ -117,6 +117,10 @@ class SafeBrowsingService
   // Create an instance of the safe browsing service.
   static SafeBrowsingService* CreateSafeBrowsingService();
 
+  // Called on UI thread to decide if safe browsing related stats
+  // could be reported.
+  bool CanReportStats() const;
+
   // Called on the UI thread to initialize the service.
   void Initialize();
 
@@ -125,6 +129,10 @@ class SafeBrowsingService
 
   // Returns true if the url's scheme can be checked.
   bool CanCheckUrl(const GURL& url) const;
+
+  // Called on UI thread to decide if the download file's sha256 hash
+  // should be calculated for safebrowsing.
+  bool DownloadBinHashNeeded() const;
 
   // Called on the IO thread to check if the given url is safe or not.  If we
   // can synchronously determine that the url is safe, CheckUrl returns true.
@@ -307,7 +315,9 @@ class SafeBrowsingService
   void OnHandleGetHashResults(SafeBrowsingCheck* check,
                               const std::vector<SBFullHashResult>& full_hashes);
 
-  void HandleOneCheck(SafeBrowsingCheck* check,
+  // Run one check against |full_hashes|.  Returns |true| if the check
+  // finds a match in |full_hashes|.
+  bool HandleOneCheck(SafeBrowsingCheck* check,
                       const std::vector<SBFullHashResult>& full_hashes);
 
   // Invoked on the UI thread to show the blocking page.
@@ -323,11 +333,10 @@ class SafeBrowsingService
 
   // Invoked by CheckDownloadUrl. It checks the download URL on
   // safe_browsing_thread_.
-  void CheckDownloadUrlOnSBThread(const GURL& url, Client* client);
+  void CheckDownloadUrlOnSBThread(SafeBrowsingCheck* check);
 
   // Call the Client's callback in IO thread after CheckDownloadUrl finishes.
-  void CheckDownloadUrlDone(Client* client, const GURL& url,
-                            UrlCheckResult result);
+  void CheckDownloadUrlDone(SafeBrowsingCheck* check, UrlCheckResult result);
 
   // The factory used to instanciate a SafeBrowsingService object.
   // Useful for tests, so they can provide their own implementation of

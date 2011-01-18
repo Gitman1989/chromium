@@ -32,24 +32,21 @@
 #include "base/rand_util.h"
 #include "base/scoped_ptr.h"
 #include "base/sys_info.h"
-#include "base/unix_domain_socket_posix.h"
 #include "build/build_config.h"
-
 #include "chrome/browser/zygote_host_linux.h"
 #include "chrome/common/chrome_descriptors.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/common/font_config_ipc_linux.h"
 #include "chrome/common/main_function_params.h"
 #include "chrome/common/pepper_plugin_registry.h"
 #include "chrome/common/process_watcher.h"
 #include "chrome/common/result_codes.h"
 #include "chrome/common/sandbox_methods_linux.h"
-
+#include "chrome/common/set_process_title.h"
+#include "chrome/common/unix_domain_socket_posix.h"
 #include "media/base/media.h"
-
-#include "skia/ext/SkFontHost_fontconfig_control.h"
-
 #include "seccompsandbox/sandbox.h"
-
+#include "skia/ext/SkFontHost_fontconfig_control.h"
 #include "unicode/timezone.h"
 
 #if defined(ARCH_CPU_X86_FAMILY) && !defined(CHROMIUM_SELINUX) && \
@@ -116,8 +113,8 @@ class Zygote {
       // Let the ZygoteHost know we are ready to go.
       // The receiving code is in chrome/browser/zygote_host_linux.cc.
       std::vector<int> empty;
-      bool r = base::SendMsg(kBrowserDescriptor, kZygoteMagic,
-                             sizeof(kZygoteMagic), empty);
+      bool r = UnixDomainSocket::SendMsg(kBrowserDescriptor, kZygoteMagic,
+                                         sizeof(kZygoteMagic), empty);
       CHECK(r) << "Sending zygote magic failed";
     }
 
@@ -141,7 +138,7 @@ class Zygote {
     std::vector<int> fds;
     static const unsigned kMaxMessageLength = 1024;
     char buf[kMaxMessageLength];
-    const ssize_t len = base::RecvMsg(fd, buf, sizeof(buf), &fds);
+    const ssize_t len = UnixDomainSocket::RecvMsg(fd, buf, sizeof(buf), &fds);
 
     if (len == 0 || (len == -1 && errno == ECONNRESET)) {
       // EOF from the browser. We should die.
@@ -297,9 +294,9 @@ class Zygote {
       request.WriteInt(LinuxSandbox::METHOD_GET_CHILD_WITH_INODE);
       request.WriteUInt64(dummy_inode);
 
-      const ssize_t r = base::SendRecvMsg(kMagicSandboxIPCDescriptor,
-                                          reply_buf, sizeof(reply_buf),
-                                          NULL, request);
+      const ssize_t r = UnixDomainSocket::SendRecvMsg(
+          kMagicSandboxIPCDescriptor, reply_buf, sizeof(reply_buf), NULL,
+          request);
       if (r == -1) {
         LOG(ERROR) << "Failed to get child process's real PID";
         goto error;
@@ -325,8 +322,10 @@ class Zygote {
     }
 
    error:
-    if (pid > 0)
-      waitpid(pid, NULL, WNOHANG);
+    if (pid > 0) {
+      if (waitpid(pid, NULL, WNOHANG) == -1)
+        LOG(ERROR) << "Failed to wait for process";
+    }
     if (dummy_fd >= 0)
       close(dummy_fd);
     if (pipe_fds[0] >= 0)
@@ -398,7 +397,12 @@ class Zygote {
       CommandLine::Reset();
       CommandLine::Init(0, NULL);
       CommandLine::ForCurrentProcess()->InitFromArgv(args);
-      CommandLine::SetProcTitle();
+
+      // Update the process title. The argv was already cached by the call to
+      // SetProcessTitleFromCommandLine in ChromeMain, so we can pass NULL here
+      // (we don't have the original argv at this point).
+      SetProcessTitleFromCommandLine(NULL);
+
       // The fork() request is handled further up the call stack.
       return true;
     } else if (child < 0) {
@@ -453,7 +457,7 @@ static void ProxyLocaltimeCallToBrowser(time_t input, struct tm* output,
       std::string(reinterpret_cast<char*>(&input), sizeof(input)));
 
   uint8_t reply_buf[512];
-  const ssize_t r = base::SendRecvMsg(
+  const ssize_t r = UnixDomainSocket::SendRecvMsg(
       kMagicSandboxIPCDescriptor, reply_buf, sizeof(reply_buf), NULL, request);
   if (r == -1) {
     memset(output, 0, sizeof(struct tm));
@@ -649,7 +653,8 @@ static bool EnterSandbox() {
       return false;
     }
 
-    SkiaFontConfigUseIPCImplementation(kMagicSandboxIPCDescriptor);
+    SkiaFontConfigSetImplementation(
+        new FontConfigIPC(kMagicSandboxIPCDescriptor));
 
     // Previously, we required that the binary be non-readable. This causes the
     // kernel to mark the process as non-dumpable at startup. The thinking was
@@ -678,7 +683,8 @@ static bool EnterSandbox() {
     }
   } else if (switches::SeccompSandboxEnabled()) {
     PreSandboxInit();
-    SkiaFontConfigUseIPCImplementation(kMagicSandboxIPCDescriptor);
+    SkiaFontConfigSetImplementation(
+        new FontConfigIPC(kMagicSandboxIPCDescriptor));
   } else {
     SkiaFontConfigUseDirectImplementation();
   }

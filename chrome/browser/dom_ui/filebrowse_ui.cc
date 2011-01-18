@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,7 +15,7 @@
 #include "base/singleton.h"
 #include "base/string_piece.h"
 #include "base/string_util.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
@@ -139,7 +139,7 @@ class FilebrowseHandler : public net::DirectoryLister::DirectoryListerDelegate,
 
   void OnURLFetchComplete(const URLFetcher* source,
                           const GURL& url,
-                          const URLRequestStatus& status,
+                          const net::URLRequestStatus& status,
                           int response_code,
                           const ResponseCookies& cookies,
                           const std::string& data);
@@ -542,7 +542,7 @@ void FilebrowseHandler::MountChanged(chromeos::MountLibrary* obj,
 
 void FilebrowseHandler::OnURLFetchComplete(const URLFetcher* source,
                                            const GURL& url,
-                                           const URLRequestStatus& status,
+                                           const net::URLRequestStatus& status,
                                            int response_code,
                                            const ResponseCookies& cookies,
                                            const std::string& data) {

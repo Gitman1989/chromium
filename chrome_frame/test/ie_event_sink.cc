@@ -1,14 +1,17 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome_frame/test/ie_event_sink.h"
 
-#include "base/scoped_handle.h"
+#include <shlguid.h>
+#include <shobjidl.h>
+
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/scoped_bstr.h"
+#include "base/win/scoped_handle.h"
 #include "base/win/scoped_variant.h"
 #include "chrome_frame/test/chrome_frame_test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -147,9 +150,8 @@ void IEEventSink::Uninitialize() {
         web_browser2_->Quit();
       }
 
-      ScopedHandle process;
-      process.Set(OpenProcess(SYNCHRONIZE, FALSE,
-                              ie_process_id_));
+      base::win::ScopedHandle process;
+      process.Set(OpenProcess(SYNCHRONIZE, FALSE, ie_process_id_));
       web_browser2_.Release();
 
       if (!process.IsValid()) {
@@ -266,14 +268,18 @@ HWND IEEventSink::GetRendererWindow() {
       ole_window->GetWindow(&activex_window);
       EXPECT_TRUE(IsWindow(activex_window));
 
+      wchar_t class_name[MAX_PATH] = {0};
+      HWND child_window = NULL;
       // chrome tab window is the first (and the only) child of activex
       for (HWND first_child = activex_window; ::IsWindow(first_child);
            first_child = ::GetWindow(first_child, GW_CHILD)) {
-        renderer_window = first_child;
+        child_window = first_child;
+        GetClassName(child_window, class_name, arraysize(class_name));
+        if (!_wcsicmp(class_name, L"Chrome_RenderWidgetHostHWND")) {
+          renderer_window = child_window;
+          break;
+        }
       }
-      wchar_t class_name[MAX_PATH] = {0};
-      GetClassName(renderer_window, class_name, arraysize(class_name));
-      EXPECT_EQ(0, _wcsicmp(class_name, L"Chrome_RenderWidgetHostHWND"));
     }
   } else {
     DCHECK(web_browser2_);

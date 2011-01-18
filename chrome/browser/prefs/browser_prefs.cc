@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -34,6 +34,7 @@
 #include "chrome/browser/net/predictor_api.h"
 #include "chrome/browser/net/pref_proxy_config_service.h"
 #include "chrome/browser/net/net_pref_observer.h"
+#include "chrome/browser/notifications/notification_ui_manager.h"
 #include "chrome/browser/notifications/desktop_notification_service.h"
 #include "chrome/browser/page_info_model.h"
 #include "chrome/browser/password_manager/password_manager.h"
@@ -55,8 +56,8 @@
 #include "chrome/browser/upgrade_detector.h"
 
 #if defined(TOOLKIT_VIEWS)  // TODO(port): whittle this down as we port
-#include "chrome/browser/views/browser_actions_container.h"
-#include "chrome/browser/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/browser_actions_container.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #endif
 
 #if defined(TOOLKIT_GTK)
@@ -100,6 +101,7 @@ void RegisterLocalState(PrefService* local_state) {
   geolocation::RegisterPrefs(local_state);
   AutoFillManager::RegisterBrowserPrefs(local_state);
   BackgroundPageTracker::RegisterPrefs(local_state);
+  NotificationUIManager::RegisterPrefs(local_state);
 #if defined(OS_CHROMEOS)
   chromeos::UserManager::RegisterPrefs(local_state);
   chromeos::UserCrosSettingsProvider::RegisterPrefs(local_state);

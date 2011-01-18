@@ -9,14 +9,9 @@
 #include <string>
 
 #include "base/string16.h"
-#include "base/time.h"
 #include "net/base/completion_callback.h"
 #include "net/base/net_log.h"
 #include "net/http/http_auth.h"
-
-namespace base {
-class Histogram;
-}
 
 namespace net {
 
@@ -27,14 +22,6 @@ struct HttpRequestInfo;
 // HttpAuthHandler objects are typically created by an HttpAuthHandlerFactory.
 class HttpAuthHandler {
  public:
-  enum AuthScheme {
-    AUTH_SCHEME_BASIC = 0,
-    AUTH_SCHEME_DIGEST,
-    AUTH_SCHEME_NTLM,
-    AUTH_SCHEME_NEGOTIATE,
-    AUTH_SCHEME_MAX,
-  };
-
   HttpAuthHandler();
   virtual ~HttpAuthHandler();
 
@@ -89,13 +76,8 @@ class HttpAuthHandler {
                         std::string* auth_token);
 
   // The authentication scheme as an enumerated value.
-  AuthScheme auth_scheme() const {
+  HttpAuth::Scheme auth_scheme() const {
     return auth_scheme_;
-  }
-
-  // Lowercase name of the auth scheme
-  const std::string& scheme() const {
-    return scheme_;
   }
 
   // The realm value that was parsed during Init().
@@ -176,10 +158,7 @@ class HttpAuthHandler {
                                     std::string* auth_token) = 0;
 
   // The auth-scheme as an enumerated value.
-  AuthScheme auth_scheme_;
-
-  // The lowercase auth-scheme {"basic", "digest", "ntlm", "negotiate"}
-  std::string scheme_;
+  HttpAuth::Scheme auth_scheme_;
 
   // The realm.  Used by "basic" and "digest".
   std::string realm_;
@@ -206,13 +185,9 @@ class HttpAuthHandler {
  private:
   void OnGenerateAuthTokenComplete(int rv);
   void FinishGenerateAuthToken();
-  static std::string GenerateHistogramNameFromScheme(const std::string& scheme);
 
   CompletionCallback* original_callback_;
   CompletionCallbackImpl<HttpAuthHandler> wrapper_callback_;
-  // When GenerateAuthToken was called.
-  base::TimeTicks generate_auth_token_start_;
-  scoped_refptr<base::Histogram> histogram_;
 };
 
 }  // namespace net

@@ -24,8 +24,9 @@
         '../third_party/icu/icu.gyp:icui18n',
         '../third_party/icu/icu.gyp:icuuc',
         '../third_party/npapi/npapi.gyp:npapi',
-        '../third_party/WebKit/WebKit/chromium/WebKit.gyp:webkit',
+        '../third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:webkit',
         '../webkit/support/webkit_support.gyp:glue',
+        '../webkit/support/webkit_support.gyp:webkit_gpu',
         '../webkit/support/webkit_support.gyp:webkit_resources',
       ],
       'include_dirs': [
@@ -89,6 +90,8 @@
         'renderer/resources/renderer_extension_bindings.js',
         'renderer/about_handler.cc',
         'renderer/about_handler.h',
+        'renderer/audio_device.cc',
+        'renderer/audio_device.h',
         'renderer/audio_message_filter.cc',
         'renderer/audio_message_filter.h',
         'renderer/blocked_plugin.cc',
@@ -114,8 +117,6 @@
         'renderer/form_manager.h',
         'renderer/geolocation_dispatcher.cc',
         'renderer/geolocation_dispatcher.h',
-        'renderer/geolocation_dispatcher_old.cc',
-        'renderer/geolocation_dispatcher_old.h',
         'renderer/gpu_channel_host.cc',
         'renderer/gpu_channel_host.h',
         'renderer/gpu_video_decoder_host.cc',
@@ -165,6 +166,8 @@
         'renderer/render_view.cc',
         'renderer/render_view_linux.cc',
         'renderer/render_view.h',
+        'renderer/render_view_observer.cc',
+        'renderer/render_view_observer.h',
         'renderer/render_widget.cc',
         'renderer/render_widget.h',
         'renderer/render_widget_fullscreen.cc',
@@ -183,6 +186,8 @@
         'renderer/renderer_sandbox_support_linux.h',
         'renderer/renderer_webapplicationcachehost_impl.cc',
         'renderer/renderer_webapplicationcachehost_impl.h',
+        'renderer/renderer_webaudiodevice_impl.cc',
+        'renderer/renderer_webaudiodevice_impl.h',
         'renderer/renderer_webcookiejar_impl.cc',
         'renderer/renderer_webcookiejar_impl.h',
         'renderer/renderer_webidbcursor_impl.cc',
@@ -318,14 +323,6 @@
             'renderer/command_buffer_proxy.cc',
             'renderer/command_buffer_proxy.h',
           ],
-        }],
-        # We are migrating to client-based geolocation. Once the migration
-        # has finished, ENABLE_CLIENT_BASED_GEOLOCATION will disappear.
-        # See bugs:
-        #     https://bugs.webkit.org/show_bug.cgi?id=45752 and
-        #     http://code.google.com/p/chromium/issues/detail?id=59907
-        ['"ENABLE_CLIENT_BASED_GEOLOCATION=1" in feature_defines', {
-          'defines': [ 'ENABLE_CLIENT_BASED_GEOLOCATION=1' ]
         }],
       ],
     },

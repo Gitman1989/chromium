@@ -1,14 +1,13 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/download_item_view.h"
+#include "chrome/browser/ui/views/download_item_view.h"
 
 #include <vector>
 
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
-#include "app/slide_animation.h"
 #include "app/text_elider.h"
 #include "base/callback.h"
 #include "base/file_path.h"
@@ -21,11 +20,12 @@
 #include "chrome/browser/download/download_item_model.h"
 #include "chrome/browser/download/download_util.h"
 #include "chrome/browser/themes/browser_theme_provider.h"
-#include "chrome/browser/views/download_shelf_view.h"
+#include "chrome/browser/ui/views/download_shelf_view.h"
 #include "gfx/canvas_skia.h"
 #include "gfx/color_utils.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "ui/base/animation/slide_animation.h"
 #include "views/controls/button/native_button.h"
 #include "views/controls/menu/menu_2.h"
 #include "views/widget/root_view.h"
@@ -114,7 +114,8 @@ DownloadItemView::DownloadItemView(DownloadItem* download,
   : warning_icon_(NULL),
     download_(download),
     parent_(parent),
-    status_text_(l10n_util::GetString(IDS_DOWNLOAD_STATUS_STARTING)),
+    status_text_(UTF16ToWide(
+        l10n_util::GetStringUTF16(IDS_DOWNLOAD_STATUS_STARTING))),
     show_status_text_(true),
     body_state_(NORMAL),
     drop_down_state_(NORMAL),
@@ -236,8 +237,8 @@ DownloadItemView::DownloadItemView(DownloadItem* download,
     drop_down_x_right_ = size.width();
   }
 
-  body_hover_animation_.reset(new SlideAnimation(this));
-  drop_hover_animation_.reset(new SlideAnimation(this));
+  body_hover_animation_.reset(new ui::SlideAnimation(this));
+  drop_hover_animation_.reset(new ui::SlideAnimation(this));
 
   if (download->safety_state() == DownloadItem::DANGEROUS) {
     tooltip_text_.clear();
@@ -245,12 +246,13 @@ DownloadItemView::DownloadItemView(DownloadItem* download,
     drop_down_state_ = DANGEROUS;
 
     warning_icon_ = rb.GetBitmapNamed(IDR_WARNING);
-    save_button_ = new views::NativeButton(this, l10n_util::GetString(
-        download->is_extension_install() ?
-            IDS_CONTINUE_EXTENSION_DOWNLOAD : IDS_SAVE_DOWNLOAD));
+    save_button_ = new views::NativeButton(this,
+        UTF16ToWide(l10n_util::GetStringUTF16(
+            download->is_extension_install() ?
+                IDS_CONTINUE_EXTENSION_DOWNLOAD : IDS_SAVE_DOWNLOAD)));
     save_button_->set_ignore_minimum_size(true);
     discard_button_ = new views::NativeButton(
-        this, l10n_util::GetString(IDS_DISCARD_DOWNLOAD));
+        this, UTF16ToWide(l10n_util::GetStringUTF16(IDS_DISCARD_DOWNLOAD)));
     discard_button_->set_ignore_minimum_size(true);
     AddChildView(save_button_);
     AddChildView(discard_button_);
@@ -282,8 +284,8 @@ DownloadItemView::DownloadItemView(DownloadItem* download,
 
     // The dangerous download label text is different for an extension file.
     if (download->is_extension_install()) {
-      dangerous_download_label_ = new views::Label(
-          l10n_util::GetString(IDS_PROMPT_DANGEROUS_DOWNLOAD_EXTENSION));
+      dangerous_download_label_ = new views::Label(UTF16ToWide(
+          l10n_util::GetStringUTF16(IDS_PROMPT_DANGEROUS_DOWNLOAD_EXTENSION)));
     } else {
       gfx::ElideString(rootname,
                        kFileNameMaxLength - extension.length(),
@@ -291,8 +293,9 @@ DownloadItemView::DownloadItemView(DownloadItem* download,
       std::wstring filename = rootname + L"." + extension;
       filename = UTF16ToWide(base::i18n::GetDisplayStringInLTRDirectionality(
           WideToUTF16(filename)));
-      dangerous_download_label_ = new views::Label(
-          l10n_util::GetStringF(IDS_PROMPT_DANGEROUS_DOWNLOAD, filename));
+      dangerous_download_label_ = new views::Label(UTF16ToWide(
+          l10n_util::GetStringFUTF16(IDS_PROMPT_DANGEROUS_DOWNLOAD,
+                                     WideToUTF16(filename))));
     }
     dangerous_download_label_->SetMultiLine(true);
     dangerous_download_label_->SetHorizontalAlignment(
@@ -353,7 +356,7 @@ void DownloadItemView::OnDownloadUpdated(DownloadItem* download) {
     ClearDangerousMode();
   }
 
-  std::wstring status_text = model_->GetStatusText();
+  string16 status_text = model_->GetStatusText();
   switch (download_->state()) {
     case DownloadItem::IN_PROGRESS:
       download_->is_paused() ? StopDownloadProgress() : StartDownloadProgress();
@@ -364,9 +367,9 @@ void DownloadItemView::OnDownloadUpdated(DownloadItem* download) {
         return;
       }
       StopDownloadProgress();
-      complete_animation_.reset(new SlideAnimation(this));
+      complete_animation_.reset(new ui::SlideAnimation(this));
       complete_animation_->SetSlideDuration(kCompleteAnimationDurationMs);
-      complete_animation_->SetTweenType(Tween::LINEAR);
+      complete_animation_->SetTweenType(ui::Tween::LINEAR);
       complete_animation_->Show();
       if (status_text.empty())
         show_status_text_ = false;
@@ -384,7 +387,7 @@ void DownloadItemView::OnDownloadUpdated(DownloadItem* download) {
       NOTREACHED();
   }
 
-  status_text_ = status_text;
+  status_text_ = UTF16ToWideHack(status_text);
   UpdateAccessibleName();
 
   // We use the parent's (DownloadShelfView's) SchedulePaint, since there
@@ -512,8 +515,9 @@ void DownloadItemView::Paint(gfx::Canvas* canvas) {
                                SkColorGetG(file_name_color)),
               static_cast<int>(kDownloadItemLuminanceMod *
                                SkColorGetB(file_name_color)));
-      canvas->DrawStringInt(status_text_, font_, file_name_color,
-                            mirrored_x, y, kTextWidth, font_.GetHeight());
+      canvas->DrawStringInt(WideToUTF16Hack(status_text_), font_,
+                            file_name_color, mirrored_x, y, kTextWidth,
+                            font_.GetHeight());
     }
   }
 
@@ -609,9 +613,8 @@ void DownloadItemView::Paint(gfx::Canvas* canvas) {
                                     font_, kTextWidth);
     } else {
       // First, Calculate the download status opening string width.
-      std::wstring empty_string;
-      std::wstring status_string =
-          l10n_util::GetStringF(IDS_DOWNLOAD_STATUS_OPENING, empty_string);
+      string16 status_string =
+          l10n_util::GetStringFUTF16(IDS_DOWNLOAD_STATUS_OPENING, string16());
       int status_string_width = font_.GetStringWidth(status_string);
       // Then, elide the file name.
       string16 filename_string =
@@ -631,7 +634,7 @@ void DownloadItemView::Paint(gfx::Canvas* canvas) {
                                       (box_height_ - font_.GetHeight()) / 2);
 
     // Draw the file's name.
-    canvas->DrawStringInt(UTF16ToWide(filename), font_,
+    canvas->DrawStringInt(filename, font_,
                           IsEnabled() ? file_name_color :
                                         kFileNameDisabledColor,
                           mirrored_x, y, kTextWidth, font_.GetHeight());
@@ -873,8 +876,8 @@ bool DownloadItemView::OnKeyPressed(const views::KeyEvent& e) {
   if (IsDangerousMode())
     return true;
 
-  if (e.GetKeyCode() == app::VKEY_SPACE ||
-      e.GetKeyCode() == app::VKEY_RETURN) {
+  if (e.GetKeyCode() == ui::VKEY_SPACE ||
+      e.GetKeyCode() == ui::VKEY_RETURN) {
     OpenDownload();
     return true;
   }
@@ -940,7 +943,7 @@ AccessibilityTypes::State DownloadItemView::GetAccessibleState() {
   }
 }
 
-void DownloadItemView::AnimationProgressed(const Animation* animation) {
+void DownloadItemView::AnimationProgressed(const ui::Animation* animation) {
   // We don't care if what animation (body button/drop button/complete),
   // is calling back, as they all have to go through the same paint call.
   SchedulePaint();
@@ -1058,15 +1061,15 @@ bool DownloadItemView::InDropDownButtonXCoordinateRange(int x) {
 }
 
 void DownloadItemView::UpdateAccessibleName() {
-  std::wstring current_name;
+  string16 current_name;
   GetAccessibleName(&current_name);
 
-  std::wstring new_name;
+  string16 new_name;
   if (download_->safety_state() == DownloadItem::DANGEROUS) {
-    new_name = dangerous_download_label_->GetText();
+    new_name = WideToUTF16Hack(dangerous_download_label_->GetText());
   } else {
-    new_name = status_text_ + L" " +
-        download_->GetFileNameToReportUser().ToWStringHack();
+    new_name = WideToUTF16Hack(status_text_) + char16(' ') +
+        WideToUTF16Hack(download_->GetFileNameToReportUser().ToWStringHack());
   }
 
   // If the name has changed, call SetAccessibleName and notify

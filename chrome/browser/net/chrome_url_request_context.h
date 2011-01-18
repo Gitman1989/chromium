@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -19,6 +19,7 @@
 #include "chrome/browser/net/chrome_cookie_policy.h"
 #include "chrome/browser/prefs/pref_change_registrar.h"
 #include "chrome/browser/prefs/pref_service.h"
+#include "chrome/browser/prerender/prerender_manager.h"
 #include "chrome/common/extensions/extension_icon_set.h"
 #include "chrome/common/net/url_request_context_getter.h"
 #include "chrome/common/notification_registrar.h"
@@ -40,12 +41,12 @@ class NetworkDelegate;
 class ChromeURLRequestContext;
 class ChromeURLRequestContextFactory;
 
-// Subclass of URLRequestContext which can be used to store extra information
-// for requests.
+// Subclass of net::URLRequestContext which can be used to store extra
+// information for requests.
 //
 // All methods of this class must be called from the IO thread,
 // including the constructor and destructor.
-class ChromeURLRequestContext : public URLRequestContext {
+class ChromeURLRequestContext : public net::URLRequestContext {
  public:
   ChromeURLRequestContext();
 
@@ -94,6 +95,10 @@ class ChromeURLRequestContext : public URLRequestContext {
     return extension_info_map_;
   }
 
+  PrerenderManager* prerender_manager() {
+    return prerender_manager_.get();
+  }
+
   // Returns true if this context is an external request context, like
   // ChromeFrame.
   virtual bool IsExternal() const;
@@ -120,36 +125,15 @@ class ChromeURLRequestContext : public URLRequestContext {
   void set_ssl_config_service(net::SSLConfigService* service) {
     ssl_config_service_ = service;
   }
-  void set_host_resolver(net::HostResolver* resolver) {
-    host_resolver_ = resolver;
-  }
-  void set_cert_verifier(net::CertVerifier* cert_verifier) {
-    cert_verifier_ = cert_verifier;
-  }
-  void set_dnsrr_resolver(net::DnsRRResolver* dnsrr_resolver) {
-    dnsrr_resolver_ = dnsrr_resolver;
-  }
   void set_dns_cert_checker(net::DnsCertProvenanceChecker* ctx) {
     dns_cert_checker_.reset(ctx);
-  }
-  void set_http_transaction_factory(net::HttpTransactionFactory* factory) {
-    http_transaction_factory_ = factory;
   }
   void set_ftp_transaction_factory(net::FtpTransactionFactory* factory) {
     ftp_transaction_factory_ = factory;
   }
-  void set_http_auth_handler_factory(net::HttpAuthHandlerFactory* factory) {
-    http_auth_handler_factory_ = factory;
-  }
-  void set_cookie_store(net::CookieStore* cookie_store) {
-    cookie_store_ = cookie_store;
-  }
   void set_cookie_policy(ChromeCookiePolicy* cookie_policy) {
     chrome_cookie_policy_ = cookie_policy;  // Take a strong reference.
     cookie_policy_ = cookie_policy;
-  }
-  void set_proxy_service(net::ProxyService* service) {
-    proxy_service_ = service;
   }
   void set_user_script_dir_path(const FilePath& path) {
     user_script_dir_path_ = path;
@@ -182,12 +166,12 @@ class ChromeURLRequestContext : public URLRequestContext {
   void set_extension_info_map(ExtensionInfoMap* map) {
     extension_info_map_ = map;
   }
-  void set_net_log(net::NetLog* net_log) {
-    net_log_ = net_log;
-  }
   void set_network_delegate(
       net::HttpNetworkDelegate* network_delegate) {
     network_delegate_ = network_delegate;
+  }
+  void set_prerender_manager(PrerenderManager* prerender_manager) {
+    prerender_manager_ = prerender_manager;
   }
 
   // Callback for when the accept language changes.
@@ -200,6 +184,7 @@ class ChromeURLRequestContext : public URLRequestContext {
   // Path to the directory user scripts are stored in.
   FilePath user_script_dir_path_;
 
+  // TODO(willchan): Make these non-refcounted.
   scoped_refptr<ChromeAppCacheService> appcache_service_;
   scoped_refptr<webkit_database::DatabaseTracker> database_tracker_;
   scoped_refptr<ChromeCookiePolicy> chrome_cookie_policy_;
@@ -208,6 +193,7 @@ class ChromeURLRequestContext : public URLRequestContext {
   scoped_refptr<ChromeBlobStorageContext> blob_storage_context_;
   scoped_refptr<fileapi::SandboxedFileSystemContext> file_system_context_;
   scoped_refptr<ExtensionInfoMap> extension_info_map_;
+  scoped_refptr<PrerenderManager> prerender_manager_;
 
   bool is_media_;
   bool is_off_the_record_;
@@ -217,8 +203,8 @@ class ChromeURLRequestContext : public URLRequestContext {
 };
 
 // A URLRequestContextGetter subclass used by the browser. This returns a
-// subclass of URLRequestContext which can be used to store extra information
-// about requests.
+// subclass of net::URLRequestContext which can be used to store extra
+// information about requests.
 //
 // Most methods are expected to be called on the UI thread, except for
 // the destructor and GetURLRequestContext().
@@ -238,7 +224,7 @@ class ChromeURLRequestContextGetter : public URLRequestContextGetter,
   // GetIOMessageLoopProxy however can be called from any thread.
   //
   // URLRequestContextGetter implementation.
-  virtual URLRequestContext* GetURLRequestContext();
+  virtual net::URLRequestContext* GetURLRequestContext();
   virtual net::CookieStore* GetCookieStore();
   virtual scoped_refptr<base::MessageLoopProxy> GetIOMessageLoopProxy() const;
 
@@ -247,7 +233,7 @@ class ChromeURLRequestContextGetter : public URLRequestContextGetter,
   void ReleaseURLRequestContext();
 
   // Convenience overload of GetURLRequestContext() that returns a
-  // ChromeURLRequestContext* rather than a URLRequestContext*.
+  // ChromeURLRequestContext* rather than a net::URLRequestContext*.
   ChromeURLRequestContext* GetIOContext() {
     return reinterpret_cast<ChromeURLRequestContext*>(GetURLRequestContext());
   }
@@ -260,7 +246,7 @@ class ChromeURLRequestContextGetter : public URLRequestContextGetter,
 
   // Create an instance for an original profile for media. This is expected to
   // get called on UI thread. This method takes a profile and reuses the
-  // 'original' URLRequestContext for common files.
+  // 'original' net::URLRequestContext for common files.
   static ChromeURLRequestContextGetter* CreateOriginalForMedia(
       Profile* profile, const FilePath& disk_cache_path, int cache_size);
 
@@ -322,10 +308,10 @@ class ChromeURLRequestContextGetter : public URLRequestContextGetter,
   // Access only from the IO thread.
   scoped_ptr<ChromeURLRequestContextFactory> factory_;
 
-  // NULL if not yet initialized. Otherwise, it is the URLRequestContext
+  // NULL if not yet initialized. Otherwise, it is the net::URLRequestContext
   // instance that was lazilly created by GetURLRequestContext.
   // Access only from the IO thread.
-  scoped_refptr<URLRequestContext> url_request_context_;
+  scoped_refptr<net::URLRequestContext> url_request_context_;
 
   DISALLOW_COPY_AND_ASSIGN(ChromeURLRequestContextGetter);
 };
@@ -366,6 +352,7 @@ class ChromeURLRequestContextFactory {
 
   // TODO(aa): I think this can go away now as we no longer support standalone
   // user scripts.
+  // TODO(willchan): Make these non-refcounted.
   FilePath user_script_dir_path_;
   scoped_refptr<HostContentSettingsMap> host_content_settings_map_;
   scoped_refptr<ChromeAppCacheService> appcache_service_;
@@ -377,6 +364,7 @@ class ChromeURLRequestContextFactory {
   scoped_refptr<ChromeBlobStorageContext> blob_storage_context_;
   scoped_refptr<fileapi::SandboxedFileSystemContext> file_system_context_;
   scoped_refptr<ExtensionInfoMap> extension_info_map_;
+  scoped_refptr<PrerenderManager> prerender_manager_;
 
   FilePath profile_dir_path_;
 

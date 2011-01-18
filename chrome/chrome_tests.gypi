@@ -1,4 +1,4 @@
-# Copyright (c) 2010 The Chromium Authors. All rights reserved.
+# Copyright (c) 2011 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -26,6 +26,7 @@
         'browser',
         'common',
         'renderer',
+        'chrome_gpu',
         'chrome_resources',
         'chrome_strings',
         'browser/sync/protocol/sync_proto.gyp:sync_proto_cpp',
@@ -63,6 +64,7 @@
         #'browser/net/url_request_mock_http_job.h',
         'browser/net/url_request_mock_net_error_job.cc',
         'browser/net/url_request_mock_net_error_job.h',
+        'browser/prefs/pref_observer_mock.cc',
         'browser/prefs/pref_observer_mock.h',
         'browser/prefs/pref_service_mock_builder.cc',
         'browser/prefs/pref_service_mock_builder.h',
@@ -76,11 +78,17 @@
         'browser/renderer_host/test/test_render_view_host.h',
         'browser/tab_contents/test_tab_contents.cc',
         'browser/tab_contents/test_tab_contents.h',
+        'browser/sync/profile_sync_service_mock.cc',
+        'browser/sync/profile_sync_service_mock.h',
         'browser/ui/browser.h',
         'browser/ui/cocoa/browser_test_helper.h',
         'common/ipc_test_sink.cc',
         'common/ipc_test_sink.h',
+        'common/net/test_url_fetcher_factory.cc',
+        'common/net/test_url_fetcher_factory.h',
+        'common/notification_observer_mock.cc',
         'common/notification_observer_mock.h',
+        'common/pref_store_observer_mock.cc',
         'common/pref_store_observer_mock.h',
         'renderer/mock_keyboard.cc',
         'renderer/mock_keyboard.h',
@@ -116,6 +124,7 @@
         'test/chrome_process_util_mac.cc',
         'test/model_test_utils.cc',
         'test/model_test_utils.h',
+        'test/profile_mock.cc',
         'test/profile_mock.h',
         'test/test_browser_window.h',
         'test/test_launcher_utils.cc',
@@ -174,6 +183,8 @@
       'sources': [
         'test/automated_ui_tests/automated_ui_test_base.cc',
         'test/automated_ui_tests/automated_ui_test_base.h',
+        'test/automation/proxy_launcher.cc',
+        'test/automation/proxy_launcher.h',
         'test/testing_browser_process.h',
         'test/ui/javascript_test_util.cc',
         'test/ui/npapi_test_helper.cc',
@@ -248,6 +259,17 @@
         'test/automated_ui_tests/automated_ui_tests.h',
       ],
       'conditions': [
+        ['OS=="win" and buildtype=="Official"', {
+          'configurations': {
+            'Release': {
+              'msvs_settings': {
+                'VCCLCompilerTool': {
+                  'WholeProgramOptimization': 'false',
+                },
+              },
+            },
+          },
+        },],
         ['OS=="linux"', {
           'dependencies': [
             '../tools/xdisplaycheck/xdisplaycheck.gyp:xdisplaycheck',
@@ -272,14 +294,14 @@
       'type': 'executable',
       'msvs_guid': '018D4F38-6272-448F-A864-976DA09F05D0',
       'dependencies': [
-        'chrome.gyp:chrome',
-        'chrome.gyp:chrome_resources',
-        'chrome.gyp:chrome_strings',
-        'chrome.gyp:debugger',
-        'chrome.gyp:test_support_common',
-        'chrome.gyp:test_support_ui',
-        'chrome.gyp:syncapi',
         'browser/sync/protocol/sync_proto.gyp:sync_proto_cpp',
+        'chrome',
+        'chrome_resources',
+        'chrome_strings',
+        'debugger',
+        'syncapi',
+        'test_support_common',
+        'test_support_ui',
         '../third_party/hunspell/hunspell.gyp:hunspell',
         '../net/net.gyp:net_resources',
         '../net/net.gyp:net_test_support',
@@ -306,15 +328,13 @@
         'browser/browser_keyevents_browsertest.cc',
         'browser/collected_cookies_uitest.cc',
         'browser/debugger/devtools_sanity_unittest.cc',
-        'browser/gtk/bookmark_bar_gtk_interactive_uitest.cc',
+        'browser/ui/gtk/bookmark_bar_gtk_interactive_uitest.cc',
         'browser/instant/instant_browsertest.cc',
         'browser/notifications/notifications_interactive_uitest.cc',
         'browser/ui/views/bookmark_bar_view_test.cc',
         'browser/ui/views/browser_keyboard_accessibility_test_win.cc',
         'browser/ui/views/find_bar_host_interactive_uitest.cc',
         'browser/ui/views/tabs/tab_dragging_test.cc',
-        'common/net/test_url_fetcher_factory.cc',
-        'common/net/test_url_fetcher_factory.h',
         'test/in_process_browser_test.cc',
         'test/in_process_browser_test.h',
         'test/interactive_ui/fast_shutdown_interactive_uitest.cc',
@@ -349,7 +369,7 @@
         }],
         ['OS=="linux" and toolkit_views==1', {
           'sources!': [
-            'browser/gtk/bookmark_bar_gtk_interactive_uitest.cc',
+            'browser/ui/gtk/bookmark_bar_gtk_interactive_uitest.cc',
             # TODO(port)
             'test/interactive_ui/npapi_interactive_test.cc',
           ],
@@ -412,6 +432,7 @@
             # but that causes errors in other targets when
             # resulting .res files get referenced multiple times.
             '<(SHARED_INTERMEDIATE_DIR)/app/app_resources/app_resources.rc',
+            '<(SHARED_INTERMEDIATE_DIR)/chrome/autofill_resources.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome/browser_resources.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome/common_resources.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome/renderer_resources.rc',
@@ -437,7 +458,7 @@
             'Debug_Base': {
               'msvs_settings': {
                 'VCLinkerTool': {
-                  'LinkIncremental': '<(msvs_large_module_debug_link_mode)',
+                  'LinkIncremental': '<(msvs_debug_link_nonincremental)',
                 },
               },
             },
@@ -472,7 +493,7 @@
         'chrome_mesa',
         'default_plugin/default_plugin.gyp:default_plugin',
         '../ppapi/ppapi.gyp:ppapi_tests',
-        '../third_party/WebKit/WebKit/chromium/WebKit.gyp:copy_TestNetscapePlugIn',
+        '../third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:copy_TestNetscapePlugIn',
       ],
       'include_dirs': [
         '..',
@@ -516,6 +537,7 @@
         'common/logging_chrome_uitest.cc',
         'renderer/external_extension_uitest.cc',
         'test/automation/automation_proxy_uitest.cc',
+        'test/automation/automation_proxy_uitest.h',
         'test/automation/extension_proxy_uitest.cc',
         'test/automated_ui_tests/automated_ui_test_test.cc',
         'test/chrome_process_util_uitest.cc',
@@ -524,6 +546,7 @@
         'test/ui/dromaeo_benchmark_uitest.cc',
         'test/ui/history_uitest.cc',
         'test/ui/layout_plugin_uitest.cc',
+        'test/ui/named_interface_uitest.cc',
         'test/ui/npapi_uitest.cc',
         'test/ui/omnibox_uitest.cc',
         'test/ui/pepper_uitest.cc',
@@ -564,7 +587,7 @@
           # See the comment in this section of the unit_tests target for an
           # explanation (crbug.com/43791 - libwebcore.a is too large to mmap).
           'dependencies+++': [
-            '../third_party/WebKit/WebCore/WebCore.gyp/WebCore.gyp:webcore',
+            '../third_party/WebKit/Source/WebCore/WebCore.gyp/WebCore.gyp:webcore',
           ],
           'sources!': [
             # ProcessSingletonMac doesn't do anything.
@@ -602,6 +625,10 @@
               },
             },
           },
+          'sources!': [
+            # TODO(dtu): port to windows http://crosbug.com/8515
+            'test/ui/named_interface_uitest.cc',
+          ],
         }, { # else: OS != "win"
           'sources!': [
             # TODO(port): http://crbug.com/45770
@@ -678,6 +705,10 @@
         'test/webdriver/commands/command.cc',
         'test/webdriver/commands/create_session.h',
         'test/webdriver/commands/create_session.cc',
+        'test/webdriver/commands/find_element_commands.h',
+        'test/webdriver/commands/find_element_commands.cc',
+        'test/webdriver/commands/implicit_wait_command.h',
+        'test/webdriver/commands/implicit_wait_command.cc',
         'test/webdriver/commands/execute_command.h',
         'test/webdriver/commands/execute_command.cc',
         'test/webdriver/commands/navigate_commands.h',
@@ -858,7 +889,7 @@
             'Debug_Base': {
               'msvs_settings': {
                 'VCLinkerTool': {
-                  'LinkIncremental': '<(msvs_large_module_debug_link_mode)',
+                  'LinkIncremental': '<(msvs_debug_link_nonincremental)',
                 },
               },
             },
@@ -924,7 +955,7 @@
             'Debug_Base': {
               'msvs_settings': {
                 'VCLinkerTool': {
-                  'LinkIncremental': '<(msvs_large_module_debug_link_mode)',
+                  'LinkIncremental': '<(msvs_debug_link_nonincremental)',
                 },
               },
             },
@@ -952,6 +983,7 @@
         'profile_import',
         'renderer',
         'service',
+        'test_support_common',
         'test_support_unit',
         'utility',
         '../app/app.gyp:app_base',
@@ -973,7 +1005,7 @@
         '../third_party/libjingle/libjingle.gyp:libjingle',
         '../third_party/libxml/libxml.gyp:libxml',
         '../third_party/npapi/npapi.gyp:npapi',
-        '../third_party/WebKit/WebKit/chromium/WebKit.gyp:webkit',
+        '../third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:webkit',
       ],
       'include_dirs': [
         '..',
@@ -994,6 +1026,7 @@
         'browser/about_flags_unittest.cc',
         'browser/accessibility/browser_accessibility_mac_unittest.mm',
         'browser/accessibility/browser_accessibility_win_unittest.cc',
+        'browser/appcache/chrome_appcache_service_unittest.cc',
         'browser/app_controller_mac_unittest.mm',
         'browser/autocomplete_history_manager_unittest.cc',
         'browser/autocomplete/autocomplete_edit_unittest.cc',
@@ -1142,7 +1175,7 @@
         'browser/extensions/extension_updater_unittest.cc',
         'browser/extensions/extension_webnavigation_unittest.cc',
         'browser/extensions/extensions_quota_service_unittest.cc',
-        'browser/extensions/external_policy_extension_provider_unittest.cc',
+        'browser/extensions/external_policy_extension_loader_unittest.cc',
         'browser/extensions/file_reader_unittest.cc',
         'browser/extensions/image_loading_tracker_unittest.cc',
         'browser/extensions/sandboxed_extension_unpacker_unittest.cc',
@@ -1169,20 +1202,20 @@
         'browser/google/google_update_settings_unittest.cc',
         'browser/google/google_url_tracker_unittest.cc',
         'browser/gpu_blacklist_unittest.cc',
-        'browser/gtk/accessibility_event_router_gtk_unittest.cc',
-        'browser/gtk/bookmark_bar_gtk_unittest.cc',
-        'browser/gtk/bookmark_editor_gtk_unittest.cc',
-        'browser/gtk/bookmark_utils_gtk_unittest.cc',
-        'browser/gtk/gtk_chrome_shrinkable_hbox_unittest.cc',
-        'browser/gtk/gtk_expanded_container_unittest.cc',
-        'browser/gtk/gtk_theme_provider_unittest.cc',
-        'browser/gtk/keyword_editor_view_unittest.cc',
-        'browser/gtk/options/content_exceptions_window_gtk_unittest.cc',
-        'browser/gtk/options/cookies_view_unittest.cc',
-        'browser/gtk/options/languages_page_gtk_unittest.cc',
-        'browser/gtk/reload_button_gtk_unittest.cc',
-        'browser/gtk/status_icons/status_tray_gtk_unittest.cc',
-        'browser/gtk/tabs/tab_renderer_gtk_unittest.cc',
+        'browser/ui/gtk/accessibility_event_router_gtk_unittest.cc',
+        'browser/ui/gtk/bookmark_bar_gtk_unittest.cc',
+        'browser/ui/gtk/bookmark_editor_gtk_unittest.cc',
+        'browser/ui/gtk/bookmark_utils_gtk_unittest.cc',
+        'browser/ui/gtk/gtk_chrome_shrinkable_hbox_unittest.cc',
+        'browser/ui/gtk/gtk_expanded_container_unittest.cc',
+        'browser/ui/gtk/gtk_theme_provider_unittest.cc',
+        'browser/ui/gtk/keyword_editor_view_unittest.cc',
+        'browser/ui/gtk/options/content_exceptions_window_gtk_unittest.cc',
+        'browser/ui/gtk/options/cookies_view_unittest.cc',
+        'browser/ui/gtk/options/languages_page_gtk_unittest.cc',
+        'browser/ui/gtk/reload_button_gtk_unittest.cc',
+        'browser/ui/gtk/status_icons/status_tray_gtk_unittest.cc',
+        'browser/ui/gtk/tabs/tab_renderer_gtk_unittest.cc',
         'browser/history/expire_history_backend_unittest.cc',
         'browser/history/history_backend_unittest.cc',
         'browser/history/history_querying_unittest.cc',
@@ -1223,6 +1256,7 @@
         'browser/metrics/metrics_service_unittest.cc',
         'browser/mock_plugin_exceptions_table_model.cc',
         'browser/mock_plugin_exceptions_table_model.h',
+        'browser/multi_process_notification_unittest.cc',
         'browser/net/connection_tester_unittest.cc',
         'browser/net/gaia/token_service_unittest.cc',
         'browser/net/gaia/token_service_unittest.h',
@@ -1262,6 +1296,7 @@
         'browser/policy/configuration_policy_provider_win_unittest.cc',
         'browser/policy/device_token_fetcher_unittest.cc',
         'browser/policy/file_based_policy_provider_unittest.cc',
+        'browser/policy/device_management_backend_mock.cc',
         'browser/policy/device_management_backend_mock.h',
         'browser/policy/device_management_service_unittest.cc',
         'browser/policy/device_management_policy_cache_unittest.cc',
@@ -1280,10 +1315,12 @@
         'browser/prefs/pref_notifier_impl_unittest.cc',
         'browser/prefs/pref_service_unittest.cc',
         'browser/prefs/pref_set_observer_unittest.cc',
+        'browser/prefs/pref_value_map_unittest.cc',
         'browser/prefs/pref_value_store_unittest.cc',
+        'browser/prefs/proxy_prefs_unittest.cc',
         'browser/prefs/session_startup_pref_unittest.cc',
-        'browser/prerender/prerender_interceptor_unittest.cc',
         'browser/prerender/prerender_manager_unittest.cc',
+        'browser/prerender/prerender_resource_handler_unittest.cc',
         'browser/printing/cloud_print/cloud_print_setup_source_unittest.cc',
         'browser/printing/print_dialog_cloud_unittest.cc',
         'browser/printing/print_job_unittest.cc',
@@ -1291,6 +1328,7 @@
         'browser/process_info_snapshot_mac_unittest.cc',
         'browser/process_singleton_mac_unittest.cc',
         'browser/profiles/profile_manager_unittest.cc',
+        'browser/remoting/directory_add_request_unittest.cc',
         'browser/renderer_host/audio_renderer_host_unittest.cc',
         'browser/renderer_host/gtk_im_context_wrapper_unittest.cc',
         'browser/renderer_host/gtk_key_bindings_handler_unittest.cc',
@@ -1345,9 +1383,12 @@
         'browser/sync/glue/autofill_model_associator_unittest.cc',
         'browser/sync/glue/autofill_profile_model_associator_unittest.cc',
         'browser/sync/glue/bookmark_data_type_controller_unittest.cc',
+        'browser/sync/glue/change_processor_mock.cc',
         'browser/sync/glue/change_processor_mock.h',
+        'browser/sync/glue/data_type_controller_mock.cc',
         'browser/sync/glue/data_type_controller_mock.h',
         'browser/sync/glue/data_type_manager_impl_unittest.cc',
+        'browser/sync/glue/data_type_manager_mock.cc',
         'browser/sync/glue/data_type_manager_mock.h',
         'browser/sync/glue/database_model_worker_unittest.cc',
         'browser/sync/glue/extension_data_unittest.cc',
@@ -1356,6 +1397,8 @@
         'browser/sync/glue/http_bridge_unittest.cc',
         'browser/sync/glue/preference_data_type_controller_unittest.cc',
         'browser/sync/glue/preference_model_associator_unittest.cc',
+        'browser/sync/glue/session_model_associator_unittest.cc',
+        'browser/sync/glue/sync_backend_host_mock.cc',
         'browser/sync/glue/sync_backend_host_mock.h',
         'browser/sync/glue/theme_data_type_controller_unittest.cc',
         'browser/sync/glue/theme_util_unittest.cc',
@@ -1365,7 +1408,6 @@
         'browser/sync/profile_sync_factory_mock.cc',
         'browser/sync/profile_sync_factory_mock.h',
         'browser/sync/profile_sync_service_autofill_unittest.cc',
-        'browser/sync/profile_sync_service_mock.h',
         'browser/sync/profile_sync_service_password_unittest.cc',
         'browser/sync/profile_sync_service_preference_unittest.cc',
         'browser/sync/profile_sync_service_session_unittest.cc',
@@ -1378,6 +1420,7 @@
         'browser/sync/sync_ui_util_mac_unittest.mm',
         'browser/sync/sync_ui_util_unittest.cc',
         'browser/sync/test_profile_sync_service.h',
+        'browser/sync/test_profile_sync_service.cc',
         'browser/sync/util/cryptographer_unittest.cc',
         'browser/sync/util/nigori_unittest.cc',
         'browser/tab_contents/navigation_controller_unittest.cc',
@@ -1445,36 +1488,30 @@
         'browser/ui/cocoa/collected_cookies_mac_unittest.mm',
         'browser/ui/cocoa/command_observer_bridge_unittest.mm',
         'browser/ui/cocoa/confirm_quit_panel_controller_unittest.mm',
-        'browser/ui/cocoa/content_exceptions_window_controller_unittest.mm',
         'browser/ui/cocoa/content_setting_bubble_cocoa_unittest.mm',
-        'browser/ui/cocoa/content_settings_dialog_controller_unittest.mm',
         'browser/ui/cocoa/cookie_details_unittest.mm',
         'browser/ui/cocoa/cookie_details_view_controller_unittest.mm',
-        'browser/ui/cocoa/custom_home_pages_model_unittest.mm',
-        'browser/ui/cocoa/delayedmenu_button_unittest.mm',
         'browser/ui/cocoa/download/download_item_button_unittest.mm',
         'browser/ui/cocoa/download/download_shelf_mac_unittest.mm',
         'browser/ui/cocoa/download/download_shelf_view_unittest.mm',
         'browser/ui/cocoa/download/download_util_mac_unittest.mm',
         'browser/ui/cocoa/draggable_button_unittest.mm',
-        'browser/ui/cocoa/edit_search_engine_cocoa_controller_unittest.mm',
         'browser/ui/cocoa/event_utils_unittest.mm',
-        'browser/ui/cocoa/extension_installed_bubble_controller_unittest.mm',
         'browser/ui/cocoa/extensions/browser_actions_container_view_unittest.mm',
         'browser/ui/cocoa/extensions/chevron_menu_button_unittest.mm',
         'browser/ui/cocoa/extensions/extension_install_prompt_controller_unittest.mm',
+        'browser/ui/cocoa/extensions/extension_installed_bubble_controller_unittest.mm',
         'browser/ui/cocoa/extensions/extension_popup_controller_unittest.mm',
         'browser/ui/cocoa/fast_resize_view_unittest.mm',
-        'browser/ui/cocoa/find_bar_bridge_unittest.mm',
-        'browser/ui/cocoa/find_bar_cocoa_controller_unittest.mm',
-        'browser/ui/cocoa/find_bar_text_field_cell_unittest.mm',
-        'browser/ui/cocoa/find_bar_text_field_unittest.mm',
-        'browser/ui/cocoa/find_bar_view_unittest.mm',
+        'browser/ui/cocoa/find_bar/find_bar_bridge_unittest.mm',
+        'browser/ui/cocoa/find_bar/find_bar_cocoa_controller_unittest.mm',
+        'browser/ui/cocoa/find_bar/find_bar_text_field_cell_unittest.mm',
+        'browser/ui/cocoa/find_bar/find_bar_text_field_unittest.mm',
+        'browser/ui/cocoa/find_bar/find_bar_view_unittest.mm',
         'browser/ui/cocoa/find_pasteboard_unittest.mm',
         'browser/ui/cocoa/first_run_bubble_controller_unittest.mm',
         'browser/ui/cocoa/floating_bar_backing_view_unittest.mm',
         'browser/ui/cocoa/focus_tracker_unittest.mm',
-        'browser/ui/cocoa/font_language_settings_controller_unittest.mm',
         'browser/ui/cocoa/framed_browser_window_unittest.mm',
         'browser/ui/cocoa/fullscreen_window_unittest.mm',
         'browser/ui/cocoa/gradient_button_cell_unittest.mm',
@@ -1493,7 +1530,6 @@
         'browser/ui/cocoa/infobar_gradient_view_unittest.mm',
         'browser/ui/cocoa/instant_confirm_window_controller_unittest.mm',
         'browser/ui/cocoa/keystone_glue_unittest.mm',
-        'browser/ui/cocoa/keyword_editor_cocoa_controller_unittest.mm',
         'browser/ui/cocoa/location_bar/autocomplete_text_field_cell_unittest.mm',
         'browser/ui/cocoa/location_bar/autocomplete_text_field_editor_unittest.mm',
         'browser/ui/cocoa/location_bar/autocomplete_text_field_unittest.mm',
@@ -1507,20 +1543,25 @@
         'browser/ui/cocoa/location_bar/selected_keyword_decoration_unittest.mm',
         'browser/ui/cocoa/menu_button_unittest.mm',
         'browser/ui/cocoa/menu_controller_unittest.mm',
-        'browser/ui/cocoa/menu_tracked_button_unittest.mm',
-        'browser/ui/cocoa/menu_tracked_root_view_unittest.mm',
         'browser/ui/cocoa/notifications/balloon_controller_unittest.mm',
         'browser/ui/cocoa/nsimage_cache_unittest.mm',
         'browser/ui/cocoa/nsmenuitem_additions_unittest.mm',
         'browser/ui/cocoa/objc_method_swizzle_unittest.mm',
+        'browser/ui/cocoa/options/content_exceptions_window_controller_unittest.mm',
+        'browser/ui/cocoa/options/content_settings_dialog_controller_unittest.mm',
+        'browser/ui/cocoa/options/cookies_window_controller_unittest.mm',
+        'browser/ui/cocoa/options/custom_home_pages_model_unittest.mm',
+        'browser/ui/cocoa/options/edit_search_engine_cocoa_controller_unittest.mm',
+        'browser/ui/cocoa/options/font_language_settings_controller_unittest.mm',
+        'browser/ui/cocoa/options/keyword_editor_cocoa_controller_unittest.mm',
+        'browser/ui/cocoa/options/preferences_window_controller_unittest.mm',
+        'browser/ui/cocoa/options/search_engine_list_model_unittest.mm',
         'browser/ui/cocoa/page_info_bubble_controller_unittest.mm',
-        'browser/ui/cocoa/preferences_window_controller_unittest.mm',
         'browser/ui/cocoa/previewable_contents_controller_unittest.mm',
         'browser/ui/cocoa/reload_button_unittest.mm',
         'browser/ui/cocoa/rwhvm_editcommand_helper_unittest.mm',
         'browser/ui/cocoa/sad_tab_controller_unittest.mm',
         'browser/ui/cocoa/sad_tab_view_unittest.mm',
-        'browser/ui/cocoa/search_engine_list_model_unittest.mm',
         'browser/ui/cocoa/side_tab_strip_view_unittest.mm',
         'browser/ui/cocoa/simple_content_exceptions_window_controller_unittest.mm',
         'browser/ui/cocoa/status_bubble_mac_unittest.mm',
@@ -1549,8 +1590,10 @@
         'browser/ui/cocoa/view_resizer_pong.mm',
         'browser/ui/cocoa/web_drop_target_unittest.mm',
         'browser/ui/cocoa/window_size_autosaver_unittest.mm',
-        'browser/ui/cocoa/wrench_menu_button_cell_unittest.mm',
-        'browser/ui/cocoa/wrench_menu_controller_unittest.mm',
+        'browser/ui/cocoa/wrench_menu/menu_tracked_button_unittest.mm',
+        'browser/ui/cocoa/wrench_menu/menu_tracked_root_view_unittest.mm',
+        'browser/ui/cocoa/wrench_menu/wrench_menu_button_cell_unittest.mm',
+        'browser/ui/cocoa/wrench_menu/wrench_menu_controller_unittest.mm',
         'browser/ui/find_bar/find_backend_unittest.cc',
         'browser/ui/login/login_prompt_unittest.cc',
         'browser/ui/tabs/dock_info_unittest.cc',
@@ -1614,8 +1657,6 @@
         'common/net/gaia/gaia_auth_fetcher_unittest.h',
         'common/net/gaia/gaia_authenticator_unittest.cc',
         'common/net/url_fetcher_unittest.cc',
-        'common/net/test_url_fetcher_factory.cc',
-        'common/net/test_url_fetcher_factory.h',
         'common/notification_service_unittest.cc',
         'common/process_watcher_unittest.cc',
         'common/property_bag_unittest.cc',
@@ -1684,6 +1725,7 @@
         '../views/box_layout_unittest.cc',
         '../views/controls/label_unittest.cc',
         '../views/controls/progress_bar_unittest.cc',
+        '../views/controls/single_split_view.cc',
         '../views/controls/tabbed_pane/tabbed_pane_unittest.cc',
         '../views/controls/table/table_view_unittest.cc',
         '../views/controls/textfield/textfield_views_model_unittest.cc',
@@ -1691,6 +1733,7 @@
         '../views/focus/accelerator_handler_gtk_unittest.cc',
         '../views/focus/focus_manager_unittest.cc',
         '../views/grid_layout_unittest.cc',
+        '../views/test/views_test_base.h',
         '../views/view_unittest.cc',
       ],
       'conditions': [
@@ -1708,41 +1751,20 @@
             ['touchui==1', {
               'sources/': [
                 ['include', 'browser/chromeos/dom_ui/login/authenticator_facade_cros_unittest.cc'],
-                ['exclude', 'browser/chromeos/dom_ui/login/authenticator_facade_stub_unittest.cc'],
                 ['include', 'browser/chromeos/dom_ui/login/login_ui_unittest.cc'],
                 ['include', 'browser/chromeos/dom_ui/login/mock_authenticator_facade_cros.h'],
-                ['exclude', 'browser/chromeos/dom_ui/login/mock_authenticator_facade_stub.h'],
                 ['include', 'browser/chromeos/dom_ui/login/mock_authenticator_facade_cros_helpers.h'],
                 ['include', 'browser/chromeos/dom_ui/login/mock_login_ui_helpers.h'],
               ],
-             }, { # else: touchui == 0
-               'sources/': [
-                ['exclude', '^browser/chromeos/dom_ui/login/'],
-               ],
              }],
            ],
           'sources/': [
             ['exclude', 'browser/notifications/desktop_notifications_unittest.cc'],
           ],
         }, { # else: chromeos == 0
-          'conditions': [
-            ['touchui==1', {
-              'sources/': [
-                ['exclude', '^browser/chromeos/'],
-                ['exclude', 'browser/chromeos/dom_ui/login/authenticator_facade_cros_unittest.cc'],
-                ['include', 'browser/chromeos/dom_ui/login/authenticator_facade_stub_unittest.cc'],
-                ['include', 'browser/chromeos/dom_ui/login/login_ui_unittest.cc'],
-                ['exclude', 'browser/chromeos/dom_ui/login/mock_authenticator_facade_cros.h'],
-                ['include', 'browser/chromeos/dom_ui/login/mock_authenticator_facade_stub.h'],
-                ['include', 'browser/chromeos/dom_ui/login/mock_authenticator_facade_cros_helpers.h'],
-                ['include', 'browser/chromeos/dom_ui/login/mock_login_ui_helpers.h'],
-              ],
-             }, { # else: touchui == 0
-               'sources/': [
-                 ['exclude', '^browser/chromeos/'],
-               ],
-             }],
-           ],
+          'sources/': [
+            ['exclude', '^browser/chromeos/'],
+          ],
         }],
         ['OS=="linux"', {
           'conditions': [
@@ -1761,15 +1783,15 @@
             ['toolkit_views==1', {
               'sources!': [
                  'browser/autocomplete/autocomplete_popup_view_gtk_unittest.cc',
-                 'browser/gtk/bookmark_bar_gtk_unittest.cc',
-                 'browser/gtk/bookmark_editor_gtk_unittest.cc',
-                 'browser/gtk/gtk_chrome_shrinkable_hbox_unittest.cc',
-                 'browser/gtk/gtk_expanded_container_unittest.cc',
-                 'browser/gtk/gtk_theme_provider_unittest.cc',
-                 'browser/gtk/options/cookies_view_unittest.cc',
-                 'browser/gtk/options/languages_page_gtk_unittest.cc',
-                 'browser/gtk/reload_button_gtk_unittest.cc',
-                 'browser/gtk/status_icons/status_tray_gtk_unittest.cc',
+                 'browser/ui/gtk/bookmark_bar_gtk_unittest.cc',
+                 'browser/ui/gtk/bookmark_editor_gtk_unittest.cc',
+                 'browser/ui/gtk/gtk_chrome_shrinkable_hbox_unittest.cc',
+                 'browser/ui/gtk/gtk_expanded_container_unittest.cc',
+                 'browser/ui/gtk/gtk_theme_provider_unittest.cc',
+                 'browser/ui/gtk/options/cookies_view_unittest.cc',
+                 'browser/ui/gtk/options/languages_page_gtk_unittest.cc',
+                 'browser/ui/gtk/reload_button_gtk_unittest.cc',
+                 'browser/ui/gtk/status_icons/status_tray_gtk_unittest.cc',
               ],
             }],
           ],
@@ -1783,11 +1805,9 @@
           ],
         }, { # else: OS != "linux"
           'sources!': [
-            'browser/gtk/tabs/tab_renderer_gtk_unittest.cc',
+            'browser/ui/gtk/tabs/tab_renderer_gtk_unittest.cc',
             'browser/renderer_host/gtk_key_bindings_handler_unittest.cc',
             '../views/focus/accelerator_handler_gtk_unittest.cc',
-            '../views/controls/textfield/textfield_views_model_unittest.cc',
-            '../views/controls/textfield/native_textfield_views_unittest.cc',
           ],
         }],
         ['OS=="linux" or OS=="freebsd"', {
@@ -1814,7 +1834,7 @@
             # Blocked on bookmark manager.
             'browser/bookmarks/bookmark_context_menu_controller_unittest.cc',
             'browser/ui/tabs/dock_info_unittest.cc',
-            'browser/gtk/reload_button_gtk_unittest.cc',
+            'browser/ui/gtk/reload_button_gtk_unittest.cc',
             'browser/password_manager/password_store_default_unittest.cc',
             'tools/convert_dict/convert_dict_unittest.cc',
             '../third_party/hunspell/google/hunspell_tests.cc',
@@ -1843,7 +1863,7 @@
           # Enough pluses to make get this target prepended to the target's
           # list of dependencies.
           'dependencies+++': [
-            '../third_party/WebKit/WebCore/WebCore.gyp/WebCore.gyp:webcore',
+            '../third_party/WebKit/Source/WebCore/WebCore.gyp/WebCore.gyp:webcore',
           ],
         }, { # OS != "mac"
           'dependencies': [
@@ -1879,6 +1899,7 @@
             # but that causes errors in other targets when
             # resulting .res files get referenced multiple times.
             '<(SHARED_INTERMEDIATE_DIR)/app/app_resources/app_resources.rc',
+            '<(SHARED_INTERMEDIATE_DIR)/chrome/autofill_resources.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome/browser_resources.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome/common_resources.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome/renderer_resources.rc',
@@ -1932,7 +1953,7 @@
             '../views/views.gyp:views',
           ],
           'sources!': [
-            'browser/gtk/tabs/tab_renderer_gtk_unittest.cc',
+            'browser/ui/gtk/tabs/tab_renderer_gtk_unittest.cc',
           ],
         }, { # else: toolkit_views == 0
           'sources/': [
@@ -1946,14 +1967,6 @@
             # http://crbug.com/64926
             ['exclude', '^browser/importer/'],
           ],
-        }],
-        # We are migrating to client-based geolocation. Once the migration
-        # has finished, ENABLE_CLIENT_BASED_GEOLOCATION will disappear.
-        # See bugs:
-        #     https://bugs.webkit.org/show_bug.cgi?id=45752 and
-        #     http://code.google.com/p/chromium/issues/detail?id=59907
-        ['"ENABLE_CLIENT_BASED_GEOLOCATION=1" in feature_defines', {
-          'defines': [ 'ENABLE_CLIENT_BASED_GEOLOCATION=1' ]
         }],
       ],
     },
@@ -2015,8 +2028,8 @@
         'browser/chromeos/cros/mock_system_library.h',
         'browser/chromeos/cros/mock_touchpad_library.h',
         'browser/chromeos/login/account_screen_browsertest.cc',
+        'browser/chromeos/login/existing_user_controller_browsertest.cc',
         'browser/chromeos/login/login_browsertest.cc',
-        'browser/chromeos/login/login_screen_browsertest.cc',
         'browser/chromeos/login/mock_authenticator.h',
         'browser/chromeos/login/network_screen_browsertest.cc',
         'browser/chromeos/login/screen_locker_browsertest.cc',
@@ -2124,7 +2137,7 @@
         'browser/first_run/first_run_browsertest.cc',
         'browser/geolocation/access_token_store_browsertest.cc',
         'browser/geolocation/geolocation_browsertest.cc',
-        'browser/gtk/view_id_util_browsertest.cc',
+        'browser/ui/gtk/view_id_util_browsertest.cc',
         'browser/history/history_browsertest.cc',
         'browser/idbbindingutilities_browsertest.cc',
         'browser/in_process_webkit/dom_storage_browsertest.cc',
@@ -2132,6 +2145,7 @@
         'browser/net/cookie_policy_browsertest.cc',
         'browser/net/ftp_browsertest.cc',
         'browser/plugin_service_browsertest.cc',
+        'browser/policy/device_management_backend_mock.cc',
         'browser/policy/device_management_backend_mock.h',
         'browser/policy/device_management_service_browsertest.cc',
         'browser/popup_blocker_browsertest.cc',
@@ -2156,6 +2170,7 @@
         'browser/ui/cocoa/applescript/browsercrapplication+applescript_test.mm',
         'browser/ui/cocoa/applescript/window_applescript_test.mm',
         'browser/ui/find_bar/find_bar_host_browsertest.cc',
+        'browser/ui/login/login_prompt_browsertest.cc',
         'browser/ui/views/browser_actions_container_browsertest.cc',
         'browser/ui/views/dom_view_browsertest.cc',
         'browser/ui/views/html_dialog_view_browsertest.cc',
@@ -2206,12 +2221,13 @@
         ['OS!="linux" or toolkit_views==1', {
           'sources!': [
             'browser/extensions/browser_action_test_util_gtk.cc',
-            'browser/gtk/view_id_util_browsertest.cc',
+            'browser/ui/gtk/view_id_util_browsertest.cc',
           ],
         }],
         ['OS=="win"', {
           'sources': [
             '<(SHARED_INTERMEDIATE_DIR)/app/app_resources/app_resources.rc',
+            '<(SHARED_INTERMEDIATE_DIR)/chrome/autofill_resources.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome/browser_resources.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome/common_resources.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome_dll_version/chrome_dll_version.rc',
@@ -2240,7 +2256,7 @@
             'Debug_Base': {
               'msvs_settings': {
                 'VCLinkerTool': {
-                  'LinkIncremental': '<(msvs_large_module_debug_link_mode)',
+                  'LinkIncremental': '<(msvs_debug_link_nonincremental)',
                 },
               },
             },
@@ -2287,7 +2303,7 @@
           # See the comment in this section of the unit_tests target for an
           # explanation (crbug.com/43791 - libwebcore.a is too large to mmap).
           'dependencies+++': [
-            '../third_party/WebKit/WebCore/WebCore.gyp/WebCore.gyp:webcore',
+            '../third_party/WebKit/Source/WebCore/WebCore.gyp/WebCore.gyp:webcore',
           ],
           'sources': [
             'renderer/external_popup_menu_unittest.cc',
@@ -2360,9 +2376,10 @@
           ],
           'sources': [
             '<(SHARED_INTERMEDIATE_DIR)/app/app_resources/app_resources.rc',
+            '<(SHARED_INTERMEDIATE_DIR)/chrome/autofill_resources.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome/browser_resources.rc',
-            '<(SHARED_INTERMEDIATE_DIR)/chrome_dll_version/chrome_dll_version.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome/common_resources.rc',
+            '<(SHARED_INTERMEDIATE_DIR)/chrome_dll_version/chrome_dll_version.rc',
             '<(SHARED_INTERMEDIATE_DIR)/net/net_resources.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome/renderer_resources.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome/theme_resources.rc',
@@ -2382,7 +2399,7 @@
         ['OS=="mac"', {
           # See crbug.com/43791 - libwebcore.a is too large to mmap on Mac.
           'dependencies+++': [
-            '../third_party/WebKit/WebCore/WebCore.gyp/WebCore.gyp:webcore',
+            '../third_party/WebKit/Source/WebCore/WebCore.gyp/WebCore.gyp:webcore',
           ],
           # These flags are needed to run the test on Mac.
           # Search for comments about "xcode_settings" elsewhere in this file.
@@ -2412,6 +2429,17 @@
         'test/startup/startup_test.cc',
       ],
       'conditions': [
+        ['OS=="win" and buildtype=="Official"', {
+          'configurations': {
+            'Release': {
+              'msvs_settings': {
+                'VCCLCompilerTool': {
+                  'WholeProgramOptimization': 'false',
+                },
+              },
+            },
+          },
+        },],
         ['OS=="linux"', {
           'dependencies': [
             '../build/linux/system.gyp:gtk',
@@ -2422,7 +2450,7 @@
           # See the comment in this section of the unit_tests target for an
           # explanation (crbug.com/43791 - libwebcore.a is too large to mmap).
           'dependencies+++': [
-            '../third_party/WebKit/WebCore/WebCore.gyp/WebCore.gyp:webcore',
+            '../third_party/WebKit/Source/WebCore/WebCore.gyp/WebCore.gyp:webcore',
           ],
         }],
         ['OS=="win"', {
@@ -2476,7 +2504,7 @@
         'theme_resources',
         '../skia/skia.gyp:skia',
         '../testing/gtest.gyp:gtest',
-        '../third_party/WebKit/WebKit/chromium/WebKit.gyp:webkit',
+        '../third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:webkit',
       ],
       'include_dirs': [
         '..',
@@ -2488,6 +2516,17 @@
         'test/reliability/run_all_unittests.cc',
       ],
       'conditions': [
+        ['OS=="win" and buildtype=="Official"', {
+          'configurations': {
+            'Release': {
+              'msvs_settings': {
+                'VCCLCompilerTool': {
+                  'WholeProgramOptimization': 'false',
+                },
+              },
+            },
+          },
+        },],
         ['OS=="win" and win_use_allocator_shim==1', {
           'dependencies': [
             '<(allocator_target)',
@@ -2528,6 +2567,17 @@
         'test/page_cycler/page_cycler_test.cc',
       ],
       'conditions': [
+        ['OS=="win" and buildtype=="Official"', {
+          'configurations': {
+            'Release': {
+              'msvs_settings': {
+                'VCCLCompilerTool': {
+                  'WholeProgramOptimization': 'false',
+                },
+              },
+            },
+          },
+        },],
         ['OS=="linux"', {
           'dependencies': [
             '../build/linux/system.gyp:gtk',
@@ -2663,13 +2713,11 @@
         'browser/sync/engine/syncproto_unittest.cc',
         'browser/sync/engine/syncapi_mock.h',
         'browser/sync/engine/verify_updates_command_unittest.cc',
-        'browser/sync/glue/change_processor_mock.h',
         'browser/sync/notifier/cache_invalidation_packet_handler_unittest.cc',
         'browser/sync/notifier/chrome_invalidation_client_unittest.cc',
         'browser/sync/notifier/chrome_system_resources_unittest.cc',
         'browser/sync/notifier/registration_manager_unittest.cc',
         'browser/sync/notifier/server_notifier_thread_unittest.cc',
-        'browser/sync/profile_sync_factory_mock.cc',
         'browser/sync/profile_sync_factory_mock.h',
         'browser/sync/sessions/ordered_commit_set_unittest.cc',
         'browser/sync/sessions/status_controller_unittest.cc',
@@ -2763,7 +2811,7 @@
           # See the comment in this section of the unit_tests target for an
           # explanation (crbug.com/43791 - libwebcore.a is too large to mmap).
           'dependencies+++': [
-            '../third_party/WebKit/WebCore/WebCore.gyp/WebCore.gyp:webcore',
+            '../third_party/WebKit/Source/WebCore/WebCore.gyp/WebCore.gyp:webcore',
           ],
           'dependencies': [
             'helper_app'
@@ -2801,7 +2849,7 @@
         '../third_party/icu/icu.gyp:icui18n',
         '../third_party/icu/icu.gyp:icuuc',
         '../third_party/npapi/npapi.gyp:npapi',
-        '../third_party/WebKit/WebKit/chromium/WebKit.gyp:webkit',
+        '../third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:webkit',
       ],
       'include_dirs': [
         '..',
@@ -2888,7 +2936,7 @@
           # See the comment in this section of the unit_tests target for an
           # explanation (crbug.com/43791 - libwebcore.a is too large to mmap).
           'dependencies+++': [
-            '../third_party/WebKit/WebCore/WebCore.gyp/WebCore.gyp:webcore',
+            '../third_party/WebKit/Source/WebCore/WebCore.gyp/WebCore.gyp:webcore',
           ],
           # The sync_integration_tests do not run on mac without this flag.
           # Search for comments about "xcode_settings" elsewhere in this file.
@@ -2897,9 +2945,10 @@
         ['OS=="win"', {
           'sources': [
             '<(SHARED_INTERMEDIATE_DIR)/app/app_resources/app_resources.rc',
+            '<(SHARED_INTERMEDIATE_DIR)/chrome/autofill_resources.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome/browser_resources.rc',
-            '<(SHARED_INTERMEDIATE_DIR)/chrome_dll_version/chrome_dll_version.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome/common_resources.rc',
+            '<(SHARED_INTERMEDIATE_DIR)/chrome_dll_version/chrome_dll_version.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome/theme_resources.rc',
           ],
           'include_dirs': [
@@ -2921,7 +2970,7 @@
             'Debug': {
               'msvs_settings': {
                 'VCLinkerTool': {
-                  'LinkIncremental': '<(msvs_large_module_debug_link_mode)',
+                  'LinkIncremental': '<(msvs_debug_link_nonincremental)',
                 },
               },
             },
@@ -2988,6 +3037,7 @@
             'app/chrome_dll_resource.h',
             'app/chrome_dll_version.rc.version',
             '<(SHARED_INTERMEDIATE_DIR)/app/app_resources/app_resources.rc',
+            '<(SHARED_INTERMEDIATE_DIR)/chrome/autofill_resources.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome/browser_resources.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome/common_resources.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome/renderer_resources.rc',
@@ -3018,7 +3068,7 @@
           # See the comment in this section of the unit_tests target for an
           # explanation (crbug.com/43791 - libwebcore.a is too large to mmap).
           'dependencies+++': [
-            '../third_party/WebKit/WebCore/WebCore.gyp/WebCore.gyp:webcore',
+            '../third_party/WebKit/Source/WebCore/WebCore.gyp/WebCore.gyp:webcore',
           ],
           # See comments about "xcode_settings" elsewhere in this file.
           'xcode_settings': {'OTHER_LDFLAGS': ['-Wl,-ObjC']},
@@ -3087,6 +3137,7 @@
             'browser',
             'common',
             'renderer',
+            'chrome_gpu',
             'chrome_resources',
             'chrome_strings',
             '../app/app.gyp:app_base',
@@ -3113,7 +3164,6 @@
               'sources!': [
                 # TODO(port):
                 'browser/safe_browsing/filter_false_positive_perftest.cc',
-                'browser/visitedlink/visitedlink_perftest.cc',
               ],
             }],
             ['OS=="win"', {
@@ -3300,6 +3350,8 @@
              '-Wno-uninitialized',
           ],
           'sources': [
+            'test/automation/proxy_launcher.cc',
+            'test/automation/proxy_launcher.h',
             'test/pyautolib/pyautolib.cc',
             'test/pyautolib/pyautolib.h',
             'test/ui/ui_test.cc',
@@ -3358,7 +3410,7 @@
               # explanation (crbug.com/43791 - libwebcore.a is too large to
               # mmap).
               'dependencies+++': [
-                '../third_party/WebKit/WebCore/WebCore.gyp/WebCore.gyp:webcore',
+                '../third_party/WebKit/Source/WebCore/WebCore.gyp/WebCore.gyp:webcore',
               ],
               'include_dirs': [
                 '..',

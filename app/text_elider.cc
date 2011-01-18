@@ -6,6 +6,8 @@
 
 #include "app/text_elider.h"
 #include "base/file_path.h"
+#include "base/i18n/break_iterator.h"
+#include "base/i18n/char_iterator.h"
 #include "base/i18n/rtl.h"
 #include "base/string_split.h"
 #include "base/string_util.h"
@@ -17,9 +19,10 @@
 #include "net/base/net_util.h"
 #include "net/base/registry_controlled_domain.h"
 
+
 namespace {
 
-const wchar_t kEllipsis[] = L"\x2026";
+const char* kEllipsis = "\xE2\x80\xA6";
 
 // Cuts |text| to be |length| characters long.  If |cut_in_middle| is true, the
 // middle of the string is removed to leave equal-length pieces from the
@@ -27,12 +30,13 @@ const wchar_t kEllipsis[] = L"\x2026";
 // and only the beginning remains.  If |insert_ellipsis| is true, then an
 // ellipsis character will by inserted at the cut point.
 string16 CutString(const string16& text,
-                       size_t length,
-                       bool cut_in_middle,
-                       bool insert_ellipsis) {
+                   size_t length,
+                   bool cut_in_middle,
+                   bool insert_ellipsis) {
   // TODO(tony): This is wrong, it might split the string in the middle of a
   // surrogate pair.
-  const string16 kInsert = WideToUTF16(insert_ellipsis ? kEllipsis : L"");
+  const string16 kInsert = insert_ellipsis ? UTF8ToUTF16(kEllipsis) :
+                                             ASCIIToUTF16("");
   if (!cut_in_middle)
     return text.substr(0, length) + kInsert;
   // We put the extra character, if any, before the cut.
@@ -72,7 +76,7 @@ string16 ElideUrl(const GURL& url,
 
   // Now start eliding url_string to fit within available pixel width.
   // Fist pass - check to see whether entire url_string fits.
-  int pixel_width_url_string = font.GetStringWidth(UTF16ToWideHack(url_string));
+  int pixel_width_url_string = font.GetStringWidth(url_string);
   if (available_pixel_width >= pixel_width_url_string)
     return url_string;
 
@@ -84,8 +88,7 @@ string16 ElideUrl(const GURL& url,
 
   // Return general elided text if url minus the query fits.
   string16 url_minus_query = url_string.substr(0, path_start_index + path_len);
-  if (available_pixel_width >=
-      font.GetStringWidth(UTF16ToWideHack(url_minus_query)))
+  if (available_pixel_width >= font.GetStringWidth(url_minus_query))
     return ElideText(url_string, font, available_pixel_width, false);
 
   // Get Host.
@@ -133,17 +136,15 @@ string16 ElideUrl(const GURL& url,
   }
 
   // Second Pass - remove scheme - the rest fits.
-  int pixel_width_url_host = font.GetStringWidth(UTF16ToWideHack(url_host));
-  int pixel_width_url_path = font.GetStringWidth(UTF16ToWideHack(
-      url_path_query_etc));
+  int pixel_width_url_host = font.GetStringWidth(url_host);
+  int pixel_width_url_path = font.GetStringWidth(url_path_query_etc);
   if (available_pixel_width >=
       pixel_width_url_host + pixel_width_url_path)
     return url_host + url_path_query_etc;
 
   // Third Pass: Subdomain, domain and entire path fits.
-  int pixel_width_url_domain = font.GetStringWidth(UTF16ToWideHack(url_domain));
-  int pixel_width_url_subdomain = font.GetStringWidth(UTF16ToWideHack(
-      url_subdomain));
+  int pixel_width_url_domain = font.GetStringWidth(url_domain);
+  int pixel_width_url_subdomain = font.GetStringWidth(url_subdomain);
   if (available_pixel_width >=
       pixel_width_url_subdomain + pixel_width_url_domain +
       pixel_width_url_path)
@@ -151,12 +152,13 @@ string16 ElideUrl(const GURL& url,
 
   // Query element.
   string16 url_query;
-  const int kPixelWidthDotsTrailer = font.GetStringWidth(kEllipsis);
+  const int kPixelWidthDotsTrailer =
+      font.GetStringWidth(UTF8ToUTF16(kEllipsis));
   if (parsed.query.is_nonempty()) {
     url_query = UTF8ToUTF16("?") + url_string.substr(parsed.query.begin);
     if (available_pixel_width >= (pixel_width_url_subdomain +
         pixel_width_url_domain + pixel_width_url_path -
-        font.GetStringWidth(UTF16ToWideHack(url_query)))) {
+        font.GetStringWidth(url_query))) {
       return ElideText(url_subdomain + url_domain + url_path_query_etc,
                        font, available_pixel_width, false);
     }
@@ -191,17 +193,14 @@ string16 ElideUrl(const GURL& url,
   }
 
   // Start eliding the path and replacing elements by "../".
-  static const string16 kEllipsisAndSlash = WideToUTF16(kEllipsis) +
-      kForwardSlash;
-  int pixel_width_url_filename = font.GetStringWidth(UTF16ToWideHack(
-      url_filename));
-  int pixel_width_dot_dot_slash = font.GetStringWidth(UTF16ToWideHack(
-      kEllipsisAndSlash));
-  int pixel_width_slash = font.GetStringWidth(L"/");
+  const string16 kEllipsisAndSlash = UTF8ToUTF16(kEllipsis) + kForwardSlash;
+  int pixel_width_url_filename = font.GetStringWidth(url_filename);
+  int pixel_width_dot_dot_slash = font.GetStringWidth(kEllipsisAndSlash);
+  int pixel_width_slash = font.GetStringWidth(ASCIIToUTF16("/"));
   int pixel_width_url_path_elements[kMaxNumberOfUrlPathElementsAllowed];
   for (size_t i = 0; i < url_path_number_of_elements; ++i) {
     pixel_width_url_path_elements[i] =
-       font.GetStringWidth(UTF16ToWideHack(url_path_elements.at(i)));
+       font.GetStringWidth(url_path_elements.at(i));
   }
 
   // Check with both subdomain and domain.
@@ -280,14 +279,16 @@ string16 ElideUrl(const GURL& url,
 
   // Return elided domain/../filename anyway.
   string16 final_elided_url_string(url_elided_domain);
-  int url_elided_domain_width = font.GetStringWidth(UTF16ToWideHack(
-      url_elided_domain));
+  int url_elided_domain_width = font.GetStringWidth(url_elided_domain);
+
+  // A hack to prevent trailing "../...".
   if ((available_pixel_width - url_elided_domain_width) >
       pixel_width_dot_dot_slash + kPixelWidthDotsTrailer +
-      font.GetStringWidth(L"UV"))  // A hack to prevent trailing "../...".
+      font.GetStringWidth(ASCIIToUTF16("UV"))) {
     final_elided_url_string += elided_path;
-  else
+  } else {
     final_elided_url_string += url_path;
+  }
 
   return ElideText(final_elided_url_string, font, available_pixel_width, false);
 }
@@ -308,7 +309,7 @@ string16 ElideFilename(const FilePath& filename,
       filename.BaseName().RemoveExtension().value()));
 #endif
 
-  int full_width = font.GetStringWidth(UTF16ToWideHack(filename_utf16));
+  int full_width = font.GetStringWidth(filename_utf16);
   if (full_width <= available_pixel_width)
     return base::i18n::GetDisplayStringInLTRDirectionality(filename_utf16);
 
@@ -318,8 +319,8 @@ string16 ElideFilename(const FilePath& filename,
     return base::i18n::GetDisplayStringInLTRDirectionality(elided_name);
   }
 
-  int ext_width = font.GetStringWidth(UTF16ToWideHack(extension));
-  int root_width = font.GetStringWidth(UTF16ToWideHack(rootname));
+  int ext_width = font.GetStringWidth(extension);
+  int root_width = font.GetStringWidth(rootname);
 
   // We may have trimmed the path.
   if (root_width + ext_width <= available_pixel_width) {
@@ -343,7 +344,7 @@ string16 ElideText(const string16& text,
   if (text.empty())
     return text;
 
-  int current_text_pixel_width = font.GetStringWidth(UTF16ToWideHack(text));
+  int current_text_pixel_width = font.GetStringWidth(text);
 
   // Pango will return 0 width for absurdly long strings. Cut the string in
   // half and try again.
@@ -361,7 +362,7 @@ string16 ElideText(const string16& text,
   if (current_text_pixel_width <= available_pixel_width)
     return text;
 
-  if (font.GetStringWidth(kEllipsis) > available_pixel_width)
+  if (font.GetStringWidth(UTF8ToUTF16(kEllipsis)) > available_pixel_width)
     return string16();
 
   // Use binary search to compute the elided text.
@@ -370,8 +371,8 @@ string16 ElideText(const string16& text,
   for (size_t guess = (lo + hi) / 2; guess != lo; guess = (lo + hi) / 2) {
     // We check the length of the whole desired string at once to ensure we
     // handle kerning/ligatures/etc. correctly.
-    int guess_length = font.GetStringWidth(UTF16ToWideHack(
-        CutString(text, guess, elide_in_middle, true)));
+    int guess_length = font.GetStringWidth(
+        CutString(text, guess, elide_in_middle, true));
     // Check again that we didn't hit a Pango width overflow. If so, cut the
     // current string in half and start over.
     if (guess_length <= 0) {
@@ -498,3 +499,168 @@ bool ElideString(const std::wstring& input, int max_len, std::wstring* output) {
 }
 
 }  // namespace gfx
+
+namespace {
+
+// Internal class used to track progress of a rectangular string elide
+// operation.  Exists so the top-level ElideRectangleString() function
+// can be broken into smaller methods sharing this state.
+class RectangleString {
+ public:
+  RectangleString(size_t max_rows, size_t max_cols, string16 *output)
+      : max_rows_(max_rows),
+        max_cols_(max_cols),
+        current_row_(0),
+        current_col_(0),
+        suppressed_(false),
+        output_(output) {}
+
+  // Perform deferred initializions following creation.  Must be called
+  // before any input can be added via AddString().
+  void Init() { output_->clear(); }
+
+  // Add an input string, reformatting to fit the desired dimensions.
+  // AddString() may be called multiple times to concatenate together
+  // multiple strings into the region (the current caller doesn't do
+  // this, however).
+  void AddString(const string16& input);
+
+  // Perform any deferred output processing.  Must be called after the
+  // last  AddString() call has occured.
+  bool Finalize();
+
+ private:
+  // Add a line to the rectangular region at the current position,
+  // either by itself or by breaking it into words.
+  void AddLine(const string16& line);
+
+  // Add a word to the rectangluar region at the current position,
+  // either by itelf or by breaking it into characters.
+  void AddWord(const string16& word);
+
+  // Add text to the output string if the rectangular boundaries
+  // have not been exceeded, advancing the current position.
+  void Append(const string16& string);
+
+  // Add a newline to the output string if the rectangular boundaries
+  // have not been exceeded, resetting the current position to the
+  // beginning of the next line.
+  void NewLine();
+
+  // Maximum number of rows allowed in the output string.
+  size_t max_rows_;
+
+  // Maximum number of characters allowed in the output string.
+  size_t max_cols_;
+
+  // Current row position, always incremented and may exceed max_rows_
+  // when the input can not fit in the region.  We stop appending to
+  // the output string, however, when this condition occurs.  In the
+  // future, we may want to expose this value to allow the caller to
+  // determine how many rows would actually be required to hold the
+  // formatted string.
+  size_t current_row_;
+
+  // Current character position, should never exceed max_cols_.
+  size_t current_col_;
+
+  // True when some of the input has been truncated.
+  bool suppressed_;
+
+  // String onto which the output is accumulated.
+  string16 *output_;
+};
+
+void RectangleString::AddString(const string16& input) {
+  base::BreakIterator lines(&input, base::BreakIterator::BREAK_NEWLINE);
+  if (lines.Init()) {
+    while (lines.Advance())
+      AddLine(lines.GetString());
+  } else {
+    NOTREACHED() << "BreakIterator (lines) init failed";
+  }
+}
+
+bool RectangleString::Finalize() {
+  if (suppressed_) {
+    output_->append(ASCIIToUTF16("..."));
+    return true;
+  }
+  return false;
+}
+
+void RectangleString::AddLine(const string16& line) {
+  if (line.length() < max_cols_) {
+    Append(line);
+  } else {
+    base::BreakIterator words(&line, base::BreakIterator::BREAK_SPACE);
+    if (words.Init()) {
+      while (words.Advance())
+        AddWord(words.GetString());
+    } else {
+      NOTREACHED() << "BreakIterator (words) init failed";
+    }
+  }
+  // Account for naturally-occuring newlines.
+  ++current_row_;
+  current_col_ = 0;
+}
+
+void RectangleString::AddWord(const string16& word) {
+  if (word.length() < max_cols_) {
+    // Word can be made to fit, no need to fragment it.
+    if (current_col_ + word.length() >= max_cols_)
+      NewLine();
+    Append(word);
+  } else {
+    // Word is so big that it must be fragmented.
+    int array_start = 0;
+    int char_start = 0;
+    base::UTF16CharIterator chars(&word);
+    while (!chars.end()) {
+      // When boundary is hit, add as much as will fit on this line.
+      if (current_col_ + (chars.char_pos() - char_start) >= max_cols_) {
+        Append(word.substr(array_start, chars.array_pos() - array_start));
+        NewLine();
+        array_start = chars.array_pos();
+        char_start = chars.char_pos();
+      }
+      chars.Advance();
+    }
+    // add last remaining fragment, if any.
+    if (array_start != chars.array_pos())
+      Append(word.substr(array_start, chars.array_pos() - array_start));
+  }
+}
+
+void RectangleString::Append(const string16& string) {
+  if (current_row_ < max_rows_)
+    output_->append(string);
+  else
+    suppressed_ = true;
+  current_col_ += string.length();
+}
+
+void RectangleString::NewLine() {
+  if (current_row_ < max_rows_)
+    output_->append(ASCIIToUTF16("\n"));
+  else
+    suppressed_ = true;
+  ++current_row_;
+  current_col_ = 0;
+}
+
+}  // namespace
+
+namespace gfx {
+
+bool ElideRectangleString(const string16& input, size_t max_rows,
+                          size_t max_cols, string16* output) {
+  RectangleString rect(max_rows, max_cols, output);
+  rect.Init();
+  rect.AddString(input);
+  return rect.Finalize();
+}
+
+}  // namespace gfx
+

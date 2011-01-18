@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -138,13 +138,13 @@ class NotificationType {
     FAIL_PROVISIONAL_LOAD_WITH_ERROR,
 
     // A response has been received for a resource request.  The source will be
-    // a Source<NavigationController> corresponding to the tab in which the
+    // a Source<RenderViewHostDelegate> corresponding to the tab in which the
     // request was issued.  Details in the form of a ResourceRequestDetails
     // object are provided.
     RESOURCE_RESPONSE_STARTED,
 
     // A redirect was received while requesting a resource.  The source will be
-    // a Source<NavigationController> corresponding to the tab in which the
+    // a Source<RenderViewHostDelegate> corresponding to the tab in which the
     // request was issued.  Details in the form of a ResourceRedirectDetails
     // are provided.
     RESOURCE_RECEIVED_REDIRECT,
@@ -444,6 +444,28 @@ class NotificationType {
     // the RenderWidgetHost, the details are not used.
     RENDER_WIDGET_HOST_DESTROYED,
 
+    // Sent when the widget is about to paint. The source is the
+    // RenderWidgetHost, the details are not used.
+    RENDER_WIDGET_HOST_WILL_PAINT,
+
+    // Sent after the widget has painted. The source is the RenderWidgetHost,
+    // the details are not used.
+    RENDER_WIDGET_HOST_DID_PAINT,
+
+    // Indicates the RenderWidgetHost is about to destroy the backing store. The
+    // backing store will still be valid when this call is made. The source is
+    // the RenderWidgetHost, the details is the BackingStore.
+    RENDER_WIDGET_HOST_WILL_DESTROY_BACKING_STORE,
+
+    // Indicates that the RenderWidgetHost just updated the backing store. The
+    // source is the RenderWidgetHost, the details are not used.
+    RENDER_WIDGET_HOST_DID_UPDATE_BACKING_STORE,
+
+    // This notifies the observer that a PaintAtSizeACK was received. The source
+    // is the RenderWidgetHost, the details are an instance of
+    // RenderWidgetHost::PaintAtSizeAckDetails.
+    RENDER_WIDGET_HOST_DID_RECEIVE_PAINT_AT_SIZE_ACK,
+
     // Sent from ~RenderViewHost. The source is the TabContents.
     RENDER_VIEW_HOST_DELETED,
 
@@ -568,10 +590,6 @@ class NotificationType {
     // thread or the plugin thread. The source is the plugin that is disabling
     // interception.  No details are expected.
     CHROME_PLUGIN_UNLOADED,
-
-    // This is sent in the RenderView when previously blocked plugins on a page
-    // should be loaded. The source is the RenderView. No details are expected.
-    SHOULD_LOAD_PLUGINS,
 
     // Sent by the PluginUpdater when there is a change of plugin
     // enable/disable status.
@@ -789,8 +807,9 @@ class NotificationType {
 
     // Shutdown ----------------------------------------------------------------
 
-    // Sent on the browser IO thread when an URLRequestContext is released by
-    // its owning Profile.  The source is a pointer to the URLRequestContext.
+    // Sent on the browser IO thread when an net::URLRequestContext is released
+    // by its owning Profile.  The source is a pointer to the
+    // net::URLRequestContext.
     URL_REQUEST_CONTEXT_RELEASED,
 
     // Sent when WM_ENDSESSION has been received, after the browsers have been
@@ -854,15 +873,12 @@ class NotificationType {
     EXTENSION_UNINSTALLED,
 
     // Sent when an extension is unloaded. This happens when an extension is
-    // uninstalled or disabled. The details are an Extension, and the source is
-    // a Profile.
+    // uninstalled or disabled. The details are an UnloadedExtensionInfo, and
+    // the source is a Profile.
     //
     // Note that when this notification is sent, ExtensionService has already
     // removed the extension from its internal state.
     EXTENSION_UNLOADED,
-
-    // Same as above, but for a disabled extension.
-    EXTENSION_UNLOADED_DISABLED,
 
     // Sent when an extension has updated its user scripts. The details are an
     // Extension, and the source is a Profile.
@@ -1296,19 +1312,6 @@ class NotificationType {
     // change type (ADD, UPDATE, or REMOVE) as well as the
     // |webkit_glue::PasswordForm|s that were affected.
     LOGINS_CHANGED,
-
-    // Configuration Policy ----------------------------------------------------
-    // This notification is sent whenever the administrator changes policy.
-    // The detail of this notification is not used.
-    POLICY_CHANGED,
-
-    // This notification is sent whenever the device token becomes available
-    // that the policy subsystem uses to fetch policy from the cloud.
-    DEVICE_TOKEN_AVAILABLE,
-
-    // This notification is sent whenever cloud policies are fetched and
-    // updated. The detail of this notification is not used.
-    CLOUD_POLICY_UPDATE,
 
     // Count (must be last) ----------------------------------------------------
     // Used to determine the number of notification types.  Not valid as

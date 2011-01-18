@@ -6,10 +6,10 @@
 
 #include "base/lazy_instance.h"
 #include "base/logging.h"
-#include "base/thread_local.h"
 #include "base/message_loop.h"
-#include "base/waitable_event.h"
-#include "base/waitable_event_watcher.h"
+#include "base/threading/thread_local.h"
+#include "base/synchronization/waitable_event.h"
+#include "base/synchronization/waitable_event_watcher.h"
 #include "ipc/ipc_sync_message.h"
 
 using base::TimeDelta;
@@ -285,22 +285,22 @@ void SyncChannel::SyncContext::Clear() {
   Context::Clear();
 }
 
-void SyncChannel::SyncContext::OnMessageReceived(const Message& msg) {
+bool SyncChannel::SyncContext::OnMessageReceived(const Message& msg) {
   // Give the filters a chance at processing this message.
   if (TryFilters(msg))
-    return;
+    return true;
 
   if (TryToUnblockListener(&msg))
-    return;
+    return true;
 
   if (msg.should_unblock()) {
     received_sync_msgs_->QueueMessage(msg, this);
-    return;
+    return true;
   }
 
   if (msg.is_reply()) {
     received_sync_msgs_->QueueReply(msg, this);
-    return;
+    return true;
   }
 
   return Context::OnMessageReceivedNoFilter(msg);

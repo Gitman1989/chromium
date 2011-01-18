@@ -10,7 +10,6 @@
 
 #if defined(USE_NSS)
 class FilePath;
-class Lock;
 #endif  // defined(USE_NSS)
 
 // This file specifically doesn't depend on any NSS or NSPR headers because it
@@ -18,7 +17,15 @@ class Lock;
 // initialization functions.
 namespace base {
 
+class Lock;
 class Time;
+
+#if defined(USE_NSS)
+// EarlySetupForNSSInit performs lightweight setup which must occur before the
+// process goes multithreaded. This does not initialise NSS. For test, see
+// EnsureNSSInit.
+void EarlySetupForNSSInit();
+#endif
 
 // Initialize NRPR if it isn't already initialized.  This function is
 // thread-safe, and NSPR will only ever be initialized once.  NSPR will be
@@ -29,6 +36,10 @@ void EnsureNSPRInit();
 // any other NSS functions.  This function is thread-safe, and NSS will only
 // ever be initialized once.  NSS will be properly shut down on program exit.
 void EnsureNSSInit();
+
+// Check if the current NSS version is greater than or equals to |version|.
+// A sample version string is "3.12.3".
+bool CheckNSSVersion(const char* version);
 
 #if defined(OS_CHROMEOS)
 // Open the r/w nssdb that's stored inside the user's encrypted home directory.

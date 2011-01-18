@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,7 +10,6 @@
 #include "base/logging.h"
 #include "base/message_loop.h"
 #include "base/platform_file.h"
-#include "base/ref_counted_memory.h"
 #include "base/scoped_ptr.h"
 #include "base/stl_util-inl.h"
 #include "base/task.h"
@@ -19,11 +18,9 @@
 #include "chrome/common/net/http_return.h"
 #include "chrome/common/net/url_fetcher.h"
 #include "chrome/common/net/url_request_context_getter.h"
-#include "gfx/codec/png_codec.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/load_flags.h"
 #include "net/url_request/url_request_status.h"
-#include "third_party/skia/include/core/SkBitmap.h"
 
 namespace safe_browsing {
 
@@ -92,20 +89,19 @@ void ClientSideDetectionService::GetModelFile(OpenModelDoneCallback* callback) {
 void ClientSideDetectionService::SendClientReportPhishingRequest(
     const GURL& phishing_url,
     double score,
-    SkBitmap thumbnail,
     ClientReportPhishingRequestCallback* callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   MessageLoop::current()->PostTask(
       FROM_HERE,
       method_factory_.NewRunnableMethod(
           &ClientSideDetectionService::StartClientReportPhishingRequest,
-          phishing_url, score, thumbnail, callback));
+          phishing_url, score, callback));
 }
 
 void ClientSideDetectionService::OnURLFetchComplete(
     const URLFetcher* source,
     const GURL& url,
-    const URLRequestStatus& status,
+    const net::URLRequestStatus& status,
     int response_code,
     const ResponseCookies& cookies,
     const std::string& data) {
@@ -226,26 +222,13 @@ void ClientSideDetectionService::StartGetModelFile(
 void ClientSideDetectionService::StartClientReportPhishingRequest(
     const GURL& phishing_url,
     double score,
-    SkBitmap thumbnail,
     ClientReportPhishingRequestCallback* callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   scoped_ptr<ClientReportPhishingRequestCallback> cb(callback);
-  // The server expects an encoded PNG image.
-  scoped_refptr<RefCountedBytes> thumbnail_data(new RefCountedBytes);
-  SkAutoLockPixels lock(thumbnail);
-  if (!thumbnail.readyToDraw() ||
-      !gfx::PNGCodec::EncodeBGRASkBitmap(thumbnail,
-                                         true /* discard_transparency */,
-                                         &thumbnail_data->data)) {
-    cb->Run(phishing_url, false);
-    return;
-  }
 
   ClientPhishingRequest request;
   request.set_url(phishing_url.spec());
   request.set_client_score(static_cast<float>(score));
-  request.set_snapshot(reinterpret_cast<const char*>(thumbnail_data->front()),
-                       thumbnail_data->size());
   std::string request_data;
   if (!request.SerializeToString(&request_data)) {
     // For consistency, we always call the callback asynchronously, rather than
@@ -275,7 +258,7 @@ void ClientSideDetectionService::StartClientReportPhishingRequest(
 void ClientSideDetectionService::HandleModelResponse(
     const URLFetcher* source,
     const GURL& url,
-    const URLRequestStatus& status,
+    const net::URLRequestStatus& status,
     int response_code,
     const ResponseCookies& cookies,
     const std::string& data) {
@@ -306,7 +289,7 @@ void ClientSideDetectionService::HandleModelResponse(
 void ClientSideDetectionService::HandlePhishingVerdict(
     const URLFetcher* source,
     const GURL& url,
-    const URLRequestStatus& status,
+    const net::URLRequestStatus& status,
     int response_code,
     const ResponseCookies& cookies,
     const std::string& data) {

@@ -47,19 +47,13 @@ const std::string ConvertToURLFormat(const std::string& html) {
   return std::string("data:text/html;charset=utf-8,") + html;
 }
 
-// Compare |output_file_source| with |form_string|. Returns true when they are
-// identical.
-bool CompareText(const std::string& output_file_source,
-                 const std::string& form_string) {
-  std::string output_file = output_file_source;
-  std::string form = form_string;
-
-  ReplaceSubstringsAfterOffset(&output_file, 0, "\r\n", " ");
-  ReplaceSubstringsAfterOffset(&output_file, 0, "\r", " ");
-  ReplaceSubstringsAfterOffset(&output_file, 0, "\n", " ");
-  ReplaceSubstringsAfterOffset(&form, 0, "\n", " ");
-
-  return (output_file == form);
+// Convert strings with platform end-of-line characters with spaces.
+const std::string NormalizeText(const std::string& text) {
+  std::string normalized = text;
+  ReplaceSubstringsAfterOffset(&normalized, 0, "\r\n", " ");
+  ReplaceSubstringsAfterOffset(&normalized, 0, "\r", " ");
+  ReplaceSubstringsAfterOffset(&normalized, 0, "\n", " ");
+  return normalized;
 }
 
 }  // namespace
@@ -242,7 +236,7 @@ IN_PROC_BROWSER_TEST_F(FormStructureBrowserTest, HTMLFiles) {
         VIEW_ID_TAB_CONTAINER_FOCUS_VIEW));
 
     AutoFillManager* autofill_manager =
-        browser()->GetSelectedTabContents()->GetAutoFillManager();
+        browser()->GetSelectedTabContents()->autofill_manager();
     ASSERT_NE(static_cast<AutoFillManager*>(NULL), autofill_manager);
     std::vector<FormStructure*> forms = GetFormStructures(*autofill_manager);
 
@@ -253,9 +247,9 @@ IN_PROC_BROWSER_TEST_F(FormStructureBrowserTest, HTMLFiles) {
 
     std::string output_file_source;
     if (file_util::ReadFileToString(output_file_path, &output_file_source)) {
-      ASSERT_TRUE(CompareText(
-          output_file_source,
-          FormStructureBrowserTest::FormStructuresToString(forms)));
+      ASSERT_EQ(NormalizeText(output_file_source),
+                NormalizeText(
+                    FormStructureBrowserTest::FormStructuresToString(forms)));
 
     } else {
       ASSERT_TRUE(WriteFile(

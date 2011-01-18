@@ -4,7 +4,7 @@
 
 #include "chrome/browser/ui/options/options_util.h"
 
-#include "base/thread_restrictions.h"
+#include "base/threading/thread_restrictions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/download/download_manager.h"
 #include "chrome/browser/download/download_prefs.h"
@@ -27,7 +27,6 @@ void OptionsUtil::ResetToDefaults(Profile* profile) {
   const char* kUserPrefs[] = {
     prefs::kAcceptLanguages,
     prefs::kAlternateErrorPagesEnabled,
-    prefs::kClearPluginLSODataOnExit,
     prefs::kClearSiteDataOnExit,
     prefs::kCookieBehavior,
     prefs::kDefaultCharset,
@@ -37,7 +36,6 @@ void OptionsUtil::ResetToDefaults(Profile* profile) {
     prefs::kDeleteCookies,
     prefs::kDeleteDownloadHistory,
     prefs::kDeleteFormData,
-    prefs::kDeleteLSOData,
     prefs::kDeletePasswords,
     prefs::kDnsPrefetchingEnabled,
 #if defined(OS_LINUX) || defined(OS_FREEBSD) || defined(OS_OPENBSD)

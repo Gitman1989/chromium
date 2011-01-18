@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,10 +10,10 @@
 #include "base/rand_util.h"
 #include "base/task.h"
 #include "chrome/browser/browser_thread.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/policy/device_management_backend.h"
 #include "chrome/browser/policy/device_management_policy_cache.h"
 #include "chrome/browser/policy/proto/device_management_constants.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/notification_service.h"
@@ -108,7 +108,11 @@ DeviceManagementPolicyProvider::DeviceManagementPolicyProvider(
              unmanaged_device_refresh_rate_ms);
 }
 
-DeviceManagementPolicyProvider::~DeviceManagementPolicyProvider() {}
+DeviceManagementPolicyProvider::~DeviceManagementPolicyProvider() {
+  FOR_EACH_OBSERVER(ConfigurationPolicyProvider::Observer,
+                    observer_list_,
+                    OnProviderGoingAway());
+}
 
 bool DeviceManagementPolicyProvider::Provide(
     ConfigurationPolicyStoreInterface* policy_store) {
@@ -117,10 +121,14 @@ bool DeviceManagementPolicyProvider::Provide(
   return true;
 }
 
+bool DeviceManagementPolicyProvider::IsInitializationComplete() const {
+  return !waiting_for_initial_policies_;
+}
+
 void DeviceManagementPolicyProvider::HandlePolicyResponse(
     const em::DevicePolicyResponse& response) {
   if (cache_->SetPolicy(response))
-    NotifyStoreOfPolicyChange();
+    NotifyCloudPolicyUpdate();
   policy_request_pending_ = false;
   // Reset the error delay since policy fetching succeeded this time.
   policy_refresh_error_delay_ms_ = kPolicyRefreshErrorDelayInMilliseconds;
@@ -179,10 +187,20 @@ void DeviceManagementPolicyProvider::OnNotManaged() {
   StopWaitingForInitialPolicies();
 }
 
-void DeviceManagementPolicyProvider::Shutdown() {
-  profile_ = NULL;
-  if (token_fetcher_)
-    token_fetcher_->Shutdown();
+void DeviceManagementPolicyProvider::AddObserver(
+    ConfigurationPolicyProvider::Observer* observer) {
+  observer_list_.AddObserver(observer);
+}
+
+void DeviceManagementPolicyProvider::RemoveObserver(
+    ConfigurationPolicyProvider::Observer* observer) {
+  observer_list_.RemoveObserver(observer);
+}
+
+void DeviceManagementPolicyProvider::NotifyCloudPolicyUpdate() {
+  FOR_EACH_OBSERVER(ConfigurationPolicyProvider::Observer,
+                    observer_list_,
+                    OnUpdatePolicy());
 }
 
 void DeviceManagementPolicyProvider::Initialize(
@@ -314,16 +332,8 @@ void DeviceManagementPolicyProvider::SetDeviceTokenFetcher(
 
 void DeviceManagementPolicyProvider::StopWaitingForInitialPolicies() {
   waiting_for_initial_policies_ = false;
-  // Send a CLOUD_POLICY_UPDATE notification to unblock ChromeOS logins that
-  // are waiting for an initial policy fetch to complete.
+  // Notify observers that initial policy fetch is complete.
   NotifyCloudPolicyUpdate();
-}
-
-void DeviceManagementPolicyProvider::NotifyCloudPolicyUpdate() const {
-    NotificationService::current()->Notify(
-       NotificationType::CLOUD_POLICY_UPDATE,
-       Source<DeviceManagementPolicyProvider>(this),
-       NotificationService::NoDetails());
 }
 
 // static

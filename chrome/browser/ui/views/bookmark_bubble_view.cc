@@ -1,26 +1,27 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/bookmark_bubble_view.h"
+#include "chrome/browser/ui/views/bookmark_bubble_view.h"
 
-#include "app/keyboard_codes.h"
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
 #include "base/string16.h"
 #include "base/string_util.h"
+#include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/bookmarks/bookmark_editor.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
 #include "chrome/browser/bookmarks/bookmark_utils.h"
 #include "chrome/browser/metrics/user_metrics.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/views/info_bubble.h"
+#include "chrome/browser/ui/views/info_bubble.h"
 #include "chrome/common/notification_service.h"
 #include "gfx/canvas.h"
 #include "gfx/color_utils.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "ui/base/keycodes/keyboard_codes.h"
 #include "views/event.h"
 #include "views/standard_layout.h"
 #include "views/controls/button/native_button.h"
@@ -91,7 +92,15 @@ void BookmarkBubbleView::Show(views::Window* parent,
   InfoBubble* info_bubble = InfoBubble::Show(
       parent->GetClientView()->GetWidget(), bounds, BubbleBorder::TOP_RIGHT,
       bubble_, bubble_);
+  // |bubble_| can be set to NULL in InfoBubbleClosing when we close the bubble
+  // asynchronously. However, that can happen during the Show call above if the
+  // window loses activation while we are getting to ready to show the bubble,
+  // so we must check to make sure we still have a valid bubble before
+  // proceeding.
+  if (!bubble_)
+    return;
   bubble_->set_info_bubble(info_bubble);
+  info_bubble->SizeToContents();
   GURL url_ptr(url);
   NotificationService::current()->Notify(
       NotificationType::BOOKMARK_BUBBLE_SHOWN,
@@ -129,7 +138,7 @@ void BookmarkBubbleView::DidChangeBounds(const gfx::Rect& previous,
 void BookmarkBubbleView::BubbleShown() {
   DCHECK(GetWidget());
   GetFocusManager()->RegisterAccelerator(
-      views::Accelerator(app::VKEY_RETURN, false, false, false), this);
+      views::Accelerator(ui::VKEY_RETURN, false, false, false), this);
 
   title_tf_->RequestFocus();
   title_tf_->SelectAll();
@@ -137,7 +146,7 @@ void BookmarkBubbleView::BubbleShown() {
 
 bool BookmarkBubbleView::AcceleratorPressed(
     const views::Accelerator& accelerator) {
-  if (accelerator.GetKeyCode() != app::VKEY_RETURN)
+  if (accelerator.GetKeyCode() != ui::VKEY_RETURN)
     return false;
 
   if (edit_button_->HasFocus())
@@ -180,27 +189,29 @@ void BookmarkBubbleView::Init() {
     initialized = true;
   }
 
-  remove_link_ = new Link(l10n_util::GetString(
-      IDS_BOOMARK_BUBBLE_REMOVE_BOOKMARK));
+  remove_link_ = new Link(UTF16ToWide(l10n_util::GetStringUTF16(
+      IDS_BOOMARK_BUBBLE_REMOVE_BOOKMARK)));
   remove_link_->SetController(this);
 
   edit_button_ = new NativeButton(
-      this, l10n_util::GetString(IDS_BOOMARK_BUBBLE_OPTIONS));
+      this, UTF16ToWide(l10n_util::GetStringUTF16(IDS_BOOMARK_BUBBLE_OPTIONS)));
 
-  close_button_ = new NativeButton(this, l10n_util::GetString(IDS_DONE));
+  close_button_ =
+      new NativeButton(this, UTF16ToWide(l10n_util::GetStringUTF16(IDS_DONE)));
   close_button_->SetIsDefault(true);
 
   Label* combobox_label = new Label(
-      l10n_util::GetString(IDS_BOOMARK_BUBBLE_FOLDER_TEXT));
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_BOOMARK_BUBBLE_FOLDER_TEXT)));
 
   parent_combobox_ = new Combobox(&parent_model_);
   parent_combobox_->SetSelectedItem(parent_model_.node_parent_index());
   parent_combobox_->set_listener(this);
-  parent_combobox_->SetAccessibleName(combobox_label->GetText());
+  parent_combobox_->SetAccessibleName(
+      WideToUTF16Hack(combobox_label->GetText()));
 
-  Label* title_label = new Label(l10n_util::GetString(
+  Label* title_label = new Label(UTF16ToWide(l10n_util::GetStringUTF16(
       newly_bookmarked_ ? IDS_BOOMARK_BUBBLE_PAGE_BOOKMARKED :
-                          IDS_BOOMARK_BUBBLE_PAGE_BOOKMARK));
+                          IDS_BOOMARK_BUBBLE_PAGE_BOOKMARK)));
   title_label->SetFont(
       ResourceBundle::GetSharedInstance().GetFont(ResourceBundle::MediumFont));
   title_label->SetColor(kTitleColor);
@@ -243,8 +254,8 @@ void BookmarkBubbleView::Init() {
 
   layout->AddPaddingRow(0, kRelatedControlSmallVerticalSpacing);
   layout->StartRow(0, 2);
-  layout->AddView(
-      new Label(l10n_util::GetString(IDS_BOOMARK_BUBBLE_TITLE_TEXT)));
+  layout->AddView(new Label(UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_BOOMARK_BUBBLE_TITLE_TEXT))));
   title_tf_ = new views::Textfield();
   title_tf_->SetText(GetTitle());
   layout->AddView(title_tf_);
@@ -327,7 +338,8 @@ bool BookmarkBubbleView::CloseOnEscape() {
 }
 
 std::wstring BookmarkBubbleView::accessible_name() {
-  return l10n_util::GetString(IDS_BOOMARK_BUBBLE_ADD_BOOKMARK);
+  return UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_BOOMARK_BUBBLE_ADD_BOOKMARK));
 }
 
 void BookmarkBubbleView::Close() {

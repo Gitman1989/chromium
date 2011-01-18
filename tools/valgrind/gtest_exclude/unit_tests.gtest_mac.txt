@@ -5,6 +5,11 @@ IPCSyncChannelTest.*
 # http://crbug.com/21890
 WebDropTargetTest.URL
 WebDropTargetTest.Data
+# http://crbug.com/69037
+FirefoxImporterTest.Firefox3NSS3Decryptor
+# http://crbug.com/69039
+ProcessInfoSnapshotMacTest.EffectiveVsRealUserIDTest
+
 
 # Following tests do not pass memcheck test.
 # See http://crbug.com/30393.
@@ -14,3 +19,15 @@ PrefsControllerTest.GetPrefsViewForPage
 PrefsControllerTest.GetToolbarItemForPage
 PrefsControllerTest.ShowAndClose
 PrefsControllerTest.SwitchToPage
+
+# MultiProcessNotificationTests crash on the valgrind bot.
+# See http://crbug.com/69641.
+MultiProcessNotificationTest.BasicCreationTest
+MultiProcessNotificationTest.PostInProcessNotification
+MultiProcessNotificationTest.MultiListener
+MultiProcessNotificationTest.PostProfileNotification
+MultiProcessNotificationTest.PostUserNotification
+MultiProcessNotificationTest.PostSystemNotification
+MultiProcessNotificationTest.ProfileCrossDomainPosting
+MultiProcessNotificationTest.UserCrossDomainPosting
+MultiProcessNotificationTest.SystemCrossDomainPosting

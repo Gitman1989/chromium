@@ -269,6 +269,7 @@ cr.define('cr.ui', function() {
       var length = this.dataModel ? this.dataModel.length : 0;
       this.selectionModel = new ListSelectionModel(length);
 
+      this.addEventListener('dblclick', this.handleDoubleClick_);
       this.addEventListener('mousedown', this.handleMouseDownUp_);
       this.addEventListener('mouseup', this.handleMouseDownUp_);
       this.addEventListener('keydown', this.handleKeyDown);
@@ -287,6 +288,20 @@ cr.define('cr.ui', function() {
       if (!this.itemHeight_)
         this.itemHeight_ = measureItem(this);
       return this.itemHeight_;
+    },
+
+    /**
+     * Callback for the double click event.
+     * @param {Event} e The mouse event object.
+     * @private
+     */
+    handleDoubleClick_: function(e) {
+      if (this.disabled)
+        return;
+
+      var target = this.getListItemAncestor(e.target);
+      var index = target ? this.getIndexOfListItem(target) : -1;
+      this.activateItemAtIndex(index);
     },
 
     /**
@@ -467,8 +482,9 @@ cr.define('cr.ui', function() {
      * @return {number} The index of the list item, or -1 if not found.
      */
     getIndexOfListItem: function(item) {
+      var paddingTop = parseFloat(getComputedStyle(this).paddingTop);
       var cs = getComputedStyle(item);
-      var top = item.offsetTop - parseFloat(cs.marginTop);
+      var top = item.offsetTop - parseFloat(cs.marginTop) - paddingTop;
       var index = Math.floor(top / this.getItemHeight_());
       var childIndex = index - this.firstIndex_ + 1;
       if (childIndex >= 0 && childIndex < this.children.length &&
@@ -591,6 +607,14 @@ cr.define('cr.ui', function() {
         delete this.cachedItems_[index];
         this.redraw();
       }
+    },
+
+    /**
+     * Called when a list item is activated, currently only by a double click
+     * event.
+     * @param {number} index The index of the activated item.
+     */
+    activateItemAtIndex: function(index) {
     },
   };
 

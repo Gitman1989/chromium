@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <string>
+
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
 #include "base/base_paths.h"
@@ -14,7 +16,6 @@
 #include "chrome/browser/browser_list.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/metrics/user_metrics.h"
-#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/status_icons/status_icon.h"
 #include "chrome/browser/status_icons/status_tray.h"
@@ -129,7 +130,7 @@ void BackgroundModeManager::Observe(NotificationType type,
       break;
     case NotificationType::EXTENSION_UNLOADED:
       if (BackgroundApplicationListModel::IsBackgroundApp(
-              *Details<Extension>(details).ptr())) {
+              *Details<UnloadedExtensionInfo>(details)->extension)) {
         OnBackgroundAppUnloaded();
       }
       break;
@@ -270,7 +271,7 @@ void BackgroundModeManager::UpdateStatusTrayIconContextMenu() {
     return;
 
   // Create a context menu item for Chrome.
-  menus::SimpleMenuModel* menu = new menus::SimpleMenuModel(this);
+  ui::SimpleMenuModel* menu = new ui::SimpleMenuModel(this);
   // Add About item
   menu->AddItem(IDC_ABOUT, l10n_util::GetStringFUTF16(IDS_ABOUT,
       l10n_util::GetStringUTF16(IDS_PRODUCT_NAME)));
@@ -307,7 +308,7 @@ bool BackgroundModeManager::IsCommandIdEnabled(int command_id) const {
 
 bool BackgroundModeManager::GetAcceleratorForCommandId(
     int command_id,
-    menus::Accelerator* accelerator) {
+    ui::Accelerator* accelerator) {
   // No accelerators for status icon context menus.
   return false;
 }
@@ -316,6 +317,7 @@ void BackgroundModeManager::RemoveStatusTrayIcon() {
   if (status_icon_)
     status_tray_->RemoveStatusIcon(status_icon_);
   status_icon_ = NULL;
+  context_menu_ = NULL;  // Do not delete, points within status_icon_
 }
 
 void BackgroundModeManager::ExecuteApplication(int item) {
@@ -364,17 +366,14 @@ bool BackgroundModeManager::IsBackgroundModeEnabled(
     const CommandLine* command_line) {
 
   // Background mode is disabled if the appropriate flag is passed, or if
-  // extensions are disabled.
+  // extensions are disabled. It's always disabled on chromeos since chrome
+  // is always running on that platform, making it superfluous.
+#if defined(OS_CHROMEOS)
+  return false;
+#else
   bool background_mode_enabled =
       !command_line->HasSwitch(switches::kDisableBackgroundMode) &&
       !command_line->HasSwitch(switches::kDisableExtensions);
-#if !defined(OS_WIN)
-  // BackgroundMode is enabled by default on windows. On other platforms, it
-  // is enabled via about:flags.
-  background_mode_enabled = background_mode_enabled &&
-      command_line->HasSwitch(switches::kEnableBackgroundMode);
-#endif
-
   return background_mode_enabled;
+#endif
 }
-

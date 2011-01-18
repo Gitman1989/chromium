@@ -1,21 +1,20 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/installer/util/product_unittest.h"
 
 #include "base/logging.h"
-#include "base/scoped_handle.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/installer/util/chrome_frame_distribution.h"
 #include "chrome/installer/util/google_update_constants.h"
+#include "chrome/installer/util/installation_state.h"
 #include "chrome/installer/util/package.h"
 #include "chrome/installer/util/package_properties.h"
 #include "chrome/installer/util/master_preferences.h"
 #include "chrome/installer/util/product.h"
 
 using base::win::RegKey;
-using base::win::ScopedHandle;
 using installer::ChromePackageProperties;
 using installer::ChromiumPackageProperties;
 using installer::Package;
@@ -126,28 +125,33 @@ TEST_F(ProductTest, ProductInstallBasic) {
     EXPECT_TRUE(product->IsMsi());
 
     // There should be no installed version in the registry.
-    EXPECT_FALSE(product->IsInstalled());
-    EXPECT_TRUE(product->GetInstalledVersion() == NULL);
+    {
+      installer::InstallationState state;
+      state.Initialize(prefs);
+      EXPECT_TRUE(state.GetProductState(system_level,
+                                        distribution->GetType()) == NULL);
+    }
 
     // Let's pretend chrome is installed.
     RegKey version_key(root, distribution->GetVersionKey().c_str(),
                        KEY_ALL_ACCESS);
     ASSERT_TRUE(version_key.Valid());
 
-    const wchar_t kCurrentVersion[] = L"1.2.3.4";
+    const char kCurrentVersion[] = "1.2.3.4";
     scoped_ptr<Version> current_version(
         Version::GetVersionFromString(kCurrentVersion));
     version_key.WriteValue(google_update::kRegVersionField,
                            UTF8ToWide(current_version->GetString()).c_str());
 
-    package = new Package(multi_install, system_level, test_dir_.path(),
-                          &properties);
-    product = new Product(distribution, package.get());
-    const Version* installed(product->GetInstalledVersion());
-    EXPECT_TRUE(product->IsInstalled());
-    EXPECT_TRUE(installed != NULL);
-    if (installed) {
-      EXPECT_TRUE(installed->Equals(*current_version.get()));
+    {
+      installer::InstallationState state;
+      state.Initialize(prefs);
+      const installer::ProductState* prod_state =
+          state.GetProductState(system_level, distribution->GetType());
+      EXPECT_TRUE(prod_state != NULL);
+      if (prod_state != NULL) {
+        EXPECT_TRUE(prod_state->version().Equals(*current_version.get()));
+      }
     }
   }
 }

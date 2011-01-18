@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,10 +7,12 @@
 
 #include <deque>
 
+#include "base/ref_counted.h"
 #include "base/scoped_ptr.h"
 #include "ppapi/c/pp_completion_callback.h"
 #include "ppapi/c/trusted/ppb_url_loader_trusted.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLLoaderClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLLoaderClient.h"
+#include "webkit/plugins/ppapi/callbacks.h"
 #include "webkit/plugins/ppapi/ppapi_plugin_instance.h"
 #include "webkit/plugins/ppapi/resource.h"
 
@@ -29,9 +31,7 @@ class PluginInstance;
 class PPB_URLRequestInfo_Impl;
 class PPB_URLResponseInfo_Impl;
 
-class PPB_URLLoader_Impl : public Resource,
-                  public WebKit::WebURLLoaderClient,
-                  public PluginInstance::Observer {
+class PPB_URLLoader_Impl : public Resource, public WebKit::WebURLLoaderClient {
  public:
   PPB_URLLoader_Impl(PluginInstance* instance, bool main_document_loader);
   virtual ~PPB_URLLoader_Impl();
@@ -46,6 +46,7 @@ class PPB_URLLoader_Impl : public Resource,
 
   // Resource overrides.
   virtual PPB_URLLoader_Impl* AsPPB_URLLoader_Impl();
+  virtual void LastPluginRefWasDeleted(bool instance_destroyed);
 
   // PPB_URLLoader implementation.
   int32_t Open(PPB_URLRequestInfo_Impl* request,
@@ -83,13 +84,20 @@ class PPB_URLLoader_Impl : public Resource,
   virtual void didFail(WebKit::WebURLLoader* loader,
                        const WebKit::WebURLError& error);
 
-  // PluginInstance::Observer implementation.
-  virtual void InstanceDestroyed(PluginInstance* instance);
-
   PPB_URLResponseInfo_Impl* response_info() const { return response_info_; }
 
  private:
+  // Check that |callback| is valid (only non-blocking operation is supported)
+  // and that no callback is already pending. Returns |PP_OK| if okay, else
+  // |PP_ERROR_...| to be returned to the plugin.
+  int32_t ValidateCallback(PP_CompletionCallback callback);
+
+  // Sets up |callback| as the pending callback. This should only be called once
+  // it is certain that |PP_ERROR_WOULDBLOCK| will be returned.
+  void RegisterCallback(PP_CompletionCallback callback);
+
   void RunCallback(int32_t result);
+
   size_t FillUserBuffer();
 
   // Converts a WebURLResponse to a URLResponseInfo and saves it.
@@ -110,19 +118,13 @@ class PPB_URLLoader_Impl : public Resource,
   bool RecordDownloadProgress() const;
   bool RecordUploadProgress() const;
 
-  // This will be NULL if the instance has been deleted but this PPB_URLLoader_Impl was
-  // somehow leaked. In general, you should not need to check this for NULL.
-  // However, if you see a NULL pointer crash, that means somebody is holding
-  // a reference to this object longer than the PluginInstance's lifetime.
-  PluginInstance* instance_;
-
   // If true, then the plugin instance is a full-frame plugin and we're just
   // wrapping the main document's loader (i.e. loader_ is null).
   bool main_document_loader_;
   scoped_ptr<WebKit::WebURLLoader> loader_;
   scoped_refptr<PPB_URLRequestInfo_Impl> request_info_;
   scoped_refptr<PPB_URLResponseInfo_Impl> response_info_;
-  PP_CompletionCallback pending_callback_;
+  scoped_refptr<TrackedCompletionCallback> pending_callback_;
   std::deque<char> buffer_;
   int64_t bytes_sent_;
   int64_t total_bytes_to_be_sent_;

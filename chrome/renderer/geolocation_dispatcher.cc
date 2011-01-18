@@ -2,23 +2,20 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#if defined(ENABLE_CLIENT_BASED_GEOLOCATION)
-
 #include "chrome/renderer/geolocation_dispatcher.h"
 
-#include "chrome/renderer/render_view.h"
-#include "ipc/ipc_message.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebGeolocationPermissionRequest.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebGeolocationPermissionRequestManager.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebGeolocationClient.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebGeolocationPosition.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebGeolocationError.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSecurityOrigin.h"
+#include "chrome/common/render_messages.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebGeolocationPermissionRequest.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebGeolocationPermissionRequestManager.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebGeolocationClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebGeolocationPosition.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebGeolocationError.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSecurityOrigin.h"
 
 using namespace WebKit;
 
 GeolocationDispatcher::GeolocationDispatcher(RenderView* render_view)
-    : render_view_(render_view),
+    : RenderViewObserver(render_view),
       pending_permissions_(new WebGeolocationPermissionRequestManager()),
       enable_high_accuracy_(false),
       updating_(false) {
@@ -44,19 +41,14 @@ void GeolocationDispatcher::geolocationDestroyed() {
 }
 
 void GeolocationDispatcher::startUpdating() {
-  // TODO(jknotten): Remove url and bridge_id from StartUpdating message
-  // once we have switched over to client-based geolocation.
   GURL url;
-  render_view_->Send(new ViewHostMsg_Geolocation_StartUpdating(
-      render_view_->routing_id(), -1, url, enable_high_accuracy_));
+  Send(new ViewHostMsg_Geolocation_StartUpdating(
+      routing_id(), url, enable_high_accuracy_));
   updating_ = true;
 }
 
 void GeolocationDispatcher::stopUpdating() {
-  // TODO(jknotten): Remove url and bridge_id from StopUpdating message
-  // once we have switched over to client-based geolocation.
-  render_view_->Send(new ViewHostMsg_Geolocation_StopUpdating(
-      render_view_->routing_id(), -1));
+  Send(new ViewHostMsg_Geolocation_StopUpdating(routing_id()));
   updating_ = false;
 }
 
@@ -91,8 +83,8 @@ void GeolocationDispatcher::requestPermission(
     const WebGeolocationPermissionRequest& permissionRequest) {
   int bridge_id = pending_permissions_->add(permissionRequest);
   string16 origin = permissionRequest.securityOrigin().toString();
-  render_view_->Send(new ViewHostMsg_Geolocation_RequestPermission(
-      render_view_->routing_id(), bridge_id, GURL(origin)));
+  Send(new ViewHostMsg_Geolocation_RequestPermission(
+      routing_id(), bridge_id, GURL(origin)));
 }
 
 // TODO(jknotten): Change the messages to use a security origin, so no
@@ -103,8 +95,8 @@ void GeolocationDispatcher::cancelPermissionRequest(
   if (!pending_permissions_->remove(permissionRequest, bridge_id))
     return;
   string16 origin = permissionRequest.securityOrigin().toString();
-  render_view_->Send(new ViewHostMsg_Geolocation_CancelPermissionRequest(
-      render_view_->routing_id(), bridge_id, GURL(origin)));
+  Send(new ViewHostMsg_Geolocation_CancelPermissionRequest(
+      routing_id(), bridge_id, GURL(origin)));
 }
 
 // Permission for using geolocation has been set.
@@ -119,7 +111,11 @@ void GeolocationDispatcher::OnGeolocationPermissionSet(
 // We have an updated geolocation position or error code.
 void GeolocationDispatcher::OnGeolocationPositionUpdated(
     const Geoposition& geoposition) {
-  DCHECK(updating_);
+  // It is possible for the browser process to have queued an update message
+  // before receiving the stop updating message.
+  if (!updating_)
+    return;
+
   DCHECK(geoposition.IsInitialized());
   if (geoposition.IsValidFix()) {
     controller_->positionChanged(
@@ -151,5 +147,3 @@ void GeolocationDispatcher::OnGeolocationPositionUpdated(
             code, WebKit::WebString::fromUTF8(geoposition.error_message)));
   }
 }
-
-#endif // CLIENT_BASED_GEOLOCATION

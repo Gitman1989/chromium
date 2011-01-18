@@ -69,6 +69,9 @@ void GetCookieTreeNodeDictionary(const CookieTreeNode& node,
   switch (node.GetDetailedInfo().node_type) {
     case CookieTreeNode::DetailedInfo::TYPE_ORIGIN: {
       dict->SetString(kKeyType, "origin");
+#if defined(OS_MAC)
+      dict->SetString(kKeyIcon, "chrome://theme/IDR_BOOKMARK_BAR_FOLDER");
+#endif
       break;
     }
     case CookieTreeNode::DetailedInfo::TYPE_COOKIE: {
@@ -168,6 +171,9 @@ void GetCookieTreeNodeDictionary(const CookieTreeNode& node,
       break;
     }
     default:
+#if defined(OS_MAC)
+      dict->SetString(kKeyIcon, "chrome://theme/IDR_BOOKMARK_BAR_FOLDER");
+#endif
       break;
   }
 }
@@ -266,8 +272,8 @@ void CookiesViewHandler::RegisterMessages() {
       NewCallback(this, &CookiesViewHandler::LoadChildren));
 }
 
-void CookiesViewHandler::TreeNodesAdded(TreeModel* model,
-                                        TreeModelNode* parent,
+void CookiesViewHandler::TreeNodesAdded(ui::TreeModel* model,
+                                        ui::TreeModelNode* parent,
                                         int start,
                                         int count) {
   // Skip if there is a batch update in progress.
@@ -286,8 +292,8 @@ void CookiesViewHandler::TreeNodesAdded(TreeModel* model,
   dom_ui_->CallJavascriptFunction(L"CookiesView.onTreeItemAdded", args);
 }
 
-void CookiesViewHandler::TreeNodesRemoved(TreeModel* model,
-                                          TreeModelNode* parent,
+void CookiesViewHandler::TreeNodesRemoved(ui::TreeModel* model,
+                                          ui::TreeModelNode* parent,
                                           int start,
                                           int count) {
   // Skip if there is a batch update in progress.

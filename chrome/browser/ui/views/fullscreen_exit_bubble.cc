@@ -1,16 +1,17 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/fullscreen_exit_bubble.h"
+#include "chrome/browser/ui/views/fullscreen_exit_bubble.h"
 
-#include "app/keyboard_codes.h"
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
-#include "app/slide_animation.h"
+#include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "gfx/canvas_skia.h"
 #include "grit/generated_resources.h"
+#include "ui/base/animation/slide_animation.h"
+#include "ui/base/keycodes/keyboard_codes.h"
 #include "views/screen.h"
 #include "views/widget/root_view.h"
 #include "views/window/window.h"
@@ -51,9 +52,12 @@ FullscreenExitBubble::FullscreenExitView::FullscreenExitView(
     const std::wstring& accelerator) {
   link_.set_parent_owned(false);
 #if !defined(OS_CHROMEOS)
-  link_.SetText(l10n_util::GetStringF(IDS_EXIT_FULLSCREEN_MODE, accelerator));
+  link_.SetText(
+      UTF16ToWide(l10n_util::GetStringFUTF16(IDS_EXIT_FULLSCREEN_MODE,
+                                             WideToUTF16(accelerator))));
 #else
-  link_.SetText(l10n_util::GetString(IDS_EXIT_FULLSCREEN_MODE));
+  link_.SetText(
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_EXIT_FULLSCREEN_MODE)));
 #endif
   link_.SetController(bubble);
   link_.SetFont(ResourceBundle::GetSharedInstance().GetFont(
@@ -139,14 +143,15 @@ FullscreenExitBubble::FullscreenExitBubble(
     : root_view_(frame->GetRootView()),
       delegate_(delegate),
       popup_(NULL),
-      size_animation_(new SlideAnimation(this)) {
+      size_animation_(new ui::SlideAnimation(this)) {
   size_animation_->Reset(1);
 
   // Create the contents view.
-  views::Accelerator accelerator(app::VKEY_UNKNOWN, false, false, false);
+  views::Accelerator accelerator(ui::VKEY_UNKNOWN, false, false, false);
   bool got_accelerator = frame->GetAccelerator(IDC_FULLSCREEN, &accelerator);
   DCHECK(got_accelerator);
-  view_ = new FullscreenExitView(this, accelerator.GetShortcutText());
+  view_ = new FullscreenExitView(
+      this, UTF16ToWideHack(accelerator.GetShortcutText()));
 
   // Initialize the popup.
 #if defined(OS_WIN)
@@ -194,7 +199,7 @@ void FullscreenExitBubble::LinkActivated(views::Link* source, int event_flags) {
 }
 
 void FullscreenExitBubble::AnimationProgressed(
-    const Animation* animation) {
+    const ui::Animation* animation) {
   gfx::Rect popup_rect(GetPopupRect(false));
   if (popup_rect.IsEmpty()) {
     popup_->Hide();
@@ -209,7 +214,7 @@ void FullscreenExitBubble::AnimationProgressed(
   }
 }
 void FullscreenExitBubble::AnimationEnded(
-    const Animation* animation) {
+    const ui::Animation* animation) {
   AnimationProgressed(animation);
 }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,7 +12,7 @@
 #include "base/process_util.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_list.h"
 #include "chrome/browser/browser_process.h"
@@ -877,7 +877,7 @@ void TaskManagerModel::OnJobRemoved(net::URLRequestJob* job) {
 }
 
 void TaskManagerModel::OnJobDone(net::URLRequestJob* job,
-                                 const URLRequestStatus& status) {
+                                 const net::URLRequestStatus& status) {
 }
 
 void TaskManagerModel::OnJobRedirect(net::URLRequestJob* job,
@@ -888,9 +888,12 @@ void TaskManagerModel::OnJobRedirect(net::URLRequestJob* job,
 void TaskManagerModel::OnBytesRead(net::URLRequestJob* job, const char* buf,
                                    int byte_count) {
   int render_process_host_child_id = -1, routing_id = -1;
-  ResourceDispatcherHost::RenderViewForRequest(job->request(),
+  if (!ResourceDispatcherHost::RenderViewForRequest(job->request(),
                                                &render_process_host_child_id,
-                                               &routing_id);
+                                               &routing_id)) {
+    NOTREACHED();
+  }
+
   // This happens in the IO thread, post it to the UI thread.
   int origin_child_id =
       chrome_browser_net::GetOriginProcessUniqueIDForRequest(job->request());

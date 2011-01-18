@@ -1,11 +1,12 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/importer/importer.h"
 
 #include "app/l10n_util.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
+#include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
 #include "chrome/browser/browser_list.h"
@@ -29,8 +30,8 @@
 
 // TODO(port): Port these files.
 #if defined(OS_WIN)
-#include "app/win_util.h"
-#include "chrome/browser/views/importer_lock_view.h"
+#include "app/win/win_util.h"
+#include "chrome/browser/ui/views/importer_lock_view.h"
 #include "views/window/window.h"
 #elif defined(OS_MACOSX)
 #include "chrome/browser/ui/cocoa/importer_lock_dialog.h"
@@ -211,9 +212,10 @@ void ImporterHost::StartImportSettings(
   // credentials.
   if (profile_info.browser_type == importer::GOOGLE_TOOLBAR5) {
     if (!toolbar_importer_utils::IsGoogleGAIACookieInstalled()) {
-      win_util::MessageBox(
+      app::win::MessageBox(
           NULL,
-          l10n_util::GetString(IDS_IMPORTER_GOOGLE_LOGIN_TEXT).c_str(),
+          UTF16ToWide(l10n_util::GetStringUTF16(
+              IDS_IMPORTER_GOOGLE_LOGIN_TEXT)).c_str(),
           L"",
           MB_OK | MB_TOPMOST);
 

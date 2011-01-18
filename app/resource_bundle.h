@@ -23,16 +23,15 @@
 #include "base/string16.h"
 #include "gfx/native_widget_types.h"
 
-namespace base {
+namespace app {
 class DataPack;
 }
-#if defined(USE_X11)
-typedef struct _GdkPixbuf GdkPixbuf;
-#endif
+namespace base {
+class Lock;
+}
 namespace gfx {
 class Font;
 }
-class Lock;
 class SkBitmap;
 typedef uint32 SkColor;
 namespace base {
@@ -46,6 +45,10 @@ class StringPiece;
 class NSImage;
 #endif  // __OBJC__
 #endif  // defined(OS_MACOSX)
+
+#if defined(USE_X11)
+typedef struct _GdkPixbuf GdkPixbuf;
+#endif
 
 // ResourceBundle is a central facility to load images and other resources,
 // such as theme graphics.
@@ -94,11 +97,6 @@ class ResourceBundle {
   // Gets the bitmap with the specified resource_id from the current module
   // data. Returns a pointer to a shared instance of the SkBitmap. This shared
   // bitmap is owned by the resource bundle and should not be freed.
-  //
-  // The bitmap is assumed to exist. This function will log in release, and
-  // assert in debug mode if it does not. On failure, this will return a
-  // pointer to a shared empty placeholder bitmap so it will be visible what
-  // is missing.
   SkBitmap* GetBitmapNamed(int resource_id);
 
   // Loads the raw bytes of a data resource into |bytes|,
@@ -178,7 +176,7 @@ class ResourceBundle {
    private:
     void Load();
 
-    scoped_ptr<base::DataPack> data_pack_;
+    scoped_ptr<app::DataPack> data_pack_;
     FilePath path_;
 
     DISALLOW_COPY_AND_ASSIGN(LoadedDataPack);
@@ -191,7 +189,7 @@ class ResourceBundle {
   typedef HINSTANCE DataHandle;
 #elif defined(USE_BASE_DATA_PACK)
   // Linux uses base::DataPack.
-  typedef base::DataPack* DataHandle;
+  typedef app::DataPack* DataHandle;
 #endif
 
   // Ctor/dtor are private, since we're a singleton.
@@ -244,7 +242,7 @@ class ResourceBundle {
 
   // Class level lock.  Used to protect internal data structures that may be
   // accessed from other threads (e.g., skia_images_).
-  scoped_ptr<Lock> lock_;
+  scoped_ptr<base::Lock> lock_;
 
   // Handles for data sources.
   DataHandle resources_data_;

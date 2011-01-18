@@ -1,8 +1,8 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/bookmark_editor_view.h"
+#include "chrome/browser/ui/views/bookmark_editor_view.h"
 
 #include "app/l10n_util.h"
 #include "base/basictypes.h"
@@ -106,7 +106,7 @@ bool BookmarkEditorView::CanResize() const {
 }
 
 std::wstring BookmarkEditorView::GetWindowTitle() const {
-  return l10n_util::GetString(IDS_BOOMARK_EDITOR_TITLE);
+  return UTF16ToWide(l10n_util::GetStringUTF16(IDS_BOOMARK_EDITOR_TITLE));
 }
 
 bool BookmarkEditorView::Accept() {
@@ -174,7 +174,7 @@ void BookmarkEditorView::OnTreeViewSelectionChanged(
 }
 
 bool BookmarkEditorView::CanEdit(views::TreeView* tree_view,
-                                 TreeModelNode* node) {
+                                 ui::TreeModelNode* node) {
   // Only allow editting of children of the bookmark bar node and other node.
   EditorNode* bb_node = tree_model_->AsNode(node);
   return (bb_node->GetParent() && bb_node->GetParent()->GetParent());
@@ -208,7 +208,7 @@ bool BookmarkEditorView::IsCommandIdEnabled(int command_id) const {
 
 bool BookmarkEditorView::GetAcceleratorForCommandId(
     int command_id,
-    menus::Accelerator* accelerator) {
+    ui::Accelerator* accelerator) {
   return GetWidget()->GetAccelerator(command_id, accelerator);
 }
 
@@ -249,7 +249,7 @@ void BookmarkEditorView::ShowContextMenu(View* source,
       (tree_model_->GetParent(tree_view_->GetSelectedNode()) ==
        tree_model_->GetRoot());
   if (!context_menu_contents_.get()) {
-    context_menu_contents_.reset(new menus::SimpleMenuModel(this));
+    context_menu_contents_.reset(new ui::SimpleMenuModel(this));
     context_menu_contents_->AddItemWithStringId(IDS_EDIT, IDS_EDIT);
     context_menu_contents_->AddItemWithStringId(
         IDS_BOOMARK_EDITOR_NEW_FOLDER_MENU_ITEM,
@@ -271,13 +271,14 @@ void BookmarkEditorView::Init() {
   if (details_.type == EditDetails::EXISTING_NODE)
     title = details_.existing_node->GetTitle();
   else if (details_.type == EditDetails::NEW_FOLDER)
-    title = l10n_util::GetString(IDS_BOOMARK_EDITOR_NEW_FOLDER_NAME);
+    title = UTF16ToWide(
+        l10n_util::GetStringUTF16(IDS_BOOMARK_EDITOR_NEW_FOLDER_NAME));
   title_tf_.SetText(title);
   title_tf_.SetController(this);
 
   title_label_ = new views::Label(
-      l10n_util::GetString(IDS_BOOMARK_EDITOR_NAME_LABEL));
-  title_tf_.SetAccessibleName(title_label_->GetText());
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_BOOMARK_EDITOR_NAME_LABEL)));
+  title_tf_.SetAccessibleName(WideToUTF16Hack(title_label_->GetText()));
 
   string16 url_text;
   if (details_.type == EditDetails::EXISTING_NODE) {
@@ -295,13 +296,15 @@ void BookmarkEditorView::Init() {
   url_tf_.SetController(this);
 
   url_label_ = new views::Label(
-      l10n_util::GetString(IDS_BOOMARK_EDITOR_URL_LABEL));
-  url_tf_.SetAccessibleName(url_label_->GetText());
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_BOOMARK_EDITOR_URL_LABEL)));
+  url_tf_.SetAccessibleName(WideToUTF16Hack(url_label_->GetText()));
 
   if (show_tree_) {
     tree_view_ = new views::TreeView();
     new_group_button_.reset(new views::NativeButton(
-        this, l10n_util::GetString(IDS_BOOMARK_EDITOR_NEW_FOLDER_BUTTON)));
+        this,
+        UTF16ToWide(l10n_util::GetStringUTF16(
+            IDS_BOOMARK_EDITOR_NEW_FOLDER_BUTTON))));
     new_group_button_->set_parent_owned(false);
     tree_view_->SetContextMenuController(this);
 

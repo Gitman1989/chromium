@@ -10,12 +10,12 @@
 #include "gfx/rect.h"
 #include "gfx/size.h"
 #include "skia/ext/platform_canvas.h"
-#include "third_party/WebKit/WebKit/chromium/public/mac/WebInputEventFactory.h"
-#include "third_party/WebKit/WebKit/chromium/public/mac/WebScreenInfoFactory.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebInputEvent.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPopupMenu.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebScreenInfo.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSize.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/mac/WebInputEventFactory.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/mac/WebScreenInfoFactory.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPopupMenu.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebScreenInfo.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSize.h"
 #include "webkit/glue/webkit_glue.h"
 #include "webkit/tools/test_shell/test_shell.h"
 
@@ -41,7 +41,7 @@ WebWidgetHost* WebWidgetHost::Create(NSView* parent_view,
   host->view_ = [[NSView alloc] initWithFrame:content_rect];
   [parent_view addSubview:host->view_];
 
-  // win_util::SetWindowUserData(host->hwnd_, host);
+  // app::win::SetWindowUserData(host->hwnd_, host);
 
   host->webwidget_ = WebPopupMenu::create(client);
   host->webwidget_->resize(WebSize(content_rect.size.width,
@@ -154,7 +154,7 @@ WebWidgetHost::WebWidgetHost()
 }
 
 WebWidgetHost::~WebWidgetHost() {
-  // win_util::SetWindowUserData(hwnd_, 0);
+  // app::win::SetWindowUserData(hwnd_, 0);
 
   webwidget_->close();
 }

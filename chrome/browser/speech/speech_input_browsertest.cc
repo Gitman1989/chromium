@@ -14,7 +14,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/in_process_browser_test.h"
 #include "chrome/test/ui_test_utils.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebInputEvent.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 
 namespace speech_input {
 class FakeSpeechInputManager;
@@ -94,6 +94,10 @@ class FakeSpeechInputManager : public SpeechInputManager {
 class SpeechInputBrowserTest : public InProcessBrowserTest {
  public:
   // InProcessBrowserTest methods
+  virtual void SetUpCommandLine(CommandLine* command_line) {
+    EXPECT_TRUE(!command_line->HasSwitch(switches::kDisableSpeechInput));
+  }
+
   GURL testUrl(const FilePath::CharType* filename) {
     const FilePath kTestDir(FILE_PATH_LITERAL("speech"));
     return ui_test_utils::GetTestUrl(kTestDir, FilePath(filename));
@@ -188,4 +192,4 @@ IN_PROC_BROWSER_TEST_F(SpeechInputBrowserTest, MAYBE_GrammarAttribute) {
             fake_speech_input_manager_.grammar());
 }
 
-} //  namespace speech_input
+}  // namespace speech_input

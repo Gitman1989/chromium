@@ -109,6 +109,11 @@ class X509Certificate : public base::RefCountedThreadSafe<X509Certificate> {
                   FORMAT_PKCS7,
   };
 
+  // Creates a X509Certificate from the ground up.  Used by tests that simulate
+  // SSL connections.
+  X509Certificate(const std::string& subject, const std::string& issuer,
+                  base::Time start_date, base::Time expiration_date);
+
   // Create an X509Certificate from a handle to the certificate object in the
   // underlying crypto library. |source| specifies where |cert_handle| comes
   // from.  Given two certificate handles for the same certificate, our
@@ -152,7 +157,6 @@ class X509Certificate : public base::RefCountedThreadSafe<X509Certificate> {
                                                         int length,
                                                         int format);
 
-#if defined(USE_NSS)
   // Create a self-signed certificate containing the public key in |key|.
   // Subject, serial number and validity period are given as parameters.
   // The certificate is signed by the private key in |key|. The hashing
@@ -175,12 +179,6 @@ class X509Certificate : public base::RefCountedThreadSafe<X509Certificate> {
                                            const std::string& subject,
                                            uint32 serial_number,
                                            base::TimeDelta valid_duration);
-#endif
-
-  // Creates a X509Certificate from the ground up.  Used by tests that simulate
-  // SSL connections.
-  X509Certificate(const std::string& subject, const std::string& issuer,
-                  base::Time start_date, base::Time expiration_date);
 
   // Appends a representation of this object to the given pickle.
   void Persist(Pickle* pickle);
@@ -288,6 +286,11 @@ class X509Certificate : public base::RefCountedThreadSafe<X509Certificate> {
   int Verify(const std::string& hostname,
              int flags,
              CertVerifyResult* verify_result) const;
+
+  // This method returns the DER encoded certificate.
+  // If the return value is true then the DER encoded certificate is available.
+  // The content of the DER encoded certificate is written to |encoded|.
+  bool GetDEREncoded(std::string* encoded);
 
   OSCertHandle os_cert_handle() const { return cert_handle_; }
 

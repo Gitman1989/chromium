@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,7 @@
 #pragma once
 
 #include "base/basictypes.h"
-#include "chrome/browser/views/frame/browser_frame.h"
+#include "chrome/browser/ui/views/frame/browser_frame.h"
 #include "views/window/window_win.h"
 
 class AeroGlassNonClientView;
@@ -50,7 +50,7 @@ class BrowserFrameWin : public BrowserFrame, public views::WindowWin {
  protected:
   // Overridden from views::WindowWin:
   virtual gfx::Insets GetClientAreaInsets() const;
-  virtual bool GetAccelerator(int cmd_id, menus::Accelerator* accelerator);
+  virtual bool GetAccelerator(int cmd_id, ui::Accelerator* accelerator);
   virtual void OnEndSession(BOOL ending, UINT logoff);
   virtual void OnEnterSizeMove();
   virtual void OnExitSizeMove();

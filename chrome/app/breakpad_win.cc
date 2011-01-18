@@ -20,8 +20,8 @@
 #include "base/string_split.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
-#include "base/win_util.h"
 #include "base/win/registry.h"
+#include "base/win/win_util.h"
 #include "breakpad/src/client/windows/handler/exception_handler.h"
 #include "chrome/app/hard_error_handler_win.h"
 #include "chrome/common/child_process_logging.h"
@@ -92,7 +92,7 @@ std::wstring TrimToBreakpadMax(const std::wstring& str) {
 google_breakpad::CustomClientInfo* GetCustomInfo(const std::wstring& dll_path,
                                                  const std::wstring& type) {
   scoped_ptr<FileVersionInfo>
-      version_info(FileVersionInfo::CreateFileVersionInfo(dll_path));
+      version_info(FileVersionInfo::CreateFileVersionInfo(FilePath(dll_path)));
 
   std::wstring version, product;
   if (version_info.get()) {
@@ -508,7 +508,7 @@ static DWORD __stdcall InitCrashReporterThread(void* param) {
     // Per-user install: "NamedPipe\GoogleCrashServices\<user SID>"
     std::wstring user_sid;
     if (is_per_user_install) {
-      if (!win_util::GetUserSidString(&user_sid)) {
+      if (!base::win::GetUserSidString(&user_sid)) {
         if (callback)
           InitDefaultCrashCallback();
         return -1;

@@ -14,10 +14,10 @@
 #include <string>
 #include <vector>
 
+#include "app/win/window_impl.h"
 #include "base/message_loop.h"
 #include "base/scoped_vector.h"
 #include "base/win/scoped_comptr.h"
-#include "gfx/window_impl.h"
 #include "views/focus/focus_manager.h"
 #include "views/layout_manager.h"
 #include "views/widget/widget.h"
@@ -74,7 +74,7 @@ const int WM_NCUAHDRAWFRAME = 0xAF;
 //  then responsible for cleaning up after it.
 //
 ///////////////////////////////////////////////////////////////////////////////
-class WidgetWin : public gfx::WindowImpl,
+class WidgetWin : public app::win::WindowImpl,
                   public Widget,
                   public MessageLoopForUI::Observer,
                   public FocusTraversable {
@@ -229,7 +229,7 @@ class WidgetWin : public gfx::WindowImpl,
   virtual TooltipManager* GetTooltipManager();
   virtual void GenerateMousePressedForView(View* view,
                                            const gfx::Point& point);
-  virtual bool GetAccelerator(int cmd_id, menus::Accelerator* accelerator);
+  virtual bool GetAccelerator(int cmd_id, ui::Accelerator* accelerator);
   virtual Window* GetWindow();
   virtual const Window* GetWindow() const;
   virtual void SetNativeWindowProperty(const char* name, void* value);

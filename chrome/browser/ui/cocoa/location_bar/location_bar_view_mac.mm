@@ -6,7 +6,6 @@
 
 #include "app/l10n_util_mac.h"
 #include "app/resource_bundle.h"
-#include "base/nsimage_cache_mac.h"
 #include "base/stl_util-inl.h"
 #include "base/string_util.h"
 #include "base/sys_string_conversions.h"
@@ -49,7 +48,6 @@
 #include "chrome/common/extensions/extension_action.h"
 #include "chrome/common/extensions/extension_resource.h"
 #include "chrome/common/notification_service.h"
-#include "chrome/common/pref_names.h"
 #include "net/base/net_util.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
@@ -141,7 +139,7 @@ std::wstring LocationBarViewMac::GetInputString() const {
 }
 
 void LocationBarViewMac::SetSuggestedText(const string16& text) {
-  edit_view_->SetSuggestText(
+  edit_view_->SetInstantSuggestion(
       edit_view_->model()->UseVerbatimInstant() ? string16() : text);
 }
 
@@ -302,7 +300,7 @@ void LocationBarViewMac::OnAutocompleteAccept(const GURL& url,
     }
   }
 
-  if (browser_->instant())
+  if (browser_->instant() && !edit_view_->model()->popup_model()->IsOpen())
     browser_->instant()->DestroyPreviewContents();
 
   update_instant_ = true;
@@ -681,7 +679,8 @@ void LocationBarViewMac::Layout() {
     std::wstring label(toolbar_model_->GetEVCertName());
     ev_bubble_decoration_->SetFullLabel(base::SysWideToNSString(label));
   } else if (!keyword.empty() && is_keyword_hint) {
-    keyword_hint_decoration_->SetKeyword(short_name, is_extension_keyword);
+    keyword_hint_decoration_->SetKeyword(WideToUTF16Hack(short_name),
+                                         is_extension_keyword);
     keyword_hint_decoration_->SetVisible(true);
   }
 

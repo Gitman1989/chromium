@@ -12,9 +12,9 @@
 
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "base/platform_thread.h"
+#include "base/threading/platform_thread.h"
 #include "base/safe_strerror_posix.h"
-#include "base/thread_restrictions.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/utf_string_conversions.h"
 
 namespace base {
@@ -196,22 +196,50 @@ bool SharedMemory::Open(const std::string& name, bool read_only) {
   return PrepareMapFile(fp);
 }
 
-// For the given shmem named |mem_name|, return a filename to mmap()
-// (and possibly create).  Modifies |filename|.  Return false on
-// error, or true of we are happy.
-bool SharedMemory::FilePathForMemoryName(const std::string& mem_name,
-                                         FilePath* path) {
-  // mem_name will be used for a filename; make sure it doesn't
-  // contain anything which will confuse us.
-  DCHECK(mem_name.find('/') == std::string::npos);
-  DCHECK(mem_name.find('\0') == std::string::npos);
-
-  FilePath temp_dir;
-  if (!file_util::GetShmemTempDir(&temp_dir))
+bool SharedMemory::Map(uint32 bytes) {
+  if (mapped_file_ == -1)
     return false;
 
-  *path = temp_dir.AppendASCII("com.google.chrome.shmem." + mem_name);
+  memory_ = mmap(NULL, bytes, PROT_READ | (read_only_ ? 0 : PROT_WRITE),
+                 MAP_SHARED, mapped_file_, 0);
+
+  if (memory_)
+    mapped_size_ = bytes;
+
+  bool mmap_succeeded = (memory_ != (void*)-1);
+  DCHECK(mmap_succeeded) << "Call to mmap failed, errno=" << errno;
+  return mmap_succeeded;
+}
+
+bool SharedMemory::Unmap() {
+  if (memory_ == NULL)
+    return false;
+
+  munmap(memory_, mapped_size_);
+  memory_ = NULL;
+  mapped_size_ = 0;
   return true;
+}
+
+SharedMemoryHandle SharedMemory::handle() const {
+  return FileDescriptor(mapped_file_, false);
+}
+
+void SharedMemory::Close() {
+  Unmap();
+
+  if (mapped_file_ > 0) {
+    close(mapped_file_);
+    mapped_file_ = -1;
+  }
+}
+
+void SharedMemory::Lock() {
+  LockOrUnlockCommon(F_LOCK);
+}
+
+void SharedMemory::Unlock() {
+  LockOrUnlockCommon(F_ULOCK);
 }
 
 bool SharedMemory::PrepareMapFile(FILE *fp) {
@@ -243,29 +271,41 @@ bool SharedMemory::PrepareMapFile(FILE *fp) {
   return true;
 }
 
-bool SharedMemory::Map(uint32 bytes) {
-  if (mapped_file_ == -1)
+// For the given shmem named |mem_name|, return a filename to mmap()
+// (and possibly create).  Modifies |filename|.  Return false on
+// error, or true of we are happy.
+bool SharedMemory::FilePathForMemoryName(const std::string& mem_name,
+                                         FilePath* path) {
+  // mem_name will be used for a filename; make sure it doesn't
+  // contain anything which will confuse us.
+  DCHECK(mem_name.find('/') == std::string::npos);
+  DCHECK(mem_name.find('\0') == std::string::npos);
+
+  FilePath temp_dir;
+  if (!file_util::GetShmemTempDir(&temp_dir))
     return false;
 
-  memory_ = mmap(NULL, bytes, PROT_READ | (read_only_ ? 0 : PROT_WRITE),
-                 MAP_SHARED, mapped_file_, 0);
-
-  if (memory_)
-    mapped_size_ = bytes;
-
-  bool mmap_succeeded = (memory_ != (void*)-1);
-  DCHECK(mmap_succeeded) << "Call to mmap failed, errno=" << errno;
-  return mmap_succeeded;
+  *path = temp_dir.AppendASCII("com.google.chrome.shmem." + mem_name);
+  return true;
 }
 
-bool SharedMemory::Unmap() {
-  if (memory_ == NULL)
-    return false;
-
-  munmap(memory_, mapped_size_);
-  memory_ = NULL;
-  mapped_size_ = 0;
-  return true;
+void SharedMemory::LockOrUnlockCommon(int function) {
+  DCHECK(mapped_file_ >= 0);
+  while (lockf(mapped_file_, function, 0) < 0) {
+    if (errno == EINTR) {
+      continue;
+    } else if (errno == ENOLCK) {
+      // temporary kernel resource exaustion
+      base::PlatformThread::Sleep(500);
+      continue;
+    } else {
+      NOTREACHED() << "lockf() failed."
+                   << " function:" << function
+                   << " fd:" << mapped_file_
+                   << " errno:" << errno
+                   << " msg:" << safe_strerror(errno);
+    }
+  }
 }
 
 bool SharedMemory::ShareToProcessCommon(ProcessHandle process,
@@ -280,47 +320,6 @@ bool SharedMemory::ShareToProcessCommon(ProcessHandle process,
     Close();
 
   return true;
-}
-
-
-void SharedMemory::Close() {
-  Unmap();
-
-  if (mapped_file_ > 0) {
-    close(mapped_file_);
-    mapped_file_ = -1;
-  }
-}
-
-void SharedMemory::LockOrUnlockCommon(int function) {
-  DCHECK(mapped_file_ >= 0);
-  while (lockf(mapped_file_, function, 0) < 0) {
-    if (errno == EINTR) {
-      continue;
-    } else if (errno == ENOLCK) {
-      // temporary kernel resource exaustion
-      PlatformThread::Sleep(500);
-      continue;
-    } else {
-      NOTREACHED() << "lockf() failed."
-                   << " function:" << function
-                   << " fd:" << mapped_file_
-                   << " errno:" << errno
-                   << " msg:" << safe_strerror(errno);
-    }
-  }
-}
-
-void SharedMemory::Lock() {
-  LockOrUnlockCommon(F_LOCK);
-}
-
-void SharedMemory::Unlock() {
-  LockOrUnlockCommon(F_ULOCK);
-}
-
-SharedMemoryHandle SharedMemory::handle() const {
-  return FileDescriptor(mapped_file_, false);
 }
 
 }  // namespace base

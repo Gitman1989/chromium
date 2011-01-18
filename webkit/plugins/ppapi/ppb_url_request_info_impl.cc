@@ -9,12 +9,12 @@
 #include "googleurl/src/gurl.h"
 #include "net/http/http_util.h"
 #include "ppapi/c/pp_var.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebData.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDocument.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebHTTPBody.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURL.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLRequest.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebData.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebHTTPBody.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURL.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLRequest.h"
 #include "webkit/plugins/ppapi/common.h"
 #include "webkit/plugins/ppapi/plugin_module.h"
 #include "webkit/plugins/ppapi/ppb_file_ref_impl.h"
@@ -81,12 +81,12 @@ bool AreValidHeaders(const std::string& headers) {
   return true;
 }
 
-PP_Resource Create(PP_Module module_id) {
-  PluginModule* module = ResourceTracker::Get()->GetModule(module_id);
-  if (!module)
+PP_Resource Create(PP_Instance instance_id) {
+  PluginInstance* instance = ResourceTracker::Get()->GetInstance(instance_id);
+  if (!instance)
     return 0;
 
-  PPB_URLRequestInfo_Impl* request = new PPB_URLRequestInfo_Impl(module);
+  PPB_URLRequestInfo_Impl* request = new PPB_URLRequestInfo_Impl(instance);
 
   return request->GetReference();
 }
@@ -187,8 +187,8 @@ struct PPB_URLRequestInfo_Impl::BodyItem {
   PP_Time expected_last_modified_time;
 };
 
-PPB_URLRequestInfo_Impl::PPB_URLRequestInfo_Impl(PluginModule* module)
-    : Resource(module),
+PPB_URLRequestInfo_Impl::PPB_URLRequestInfo_Impl(PluginInstance* instance)
+    : Resource(instance),
       stream_to_file_(false),
       follow_redirects_(true),
       record_download_progress_(false),

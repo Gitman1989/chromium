@@ -568,10 +568,6 @@ bool IsValidLocaleSyntax(const std::string& locale) {
   return true;
 }
 
-std::wstring GetString(int message_id) {
-  return UTF16ToWide(GetStringUTF16(message_id));
-}
-
 std::string GetStringUTF8(int message_id) {
   return UTF16ToUTF8(GetStringUTF16(message_id));
 }
@@ -627,36 +623,6 @@ static string16 GetStringF(int message_id,
 
   return formatted;
 }
-
-#if !defined(WCHAR_T_IS_UTF16)
-std::wstring GetStringF(int message_id, const std::wstring& a) {
-  return UTF16ToWide(GetStringFUTF16(message_id, WideToUTF16(a)));
-}
-
-std::wstring GetStringF(int message_id,
-                        const std::wstring& a,
-                        const std::wstring& b) {
-  return UTF16ToWide(GetStringFUTF16(message_id, WideToUTF16(a),
-                                     WideToUTF16(b)));
-}
-
-std::wstring GetStringF(int message_id,
-                        const std::wstring& a,
-                        const std::wstring& b,
-                        const std::wstring& c) {
-  return UTF16ToWide(GetStringFUTF16(message_id, WideToUTF16(a),
-                                     WideToUTF16(b), WideToUTF16(c)));
-}
-
-std::wstring GetStringF(int message_id,
-                        const std::wstring& a,
-                        const std::wstring& b,
-                        const std::wstring& c,
-                        const std::wstring& d) {
-  return UTF16ToWide(GetStringFUTF16(message_id, WideToUTF16(a), WideToUTF16(b),
-                                     WideToUTF16(c), WideToUTF16(d)));
-}
-#endif
 
 std::string GetStringFUTF8(int message_id,
                            const string16& a) {
@@ -721,27 +687,6 @@ string16 GetStringFUTF16(int message_id,
   return GetStringF(message_id, replacements, NULL);
 }
 
-std::wstring GetStringF(int message_id, const std::wstring& a, size_t* offset) {
-  DCHECK(offset);
-  std::vector<size_t> offsets;
-  std::vector<string16> replacements;
-  replacements.push_back(WideToUTF16(a));
-  string16 result = GetStringF(message_id, replacements, &offsets);
-  DCHECK(offsets.size() == 1);
-  *offset = offsets[0];
-  return UTF16ToWide(result);
-}
-
-std::wstring GetStringF(int message_id,
-                        const std::wstring& a,
-                        const std::wstring& b,
-                        std::vector<size_t>* offsets) {
-  std::vector<string16> replacements;
-  replacements.push_back(WideToUTF16(a));
-  replacements.push_back(WideToUTF16(b));
-  return UTF16ToWide(GetStringF(message_id, replacements, offsets));
-}
-
 string16 GetStringFUTF16(int message_id, const string16& a, size_t* offset) {
   DCHECK(offset);
   std::vector<size_t> offsets;
@@ -763,12 +708,12 @@ string16 GetStringFUTF16(int message_id,
   return GetStringF(message_id, replacements, offsets);
 }
 
-std::wstring GetStringF(int message_id, int a) {
-  return GetStringF(message_id, UTF8ToWide(base::IntToString(a)));
+string16 GetStringFUTF16Int(int message_id, int a) {
+  return GetStringFUTF16(message_id, UTF8ToUTF16(base::IntToString(a)));
 }
 
-std::wstring GetStringF(int message_id, int64 a) {
-  return GetStringF(message_id, UTF8ToWide(base::Int64ToString(a)));
+string16 GetStringFUTF16Int(int message_id, int64 a) {
+  return GetStringFUTF16(message_id, UTF8ToUTF16(base::Int64ToString(a)));
 }
 
 string16 TruncateString(const string16& string, size_t length) {
@@ -867,38 +812,6 @@ UCollationResult CompareString16WithCollator(const icu::Collator* collator,
   return result;
 }
 
-// Compares the character data stored in two different std:wstring strings by
-// specified Collator instance.
-UCollationResult CompareStringWithCollator(const icu::Collator* collator,
-                                           const std::wstring& lhs,
-                                           const std::wstring& rhs) {
-  DCHECK(collator);
-  UCollationResult result;
-#if defined(WCHAR_T_IS_UTF32)
-  // Need to convert to UTF-16 to be compatible with UnicodeString's
-  // constructor.
-  string16 lhs_utf16 = WideToUTF16(lhs);
-  string16 rhs_utf16 = WideToUTF16(rhs);
-
-  result = CompareString16WithCollator(collator, lhs_utf16, rhs_utf16);
-#else
-  result = CompareString16WithCollator(collator, lhs, rhs);
-#endif
-  return result;
-}
-
-// Specialization of operator() method for std::wstring version.
-template <>
-bool StringComparator<std::wstring>::operator()(const std::wstring& lhs,
-                                                const std::wstring& rhs) {
-  // If we can not get collator instance for specified locale, just do simple
-  // string compare.
-  if (!collator_)
-    return lhs < rhs;
-  return CompareStringWithCollator(collator_, lhs, rhs) == UCOL_LESS;
-};
-
-#if !defined(WCHAR_T_IS_UTF16)
 // Specialization of operator() method for string16 version.
 template <>
 bool StringComparator<string16>::operator()(const string16& lhs,
@@ -909,12 +822,6 @@ bool StringComparator<string16>::operator()(const string16& lhs,
     return lhs < rhs;
   return CompareString16WithCollator(collator_, lhs, rhs) == UCOL_LESS;
 };
-#endif  // !defined(WCHAR_T_IS_UTF16)
-
-void SortStrings(const std::string& locale,
-                 std::vector<std::wstring>* strings) {
-  SortVectorWithStringKey(locale, strings, false);
-}
 
 void SortStrings16(const std::string& locale,
                    std::vector<string16>* strings) {

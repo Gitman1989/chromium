@@ -2,9 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/common/pref_names.h"
 #include "chrome/test/live_sync/live_preferences_sync_test.h"
 
-IN_PROC_BROWSER_TEST_F(ManyClientLivePreferencesSyncTest, Sanity) {
+// TODO(rsimha): Enable once http://crbug.com/69604 is fixed.
+IN_PROC_BROWSER_TEST_F(ManyClientLivePreferencesSyncTest, DISABLED_Sanity) {
   ASSERT_TRUE(SetupSync()) << "SetupSync() failed.";
 
   bool new_value = !GetVerifierPrefs()->GetBoolean(
@@ -12,7 +14,7 @@ IN_PROC_BROWSER_TEST_F(ManyClientLivePreferencesSyncTest, Sanity) {
   GetVerifierPrefs()->SetBoolean(prefs::kHomePageIsNewTabPage, new_value);
   GetPrefs(0)->SetBoolean(prefs::kHomePageIsNewTabPage, new_value);
 
-  GetClient(0)->AwaitGroupSyncCycleCompletion(clients());
+  ASSERT_TRUE(GetClient(0)->AwaitGroupSyncCycleCompletion(clients()));
 
   for (int i = 0; i < num_clients(); ++i) {
     ASSERT_EQ(GetVerifierPrefs()->GetBoolean(prefs::kHomePageIsNewTabPage),

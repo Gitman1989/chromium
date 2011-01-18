@@ -6,10 +6,7 @@
 
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
-#if defined(OS_WIN)
-#include "app/win_util.h"
-#include "base/win_util.h"
-#endif
+#include "base/utf_string_conversions.h"
 #include "gfx/canvas.h"
 #include "gfx/font.h"
 #include "gfx/path.h"
@@ -17,10 +14,15 @@
 #include "grit/app_strings.h"
 #include "views/window/client_view.h"
 #include "views/window/window_shape.h"
+#include "views/window/window_delegate.h"
+
 #if defined(OS_LINUX)
 #include "views/window/hit_test.h"
 #endif
-#include "views/window/window_delegate.h"
+
+#if defined(OS_WIN)
+#include "app/win/win_util.h"
+#endif
 
 namespace views {
 
@@ -75,13 +77,14 @@ CustomFrameView::CustomFrameView(Window* frame)
 
   ResourceBundle& rb = ResourceBundle::GetSharedInstance();
 
-  close_button_->SetAccessibleName(l10n_util::GetString(IDS_APP_ACCNAME_CLOSE));
+  close_button_->SetAccessibleName(
+      l10n_util::GetStringUTF16(IDS_APP_ACCNAME_CLOSE));
 
   // Close button images will be set in LayoutWindowControls().
   AddChildView(close_button_);
 
   restore_button_->SetAccessibleName(
-      l10n_util::GetString(IDS_APP_ACCNAME_RESTORE));
+      l10n_util::GetStringUTF16(IDS_APP_ACCNAME_RESTORE));
   restore_button_->SetImage(CustomButton::BS_NORMAL,
                             rb.GetBitmapNamed(IDR_RESTORE));
   restore_button_->SetImage(CustomButton::BS_HOT,
@@ -91,7 +94,7 @@ CustomFrameView::CustomFrameView(Window* frame)
   AddChildView(restore_button_);
 
   maximize_button_->SetAccessibleName(
-    l10n_util::GetString(IDS_APP_ACCNAME_MAXIMIZE));
+      l10n_util::GetStringUTF16(IDS_APP_ACCNAME_MAXIMIZE));
   maximize_button_->SetImage(CustomButton::BS_NORMAL,
                              rb.GetBitmapNamed(IDR_MAXIMIZE));
   maximize_button_->SetImage(CustomButton::BS_HOT,
@@ -101,7 +104,7 @@ CustomFrameView::CustomFrameView(Window* frame)
   AddChildView(maximize_button_);
 
   minimize_button_->SetAccessibleName(
-      l10n_util::GetString(IDS_APP_ACCNAME_MINIMIZE));
+      l10n_util::GetStringUTF16(IDS_APP_ACCNAME_MINIMIZE));
   minimize_button_->SetImage(CustomButton::BS_NORMAL,
                              rb.GetBitmapNamed(IDR_MINIMIZE));
   minimize_button_->SetImage(CustomButton::BS_HOT,
@@ -410,9 +413,10 @@ void CustomFrameView::PaintTitleBar(gfx::Canvas* canvas) {
   if (!d)
     return;
 
-  canvas->DrawStringInt(d->GetWindowTitle(), *title_font_, SK_ColorWHITE,
-      MirroredLeftPointForRect(title_bounds_), title_bounds_.y(),
-      title_bounds_.width(), title_bounds_.height());
+  canvas->DrawStringInt(WideToUTF16Hack(d->GetWindowTitle()), *title_font_,
+                        SK_ColorWHITE, MirroredLeftPointForRect(title_bounds_),
+                        title_bounds_.y(), title_bounds_.width(),
+                        title_bounds_.height());
 }
 
 void CustomFrameView::PaintRestoredClientEdge(gfx::Canvas* canvas) {
@@ -567,7 +571,7 @@ void CustomFrameView::InitClass() {
   static bool initialized = false;
   if (!initialized) {
 #if defined(OS_WIN)
-    title_font_ = new gfx::Font(win_util::GetWindowTitleFont());
+    title_font_ = new gfx::Font(app::win::GetWindowTitleFont());
 #elif defined(OS_LINUX)
     // TODO(ben): need to resolve what font this is.
     title_font_ = new gfx::Font();

@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "ppapi/c/pp_instance.h"
-#include "ppapi/c/pp_module.h"
 #include "ppapi/proxy/interface_proxy.h"
 
 struct PPB_Var_Deprecated;
@@ -37,7 +36,7 @@ class PPB_Var_Deprecated_Proxy : public InterfaceProxy {
   // InterfaceProxy implementation.
   virtual const void* GetSourceInterface() const;
   virtual InterfaceID GetInterfaceId() const;
-  virtual void OnMessageReceived(const IPC::Message& msg);
+  virtual bool OnMessageReceived(const IPC::Message& msg);
 
  private:
   // Message handlers.
@@ -84,7 +83,7 @@ class PPB_Var_Deprecated_Proxy : public InterfaceProxy {
                                    int64 ppp_class,
                                    int64* ppp_class_data,
                                    PP_Bool* result);
-  void OnMsgCreateObjectDeprecated(PP_Module module_id,
+  void OnMsgCreateObjectDeprecated(PP_Instance instance,
                                    int64 ppp_class,
                                    int64 ppp_class_data,
                                    SerializedVarReturnValue result);

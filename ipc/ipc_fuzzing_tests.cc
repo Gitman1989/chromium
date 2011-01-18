@@ -7,8 +7,8 @@
 #include <sstream>
 
 #include "base/message_loop.h"
-#include "base/platform_thread.h"
 #include "base/process_util.h"
+#include "base/threading/platform_thread.h"
 #include "ipc/ipc_channel.h"
 #include "ipc/ipc_channel_proxy.h"
 #include "ipc/ipc_message_utils.h"
@@ -158,7 +158,7 @@ class FuzzerServerListener : public SimpleListener {
  public:
   FuzzerServerListener() : message_count_(2), pending_messages_(0) {
   }
-  virtual void OnMessageReceived(const IPC::Message& msg) {
+  virtual bool OnMessageReceived(const IPC::Message& msg) {
     if (msg.routing_id() == MSG_ROUTING_CONTROL) {
       ++pending_messages_;
       IPC_BEGIN_MESSAGE_MAP(FuzzerServerListener, msg)
@@ -170,6 +170,7 @@ class FuzzerServerListener : public SimpleListener {
         ReplyMsgNotHandled(msg.type());
       }
     }
+    return true;
   }
 
  private:
@@ -221,9 +222,10 @@ class FuzzerClientListener : public SimpleListener {
   FuzzerClientListener() : last_msg_(NULL) {
   }
 
-  virtual void OnMessageReceived(const IPC::Message& msg) {
+  virtual bool OnMessageReceived(const IPC::Message& msg) {
     last_msg_ = new IPC::Message(msg);
     MessageLoop::current()->Quit();
+    return true;
   }
 
   bool ExpectMessage(int value, uint32 type_id) {
@@ -286,7 +288,7 @@ TEST_F(IPCFuzzingTest, SanityTest) {
                     &listener);
   base::ProcessHandle server_process = SpawnChild(FUZZER_SERVER, &chan);
   ASSERT_TRUE(server_process);
-  PlatformThread::Sleep(1000);
+  base::PlatformThread::Sleep(1000);
   ASSERT_TRUE(chan.Connect());
   listener.Init(&chan);
 
@@ -316,7 +318,7 @@ TEST_F(IPCFuzzingTest, MsgBadPayloadShort) {
                     &listener);
   base::ProcessHandle server_process = SpawnChild(FUZZER_SERVER, &chan);
   ASSERT_TRUE(server_process);
-  PlatformThread::Sleep(1000);
+  base::PlatformThread::Sleep(1000);
   ASSERT_TRUE(chan.Connect());
   listener.Init(&chan);
 
@@ -346,7 +348,7 @@ TEST_F(IPCFuzzingTest, MsgBadPayloadArgs) {
                     &listener);
   base::ProcessHandle server_process = SpawnChild(FUZZER_SERVER, &chan);
   ASSERT_TRUE(server_process);
-  PlatformThread::Sleep(1000);
+  base::PlatformThread::Sleep(1000);
   ASSERT_TRUE(chan.Connect());
   listener.Init(&chan);
 

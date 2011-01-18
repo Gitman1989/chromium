@@ -15,6 +15,7 @@
 #include "base/string16.h"
 #include "base/time.h"
 #include "base/timer.h"
+#include "chrome/browser/browser_signin.h"
 #include "chrome/browser/prefs/pref_member.h"
 #include "chrome/browser/sync/engine/syncapi.h"
 #include "chrome/browser/sync/glue/data_type_controller.h"
@@ -37,6 +38,7 @@ class NotificationSource;
 class NotificationType;
 class Profile;
 class ProfileSyncFactory;
+class TabContents;
 class TokenMigrator;
 
 // ProfileSyncService is the layer between browser subsystems like bookmarks,
@@ -83,6 +85,7 @@ class TokenMigrator;
 //
 class ProfileSyncService : public browser_sync::SyncFrontend,
                            public browser_sync::UnrecoverableErrorHandler,
+                           public BrowserSignin::SigninDelegate,
                            public NotificationObserver {
  public:
   typedef ProfileSyncServiceObserver Observer;
@@ -223,6 +226,9 @@ class ProfileSyncService : public browser_sync::SyncFrontend,
   }
   virtual void ShowLoginDialog(gfx::NativeWindow parent_window);
   void ShowConfigure(gfx::NativeWindow parent_window);
+  void PromptForExistingPassphrase(gfx::NativeWindow parent_window);
+  void SigninForPassphrase(TabContents* container);
+  void ShowPassphraseMigration(gfx::NativeWindow parent_window);
 
   // Pretty-printed strings for a given StatusSummary.
   static std::string BuildSyncStatusSummaryText(
@@ -230,6 +236,10 @@ class ProfileSyncService : public browser_sync::SyncFrontend,
 
   // Returns true if the SyncBackendHost has told us it's ready to accept
   // changes.
+  // [REMARK] - it is safe to call this function only from the ui thread.
+  // because the variable is not thread safe and should only be accessed from
+  // single thread. If we want multiple threads to access this(and there is
+  // currently no need to do so) we need to protect this with a lock.
   // TODO(timsteele): What happens if the bookmark model is loaded, a change
   // takes place, and the backend isn't initialized yet?
   bool sync_initialized() const { return backend_initialized_; }
@@ -244,6 +254,14 @@ class ProfileSyncService : public browser_sync::SyncFrontend,
 
   bool UIShouldDepictAuthInProgress() const {
     return is_auth_in_progress_;
+  }
+
+  bool tried_creating_explicit_passphrase() const {
+    return tried_creating_explicit_passphrase_;
+  }
+
+  bool tried_setting_explicit_passphrase() const {
+    return tried_setting_explicit_passphrase_;
   }
 
   bool observed_passphrase_required() const {
@@ -315,6 +333,10 @@ class ProfileSyncService : public browser_sync::SyncFrontend,
                        const NotificationSource& source,
                        const NotificationDetails& details);
 
+  // BrowserSignin::SigninDelegate interface.
+  virtual void OnLoginSuccess();
+  virtual void OnLoginFailure(const GoogleServiceAuthError& error);
+
   // Changes which data types we're going to be syncing to |preferred_types|.
   // If it is running, the DataTypeManager will be instructed to reconfigure
   // the sync backend so that exactly these datatypes are actively synced.  See
@@ -350,7 +372,12 @@ class ProfileSyncService : public browser_sync::SyncFrontend,
   // setting a passphrase as opposed to implicitly (from the users' perspective)
   // using their Google Account password.  An implicit SetPassphrase will *not*
   // *not* override an explicit passphrase set previously.
-  virtual void SetPassphrase(const std::string& passphrase, bool is_explicit);
+  // |is_creation| is true if the call is in response to the user setting
+  // up a new passphrase, and false if it's being set in response to a prompt
+  // for an existing passphrase.
+  virtual void SetPassphrase(const std::string& passphrase,
+                             bool is_explicit,
+                             bool is_creation);
 
   // Returns whether processing changes is allowed.  Check this before doing
   // any model-modifying operations.
@@ -402,6 +429,14 @@ class ProfileSyncService : public browser_sync::SyncFrontend,
 
   // Cache of the last name the client attempted to authenticate.
   std::string last_attempted_user_email_;
+
+  // Whether the user has tried creating an explicit passphrase on this
+  // machine.
+  bool tried_creating_explicit_passphrase_;
+
+  // Whether the user has tried setting an explicit passphrase on this
+  // machine.
+  bool tried_setting_explicit_passphrase_;
 
   // Whether we have seen a SYNC_PASSPHRASE_REQUIRED since initializing the
   // backend, telling us that it is safe to send a passphrase down ASAP.
@@ -513,7 +548,8 @@ class ProfileSyncService : public browser_sync::SyncFrontend,
   struct CachedPassphrase {
     std::string value;
     bool is_explicit;
-    CachedPassphrase() : is_explicit(false) {}
+    bool is_creation;
+    CachedPassphrase() : is_explicit(false), is_creation(false) {}
   };
   CachedPassphrase cached_passphrase_;
 

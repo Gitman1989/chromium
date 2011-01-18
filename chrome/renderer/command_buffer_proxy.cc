@@ -34,14 +34,17 @@ CommandBufferProxy::~CommandBufferProxy() {
   }
 }
 
-void CommandBufferProxy::OnMessageReceived(const IPC::Message& message) {
+bool CommandBufferProxy::OnMessageReceived(const IPC::Message& message) {
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(CommandBufferProxy, message)
     IPC_MESSAGE_HANDLER(GpuCommandBufferMsg_UpdateState, OnUpdateState);
     IPC_MESSAGE_HANDLER(GpuCommandBufferMsg_SwapBuffers, OnSwapBuffers);
     IPC_MESSAGE_HANDLER(GpuCommandBufferMsg_NotifyRepaint,
                         OnNotifyRepaint);
-    IPC_MESSAGE_UNHANDLED_ERROR()
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
+  DCHECK(handled);
+  return handled;
 }
 
 void CommandBufferProxy::OnChannelError() {
@@ -91,7 +94,11 @@ gpu::CommandBuffer::State CommandBufferProxy::GetState() {
   return last_state_;
 }
 
-gpu::CommandBuffer::State CommandBufferProxy::Flush(int32 put_offset) {
+void CommandBufferProxy::Flush(int32 put_offset) {
+  AsyncFlush(put_offset, NULL);
+}
+
+gpu::CommandBuffer::State CommandBufferProxy::FlushSync(int32 put_offset) {
   // Send will flag state with lost context if IPC fails.
   if (last_state_.error == gpu::error::kNoError) {
     Send(new GpuCommandBufferMsg_Flush(route_id_,

@@ -13,11 +13,8 @@
 #include "base/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/cert_store.h"
-#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/ssl_manager.h"
-#include "chrome/common/chrome_switches.h"
-#include "chrome/common/pref_names.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "net/base/cert_status_flags.h"
@@ -26,7 +23,7 @@
 #include "net/base/x509_certificate.h"
 
 #if defined(OS_MACOSX)
-#include "base/mac_util.h"
+#include "base/mac/mac_util.h"
 #endif
 
 PageInfoModel::PageInfoModel(Profile* profile,
@@ -277,7 +274,7 @@ PageInfoModel::~PageInfoModel() {
   // Release the NSImages.
   for (std::vector<gfx::NativeImage>::iterator it = icons_.begin();
        it != icons_.end(); ++it) {
-    mac_util::NSObjectRelease(*it);
+    base::mac::NSObjectRelease(*it);
   }
 #endif
 }
@@ -355,7 +352,7 @@ gfx::NativeImage PageInfoModel::GetBitmapNamed(int resource_id) {
 #if defined(OS_MACOSX)
   // Unlike other platforms, the Mac ResourceBundle does not keep a shared image
   // cache. These are released in the dtor.
-  mac_util::NSObjectRetain(image);
+  base::mac::NSObjectRetain(image);
 #endif
   return image;
 }

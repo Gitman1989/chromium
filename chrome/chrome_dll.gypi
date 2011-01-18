@@ -111,6 +111,7 @@
                 # but that causes errors in other targets when
                 # resulting .res files get referenced multiple times.
                 '<(SHARED_INTERMEDIATE_DIR)/app/app_resources/app_resources.rc',
+                '<(SHARED_INTERMEDIATE_DIR)/chrome/autofill_resources.rc',
                 '<(SHARED_INTERMEDIATE_DIR)/chrome/browser_resources.rc',
                 '<(SHARED_INTERMEDIATE_DIR)/chrome/common_resources.rc',
                 '<(SHARED_INTERMEDIATE_DIR)/chrome/renderer_resources.rc',
@@ -326,6 +327,7 @@
                   'action_name': 'repack_chrome',
                   'variables': {
                     'pak_inputs': [
+                      '<(grit_out_dir)/autofill_resources.pak',
                       '<(grit_out_dir)/browser_resources.pak',
                       '<(grit_out_dir)/common_resources.pak',
                       '<(grit_out_dir)/default_plugin_resources/default_plugin_resources.pak',
@@ -385,9 +387,10 @@
                   'action_name': 'repack_resources',
                   'variables': {
                     'pak_inputs': [
-                      '<(grit_out_dir)/bookmark_manager_resources.pak',
+                      '<(grit_out_dir)/component_extension_resources.pak',
                       '<(grit_out_dir)/net_internals_resources.pak',
                       '<(grit_out_dir)/shared_resources.pak',
+                      '<(grit_out_dir)/sync_internals_resources.pak',
                     ],
                   },
                   'inputs': [
@@ -584,6 +587,7 @@
             # but that causes errors in other targets when
             # resulting .res files get referenced multiple times.
             '<(SHARED_INTERMEDIATE_DIR)/app/app_resources/app_resources.rc',
+            '<(SHARED_INTERMEDIATE_DIR)/chrome/autofill_resources.rc',
             '<(SHARED_INTERMEDIATE_DIR)/chrome/common_resources.rc',
 
             # TODO(sgk):  left-over from pre-gyp build, figure out
@@ -604,6 +608,13 @@
           'configurations': {
             'Common_Base': {
               'msvs_target_platform': 'x64',
+            },
+            'Debug_Base': {
+              'msvs_settings': {
+                'VCLinkerTool': {
+                  'LinkIncremental': '<(msvs_debug_link_nonincremental)',
+                },
+              },
             },
           },
         },  # target chrome_dll

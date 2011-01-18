@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -46,9 +46,16 @@ const char kURLsToRestoreOnStartup[] = "session.urls_to_restore_on_startup";
 // while user's profile determines his personal locale preference.
 const char kApplicationLocale[] = "intl.app_locale";
 #if defined(OS_CHROMEOS)
-// Non-syncable item.  Used for two-step initialization of locale in ChromeOS
+// Non-syncable item.  Used to detect locale change.
+// Used for two-step initialization of locale in ChromeOS
 // because synchronization of kApplicationLocale is not instant.
 const char kApplicationLocaleBackup[] = "intl.app_locale_backup";
+// Non-syncable item.
+// Used to locally override synchronized kApplicationLocale preference.
+const char kApplicationLocaleOverride[] = "intl.app_locale_override";
+// Locale accepted by user.  Non-syncable.
+// Used to determine whether we need to show Locale Change notification.
+const char kApplicationLocaleAccepted[] = "intl.app_locale_accepted";
 #endif
 
 // The default character encoding to assume for a web page in the
@@ -467,7 +474,6 @@ const char kDeleteCache[] = "browser.clear_data.cache";
 const char kDeleteCookies[] = "browser.clear_data.cookies";
 const char kDeletePasswords[] = "browser.clear_data.passwords";
 const char kDeleteFormData[] = "browser.clear_data.form_data";
-const char kDeleteLSOData[] = "browser.clear_data.lso_data";
 const char kDeleteTimePeriod[] = "browser.clear_data.time_period";
 
 // Whether there is a Flash version installed that supports clearing LSO data.
@@ -556,6 +562,10 @@ const char kDesktopNotificationAllowedOrigins[] =
 const char kDesktopNotificationDeniedOrigins[] =
     "profile.notification_denied_sites";
 
+// The preferred position (which corner of screen) for desktop notifications.
+const char kDesktopNotificationPosition[] =
+    "browser.desktop_notification_position";
+
 // Dictionary of content settings applied to all hosts by default.
 const char kDefaultContentSettings[] = "profile.default_content_settings";
 
@@ -582,11 +592,6 @@ const char kBlockNonsandboxedPlugins[] = "profile.block_nonsandboxed_plugins";
 // Boolean that is true when all locally stored site data (e.g. cookies, local
 // storage, etc..) should be deleted on exit.
 const char kClearSiteDataOnExit[] = "profile.clear_site_data_on_exit";
-
-// Boolean that is true when plug-in locally stored data ("Flash cookies")
-// should be deleted on exit.
-const char kClearPluginLSODataOnExit[] =
-    "profile.clear_plugin_lso_data_on_exit";
 
 // Double that indicates the default zoom level.
 const char kDefaultZoomLevel[] = "profile.default_zoom_level";
@@ -1135,11 +1140,10 @@ const char kCloudPrintPrintSystemSettings[] =
 // Used by the service process to determine if the remoting host is enabled.
 const char kRemotingHostEnabled[] = "remoting.host_enabled";
 
-// Boolean to disable proxy altogether. If true, other proxy
-// preferences are ignored.
-const char kNoProxyServer[] = "proxy.disabled";
-// Boolean specifying if proxy should be auto-detected.
-const char kProxyAutoDetect[] = "proxy.auto_detect";
+// Integer to specify the type of proxy settings.
+// See ProxyPrefs for possible values and interactions with the other proxy
+// preferences.
+const char kProxyMode[] = "proxy.mode";
 // String specifying the proxy server. For a specification of the expected
 // syntax see net::ProxyConfig::ProxyRules::ParseFromString().
 const char kProxyServer[] = "proxy.server";

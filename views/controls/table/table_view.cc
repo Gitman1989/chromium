@@ -12,10 +12,9 @@
 #include "app/l10n_util.h"
 #include "app/l10n_util_win.h"
 #include "app/resource_bundle.h"
-#include "app/table_model.h"
+#include "app/win/hwnd_util.h"
 #include "base/i18n/rtl.h"
 #include "base/string_util.h"
-#include "base/win_util.h"
 #include "gfx/canvas_skia.h"
 #include "gfx/favicon_size.h"
 #include "gfx/font.h"
@@ -23,8 +22,11 @@
 #include "skia/ext/skia_utils_win.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColorFilter.h"
+#include "ui/base/models/table_model.h"
 #include "views/controls/native/native_view_host.h"
 #include "views/controls/table/table_view_observer.h"
+
+using ui::TableColumn;
 
 namespace {
 
@@ -835,14 +837,14 @@ HWND TableView::CreateNativeControl(HWND parent_container) {
     DCHECK(header);
     SetWindowLongPtr(header, GWLP_USERDATA,
         reinterpret_cast<LONG_PTR>(&table_view_wrapper_));
-    header_original_handler_ = win_util::SetWindowProc(header,
+    header_original_handler_ = app::win::SetWindowProc(header,
         &TableView::TableHeaderWndProc);
   }
 
   SetWindowLongPtr(list_view_, GWLP_USERDATA,
       reinterpret_cast<LONG_PTR>(&table_view_wrapper_));
   original_handler_ =
-      win_util::SetWindowProc(list_view_, &TableView::TableWndProc);
+      app::win::SetWindowProc(list_view_, &TableView::TableWndProc);
 
   // Bug 964884: detach the IME attached to this window.
   // We should attach IMEs only when we need to input CJK strings.
@@ -1503,7 +1505,7 @@ void TableView::OnSelectedStateChanged() {
   }
 }
 
-bool TableView::OnKeyDown(app::KeyboardCode virtual_keycode) {
+bool TableView::OnKeyDown(ui::KeyboardCode virtual_keycode) {
   if (!ignore_listview_change_ && table_view_observer_) {
     table_view_observer_->OnKeyDown(virtual_keycode);
   }

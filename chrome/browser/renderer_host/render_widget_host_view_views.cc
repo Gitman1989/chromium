@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <string>
 
-#include "app/keyboard_code_conversion_gtk.h"
 #include "app/l10n_util.h"
 #include "app/x11_util.h"
 #include "base/command_line.h"
@@ -19,13 +18,13 @@
 #include "base/time.h"
 #include "chrome/browser/renderer_host/backing_store_x.h"
 #include "chrome/browser/renderer_host/render_widget_host.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/native_web_keyboard_event.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/common/result_codes.h"
 #include "gfx/canvas.h"
-#include "third_party/WebKit/WebKit/chromium/public/gtk/WebInputEventFactory.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebInputEvent.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/gtk/WebInputEventFactory.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
+#include "ui/base/keycodes/keyboard_code_conversion_gtk.h"
 #include "views/event.h"
 #include "views/widget/widget.h"
 #include "views/widget/widget_gtk.h"
@@ -125,8 +124,7 @@ RenderWidgetHostViewViews::RenderWidgetHostViewViews(RenderWidgetHost* host)
       native_cursor_(NULL),
       is_showing_context_menu_(false),
       visually_deemphasized_(false),
-      touch_event_()
-    {
+      touch_event_() {
   SetFocusable(true);
   host_->set_view(this);
 }
@@ -324,12 +322,15 @@ bool RenderWidgetHostViewViews::IsPopup() {
 
 BackingStore* RenderWidgetHostViewViews::AllocBackingStore(
     const gfx::Size& size) {
+  gfx::NativeView nview = GetInnerNativeView();
+  if (!nview)
+    return NULL;
   return new BackingStoreX(host_, size,
-                           x11_util::GetVisualFromGtkWidget(native_view()),
-                           gtk_widget_get_visual(native_view())->depth);
+                           x11_util::GetVisualFromGtkWidget(nview),
+                           gtk_widget_get_visual(nview)->depth);
 }
 
-gfx::NativeView RenderWidgetHostViewViews::native_view() const {
+gfx::NativeView RenderWidgetHostViewViews::GetInnerNativeView() const {
   // TODO(sad): Ideally this function should be equivalent to GetNativeView, and
   // WidgetGtk-specific function call should not be necessary.
   views::WidgetGtk* widget = static_cast<views::WidgetGtk*>(GetWidget());
@@ -365,7 +366,7 @@ void RenderWidgetHostViewViews::Paint(gfx::Canvas* canvas) {
     return;
   }
 
-  GdkWindow* window = native_view()->window;
+  GdkWindow* window = GetInnerNativeView()->window;
   DCHECK(!about_to_validate_and_paint_);
 
   // TODO(anicolao): get the damage somehow
@@ -504,15 +505,28 @@ bool RenderWidgetHostViewViews::OnMouseWheel(const views::MouseWheelEvent& e) {
 bool RenderWidgetHostViewViews::OnKeyPressed(const views::KeyEvent &e) {
   // Send key event to input method.
   // TODO host_view->im_context_->ProcessKeyEvent(event);
-  NativeWebKeyboardEvent wke;
 
-  wke.type = WebKit::WebInputEvent::KeyDown;
+  // This is how it works:
+  // (1) If a RawKeyDown event is an accelerator for a reserved command (see
+  //     Browser::IsReservedCommand), then the command is executed. Otherwise,
+  //     the event is first sent off to the renderer. The renderer is also
+  //     notified whether the event would trigger an accelerator in the browser.
+  // (2) A Char event is then sent to the renderer.
+  // (3) If the renderer does not process the event in step (1), and the event
+  //     triggers an accelerator, then it will ignore the event in step (2). The
+  //     renderer also sends back notification to the browser for both steps (1)
+  //     and (2) about whether the events were processed or not. If the event
+  //     for (1) is not processed by the renderer, then it is processed by the
+  //     browser, and (2) is ignored.
+
+  NativeWebKeyboardEvent wke;
+  wke.type = WebKit::WebInputEvent::RawKeyDown;
   wke.windowsKeyCode = e.GetKeyCode();
   wke.setKeyIdentifierFromWindowsKeyCode();
 
   wke.text[0] = wke.unmodifiedText[0] =
     static_cast<unsigned short>(gdk_keyval_to_unicode(
-          app::GdkKeyCodeForWindowsKeyCode(e.GetKeyCode(),
+          ui::GdkKeyCodeForWindowsKeyCode(e.GetKeyCode(),
               e.IsShiftDown() ^ e.IsCapsLockDown())));
 
   wke.modifiers = WebInputEventFlagsFromViewsEvent(e);
@@ -520,11 +534,7 @@ bool RenderWidgetHostViewViews::OnKeyPressed(const views::KeyEvent &e) {
 
   // send the keypress event
   wke.type = WebKit::WebInputEvent::Char;
-
-  // TODO(anicolao): fear this comment from GTK land
-  // We return TRUE because we did handle the event. If it turns out webkit
-  // can't handle the event, we'll deal with it in
-  // RenderView::UnhandledKeyboardEvent().
+  ForwardKeyboardEvent(wke);
 
   return TRUE;
 }
@@ -584,7 +594,7 @@ void RenderWidgetHostViewViews::WillLoseFocus() {
 void RenderWidgetHostViewViews::ShowCurrentCursor() {
   // The widget may not have a window. If that's the case, abort mission. This
   // is the same issue as that explained above in Paint().
-  if (!native_view() || !native_view()->window)
+  if (!GetInnerNativeView() || !GetInnerNativeView()->window)
     return;
 
   native_cursor_ = current_cursor_.GetNativeCursor();
@@ -711,6 +721,7 @@ bool RenderWidgetHostViewViews::OnTouchEvent(const views::TouchEvent& e) {
 
   // Update the type of the touch event.
   touch_event_.type = TouchEventTypeFromEvent(&e);
+  touch_event_.timeStampSeconds = base::Time::Now().ToDoubleT();
 
   // The event and all the touches have been updated. Dispatch.
   host_->ForwardTouchEvent(touch_event_);

@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -17,6 +17,7 @@
 #include "chrome/browser/child_process_security_policy.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/browser/file_system/file_system_dispatcher_host.h"
+#include "chrome/browser/metrics/user_metrics.h"
 #include "chrome/browser/mime_registry_message_filter.h"
 #include "chrome/browser/net/chrome_url_request_context.h"
 #include "chrome/browser/renderer_host/blob_message_filter.h"
@@ -43,23 +44,23 @@
 namespace {
 
 // Helper class that we pass to SocketStreamDispatcherHost so that it can find
-// the right URLRequestContext for a request.
+// the right net::URLRequestContext for a request.
 class URLRequestContextOverride
     : public ResourceMessageFilter::URLRequestContextOverride {
  public:
   explicit URLRequestContextOverride(
-      URLRequestContext* url_request_context)
+      net::URLRequestContext* url_request_context)
       : url_request_context_(url_request_context) {
   }
   virtual ~URLRequestContextOverride() {}
 
-  virtual URLRequestContext* GetRequestContext(
+  virtual net::URLRequestContext* GetRequestContext(
       uint32 request_id, ResourceType::Type resource_type) {
     return url_request_context_;
   }
 
  private:
-  URLRequestContext* url_request_context_;
+  net::URLRequestContext* url_request_context_;
 };
 
 }  // namespace
@@ -275,7 +276,7 @@ bool WorkerProcessHost::FilterMessage(const IPC::Message& message,
 void WorkerProcessHost::OnProcessLaunched() {
 }
 
-void WorkerProcessHost::OnMessageReceived(const IPC::Message& message) {
+bool WorkerProcessHost::OnMessageReceived(const IPC::Message& message) {
   bool msg_is_ok = true;
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP_EX(WorkerProcessHost, message, msg_is_ok)
@@ -287,11 +288,12 @@ void WorkerProcessHost::OnMessageReceived(const IPC::Message& message) {
 
   if (!msg_is_ok) {
     NOTREACHED();
+    UserMetrics::RecordAction(UserMetricsAction("BadMessageTerminate_WPH"));
     base::KillProcess(handle(), ResultCodes::KILLED_BAD_MESSAGE, false);
   }
 
   if (handled)
-    return;
+    return true;
 
   for (Instances::iterator i = instances_.begin(); i != instances_.end(); ++i) {
     if (i->worker_route_id() == message.routing_id()) {
@@ -306,9 +308,10 @@ void WorkerProcessHost::OnMessageReceived(const IPC::Message& message) {
         instances_.erase(i);
         UpdateTitle();
       }
-      break;
+      return true;
     }
   }
+  return false;
 }
 
 // Sent to notify the browser process when a worker context invokes close(), so

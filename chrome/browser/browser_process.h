@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -23,7 +23,6 @@ namespace safe_browsing {
 class ClientSideDetectionService;
 }
 
-class Clipboard;
 class DevToolsManager;
 class DownloadRequestLimiter;
 class DownloadStatusUpdater;
@@ -50,6 +49,14 @@ class PrintJobManager;
 class PrintPreviewTabController;
 }
 
+namespace policy {
+class ConfigurationPolicyProviderKeeper;
+}
+
+namespace ui {
+class Clipboard;
+}
+
 // NOT THREAD SAFE, call only from the main thread.
 // These functions shouldn't return NULL unless otherwise noted.
 class BrowserProcess {
@@ -71,7 +78,7 @@ class BrowserProcess {
   virtual PrefService* local_state() = 0;
   virtual DevToolsManager* devtools_manager() = 0;
   virtual SidebarManager* sidebar_manager() = 0;
-  virtual Clipboard* clipboard() = 0;
+  virtual ui::Clipboard* clipboard() = 0;
 
   // Returns the manager for desktop notifications.
   virtual NotificationUIManager* notification_ui_manager() = 0;
@@ -106,6 +113,9 @@ class BrowserProcess {
   // This method is only included for uniformity.
   virtual base::Thread* background_x11_thread() = 0;
 #endif
+
+  virtual policy::ConfigurationPolicyProviderKeeper*
+      configuration_policy_provider_keeper() = 0;
 
   virtual IconManager* icon_manager() = 0;
 

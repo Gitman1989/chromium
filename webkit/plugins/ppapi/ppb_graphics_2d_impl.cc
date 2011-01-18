@@ -14,18 +14,16 @@
 #include "gfx/rect.h"
 #include "skia/ext/platform_canvas.h"
 #include "ppapi/c/pp_errors.h"
-#include "ppapi/c/pp_module.h"
 #include "ppapi/c/pp_rect.h"
 #include "ppapi/c/pp_resource.h"
 #include "ppapi/c/ppb_graphics_2d.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "webkit/plugins/ppapi/common.h"
-#include "webkit/plugins/ppapi/plugin_module.h"
 #include "webkit/plugins/ppapi/ppapi_plugin_instance.h"
 #include "webkit/plugins/ppapi/ppb_image_data_impl.h"
 
 #if defined(OS_MACOSX)
-#include "base/mac_util.h"
+#include "base/mac/mac_util.h"
 #include "base/mac/scoped_cftyperef.h"
 #endif
 
@@ -112,14 +110,15 @@ void ConvertImageData(PPB_ImageData_Impl* src_image, const SkIRect& src_rect,
   }
 }
 
-PP_Resource Create(PP_Module module_id,
+PP_Resource Create(PP_Instance instance_id,
                    const PP_Size* size,
                    PP_Bool is_always_opaque) {
-  PluginModule* module = ResourceTracker::Get()->GetModule(module_id);
-  if (!module)
+  PluginInstance* instance = ResourceTracker::Get()->GetInstance(instance_id);
+  if (!instance)
     return 0;
 
-  scoped_refptr<PPB_Graphics2D_Impl> context(new PPB_Graphics2D_Impl(module));
+  scoped_refptr<PPB_Graphics2D_Impl> context(
+      new PPB_Graphics2D_Impl(instance));
   if (!context->Init(size->width, size->height, PPBoolToBool(is_always_opaque)))
     return 0;
   return context->GetReference();
@@ -216,8 +215,8 @@ struct PPB_Graphics2D_Impl::QueuedOperation {
   scoped_refptr<PPB_ImageData_Impl> replace_image;
 };
 
-PPB_Graphics2D_Impl::PPB_Graphics2D_Impl(PluginModule* module)
-    : Resource(module),
+PPB_Graphics2D_Impl::PPB_Graphics2D_Impl(PluginInstance* instance)
+    : Resource(instance),
       bound_instance_(NULL),
       flushed_any_data_(false),
       offscreen_flush_pending_(false),
@@ -234,7 +233,7 @@ const PPB_Graphics2D* PPB_Graphics2D_Impl::GetInterface() {
 
 bool PPB_Graphics2D_Impl::Init(int width, int height, bool is_always_opaque) {
   // The underlying PPB_ImageData_Impl will validate the dimensions.
-  image_data_ = new PPB_ImageData_Impl(module());
+  image_data_ = new PPB_ImageData_Impl(instance());
   if (!image_data_->Init(PPB_ImageData_Impl::GetNativeImageDataFormat(),
                          width, height, true) ||
       !image_data_->Map()) {
@@ -249,7 +248,8 @@ PPB_Graphics2D_Impl* PPB_Graphics2D_Impl::AsPPB_Graphics2D_Impl() {
   return this;
 }
 
-PP_Bool PPB_Graphics2D_Impl::Describe(PP_Size* size, PP_Bool* is_always_opaque) {
+PP_Bool PPB_Graphics2D_Impl::Describe(PP_Size* size,
+                                      PP_Bool* is_always_opaque) {
   size->width = image_data_->width();
   size->height = image_data_->height();
   *is_always_opaque = PP_FALSE;  // TODO(brettw) implement this.
@@ -480,6 +480,9 @@ bool PPB_Graphics2D_Impl::BindToInstance(PluginInstance* new_instance) {
   return true;
 }
 
+// The |backing_bitmap| must be clipped to the |plugin_rect| to avoid painting
+// outside the plugin area. This can happen if the plugin has been resized since
+// PaintImageData verified the image is within the plugin size.
 void PPB_Graphics2D_Impl::Paint(WebKit::WebCanvas* canvas,
                                 const gfx::Rect& plugin_rect,
                                 const gfx::Rect& paint_rect) {
@@ -497,7 +500,7 @@ void PPB_Graphics2D_Impl::Paint(WebKit::WebCanvas* canvas,
       CGImageCreate(
           backing_bitmap.width(), backing_bitmap.height(),
           8, 32, backing_bitmap.rowBytes(),
-          mac_util::GetSystemColorSpace(),
+          base::mac::GetSystemColorSpace(),
           kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host,
           data_provider, NULL, false, kCGRenderingIntentDefault));
 
@@ -507,17 +510,30 @@ void PPB_Graphics2D_Impl::Paint(WebKit::WebCanvas* canvas,
   CGContextTranslateCTM(canvas, 0, window_height);
   CGContextScaleCTM(canvas, 1.0, -1.0);
 
+  // To avoid painting outside the plugin boundaries and clip instead of
+  // scaling, CGContextDrawImage() must draw the full image using |bitmap_rect|
+  // but the context must be clipped to the plugin using |bounds|.
+
+  CGRect bitmap_rect;
+  bitmap_rect.origin.x = plugin_rect.origin().x();
+  bitmap_rect.origin.y = window_height - plugin_rect.origin().y() -
+      backing_bitmap.height();
+  bitmap_rect.size.width = backing_bitmap.width();
+  bitmap_rect.size.height = backing_bitmap.height();
+
   CGRect bounds;
   bounds.origin.x = plugin_rect.origin().x();
   bounds.origin.y = window_height - plugin_rect.origin().y() -
-      backing_bitmap.height();
-  bounds.size.width = backing_bitmap.width();
-  bounds.size.height = backing_bitmap.height();
+      plugin_rect.height();
+  bounds.size.width = plugin_rect.width();
+  bounds.size.height = plugin_rect.height();
+
+  CGContextClipToRect(canvas, bounds);
 
   // TODO(brettw) bug 56673: do a direct memcpy instead of going through CG
-  // if the is_always_opaque_ flag is set.
+  // if the is_always_opaque_ flag is set. Must ensure bitmap is still clipped.
 
-  CGContextDrawImage(canvas, bounds, image);
+  CGContextDrawImage(canvas, bitmap_rect, image);
   CGContextRestoreGState(canvas);
 #else
   SkPaint paint;
@@ -527,11 +543,17 @@ void PPB_Graphics2D_Impl::Paint(WebKit::WebCanvas* canvas,
     paint.setXfermodeMode(SkXfermode::kSrc_Mode);
   }
 
-  gfx::Point origin(plugin_rect.origin().x(), plugin_rect.origin().y());
+  canvas->save();
+  SkRect clip_rect = SkRect::MakeXYWH(SkIntToScalar(plugin_rect.origin().x()),
+                                      SkIntToScalar(plugin_rect.origin().y()),
+                                      SkIntToScalar(plugin_rect.width()),
+                                      SkIntToScalar(plugin_rect.height()));
+  canvas->clipRect(clip_rect);
   canvas->drawBitmap(backing_bitmap,
-                     SkIntToScalar(plugin_rect.origin().x()),
-                     SkIntToScalar(plugin_rect.origin().y()),
+                     SkIntToScalar(plugin_rect.x()),
+                     SkIntToScalar(plugin_rect.y()),
                      &paint);
+  canvas->restore();
 #endif
 }
 

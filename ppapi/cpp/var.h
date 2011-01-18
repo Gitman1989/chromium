@@ -8,9 +8,12 @@
 #include <string>
 #include <vector>
 
+#include "ppapi/c/pp_module.h"
 #include "ppapi/c/pp_var.h"
 
 namespace pp {
+
+class Instance;
 
 namespace deprecated {
 class ScriptableObject;
@@ -49,7 +52,7 @@ class Var {
   }
 
   // Takes ownership of the given pointer.
-  Var(deprecated::ScriptableObject* object);
+  Var(Instance* instance, deprecated::ScriptableObject* object);
 
   Var(const Var& other);
 

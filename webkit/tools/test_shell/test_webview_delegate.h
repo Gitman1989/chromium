@@ -17,19 +17,19 @@
 #include "base/scoped_ptr.h"
 #include "base/weak_ptr.h"
 #include "build/build_config.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebContextMenuData.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFileSystem.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrameClient.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebRect.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPopupType.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebViewClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebContextMenuData.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFileSystem.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrameClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebRect.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPopupType.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebViewClient.h"
 #include "webkit/glue/webcursor.h"
 #include "webkit/plugins/npapi/webplugin_page_delegate.h"
 #include "webkit/tools/test_shell/mock_spellcheck.h"
 #include "webkit/tools/test_shell/test_navigation_controller.h"
 
 #if defined(OS_MACOSX)
-#include "third_party/WebKit/WebKit/chromium/public/WebPopupMenuInfo.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPopupMenuInfo.h"
 #endif
 
 #if defined(OS_WIN)
@@ -81,6 +81,7 @@ class TestWebViewDelegate : public WebKit::WebViewClient,
   // WebKit::WebViewClient
   virtual WebKit::WebView* createView(
       WebKit::WebFrame* creator,
+      const WebKit::WebURLRequest& request,
       const WebKit::WebWindowFeatures& features,
       const WebKit::WebString& frame_name);
   virtual WebKit::WebWidget* createPopupMenu(WebKit::WebPopupType popup_type);
@@ -140,11 +141,7 @@ class TestWebViewDelegate : public WebKit::WebViewClient,
   virtual void focusAccessibilityObject(
       const WebKit::WebAccessibilityObject& object);
   virtual WebKit::WebNotificationPresenter* notificationPresenter();
-#if defined(ENABLE_CLIENT_BASED_GEOLOCATION)
-    WebKit::WebGeolocationClient* geolocationClient();
-#else
-  virtual WebKit::WebGeolocationService* geolocationService();
-#endif
+  virtual WebKit::WebGeolocationClient* geolocationClient();
   virtual WebKit::WebDeviceOrientationClient* deviceOrientationClient();
   virtual WebKit::WebSpeechInputController* speechInputController(
       WebKit::WebSpeechInputListener*);
@@ -229,7 +226,8 @@ class TestWebViewDelegate : public WebKit::WebViewClient,
       WebKit::WebFrame*, unsigned identifier, const WebKit::WebURLError&);
   virtual void didDisplayInsecureContent(WebKit::WebFrame* frame);
   virtual void didRunInsecureContent(
-      WebKit::WebFrame* frame, const WebKit::WebSecurityOrigin& origin);
+      WebKit::WebFrame* frame,
+      const WebKit::WebSecurityOrigin& origin) OVERRIDE;
   virtual bool allowScript(WebKit::WebFrame* frame, bool enabled_per_settings);
   virtual void openFileSystem(
       WebKit::WebFrame* frame,
@@ -326,10 +324,6 @@ class TestWebViewDelegate : public WebKit::WebViewClient,
     edit_command_value_.clear();
   }
 
-#if !defined(ENABLE_CLIENT_BASED_GEOLOCATION)
-  void SetGeolocationPermission(bool allowed);
-#endif
-
   void ClearContextMenuData();
 
   const WebKit::WebContextMenuData* last_context_menu_data() const {
@@ -383,11 +377,6 @@ class TestWebViewDelegate : public WebKit::WebViewClient,
 
   // Get a string suitable for dumping a frame to the console.
   std::wstring GetFrameDescription(WebKit::WebFrame* webframe);
-
-#if !defined(ENABLE_CLIENT_BASED_GEOLOCATION)
-  // Returns a TestGeolocationService owned by this delegate.
-  TestGeolocationService* GetTestGeolocationService();
-#endif
 
   // Causes navigation actions just printout the intended navigation instead
   // of taking you to the page. This is used for cases like mailto, where you
@@ -465,10 +454,6 @@ class TestWebViewDelegate : public WebKit::WebViewClient,
 
   // The mock spellchecker used in TestWebViewDelegate::spellCheck().
   MockSpellCheck mock_spellcheck_;
-
-#if !defined(ENABLE_CLIENT_BASED_GEOLOCATION)
-  scoped_ptr<TestGeolocationService> test_geolocation_service_;
-#endif
 
   DISALLOW_COPY_AND_ASSIGN(TestWebViewDelegate);
 };

@@ -1,8 +1,8 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/options/cookies_view.h"
+#include "chrome/browser/ui/views/options/cookies_view.h"
 
 #include <algorithm>
 
@@ -10,11 +10,11 @@
 #include "base/message_loop.h"
 #include "base/string_util.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/views/appcache_info_view.h"
-#include "chrome/browser/views/cookie_info_view.h"
-#include "chrome/browser/views/database_info_view.h"
-#include "chrome/browser/views/indexed_db_info_view.h"
-#include "chrome/browser/views/local_storage_info_view.h"
+#include "chrome/browser/ui/views/appcache_info_view.h"
+#include "chrome/browser/ui/views/cookie_info_view.h"
+#include "chrome/browser/ui/views/database_info_view.h"
+#include "chrome/browser/ui/views/indexed_db_info_view.h"
+#include "chrome/browser/ui/views/local_storage_info_view.h"
 #include "gfx/canvas.h"
 #include "gfx/color_utils.h"
 #include "grit/generated_resources.h"
@@ -55,7 +55,7 @@ CookiesTreeView::CookiesTreeView(CookiesTreeModel* cookies_model) {
 }
 
 void CookiesTreeView::RemoveSelectedItems() {
-  TreeModelNode* selected_node = GetSelectedNode();
+  ui::TreeModelNode* selected_node = GetSelectedNode();
   if (selected_node) {
     static_cast<CookiesTreeModel*>(model())->DeleteCookieNode(
         static_cast<CookieTreeNode*>(GetSelectedNode()));
@@ -108,8 +108,8 @@ CookiesView::~CookiesView() {
 ///////////////////////////////////////////////////////////////////////////////
 // CookiesView, TreeModelObserver overrides:
 
-void CookiesView::TreeNodesAdded(TreeModel* model,
-                                 TreeModelNode* parent,
+void CookiesView::TreeNodesAdded(ui::TreeModel* model,
+                                 ui::TreeModelNode* parent,
                                  int start,
                                  int count) {
   UpdateRemoveButtonsState();
@@ -144,11 +144,11 @@ void CookiesView::ContentsChanged(views::Textfield* sender,
           &CookiesView::UpdateSearchResults), kSearchFilterDelayMs);
 }
 
-bool CookiesView::HandleKeystroke(views::Textfield* sender,
-                                  const views::Textfield::Keystroke& key) {
-  if (key.GetKeyboardCode() == app::VKEY_ESCAPE) {
+bool CookiesView::HandleKeyEvent(views::Textfield* sender,
+                                 const views::KeyEvent& key_event) {
+  if (key_event.GetKeyCode() == ui::VKEY_ESCAPE) {
     ResetSearchQuery();
-  } else if (key.GetKeyboardCode() == app::VKEY_RETURN) {
+  } else if (key_event.GetKeyCode() == ui::VKEY_RETURN) {
     search_update_factory_.RevokeAll();
     UpdateSearchResults();
   }
@@ -159,7 +159,8 @@ bool CookiesView::HandleKeystroke(views::Textfield* sender,
 // CookiesView, views::DialogDelegate implementation:
 
 std::wstring CookiesView::GetWindowTitle() const {
-  return l10n_util::GetString(IDS_COOKIES_WEBSITE_PERMISSIONS_WINDOW_TITLE);
+  return UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_COOKIES_WEBSITE_PERMISSIONS_WINDOW_TITLE));
 }
 
 void CookiesView::WindowClosing() {
@@ -240,8 +241,8 @@ void CookiesView::OnTreeViewSelectionChanged(views::TreeView* tree_view) {
   }
 }
 
-void CookiesView::OnTreeViewKeyDown(app::KeyboardCode keycode) {
-  if (keycode == app::VKEY_DELETE)
+void CookiesView::OnTreeViewKeyDown(ui::KeyboardCode keycode) {
+  if (keycode == ui::VKEY_DELETE)
     cookies_tree_->RemoveSelectedItems();
 }
 
@@ -277,14 +278,15 @@ CookiesView::CookiesView(Profile* profile)
 
 void CookiesView::Init() {
   search_label_ = new views::Label(
-      l10n_util::GetString(IDS_COOKIES_SEARCH_LABEL));
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_COOKIES_SEARCH_LABEL)));
   search_field_ = new views::Textfield;
   search_field_->SetController(this);
   clear_search_button_ = new views::NativeButton(
-      this, l10n_util::GetString(IDS_COOKIES_CLEAR_SEARCH_LABEL));
+      this,
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_COOKIES_CLEAR_SEARCH_LABEL)));
   clear_search_button_->SetEnabled(false);
   description_label_ = new views::Label(
-      l10n_util::GetString(IDS_COOKIES_INFO_LABEL));
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_COOKIES_INFO_LABEL)));
   description_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
   cookies_tree_model_.reset(new CookiesTreeModel(
       profile_->GetRequestContext()->GetCookieStore()->GetCookieMonster(),
@@ -309,9 +311,11 @@ void CookiesView::Init() {
 
   cookies_tree_ = new CookiesTreeView(cookies_tree_model_.get());
   remove_button_ = new views::NativeButton(
-      this, l10n_util::GetString(IDS_COOKIES_REMOVE_LABEL));
+      this,
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_COOKIES_REMOVE_LABEL)));
   remove_all_button_ = new views::NativeButton(
-      this, l10n_util::GetString(IDS_COOKIES_REMOVE_ALL_LABEL));
+      this,
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_COOKIES_REMOVE_ALL_LABEL)));
 
   using views::GridLayout;
   using views::ColumnSet;

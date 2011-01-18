@@ -1,4 +1,4 @@
-# Copyright (c) 2010 The Chromium Authors. All rights reserved.
+# Copyright (c) 2011 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -8,12 +8,12 @@ from grit.format.policy_templates.writers import plist_helper
 from grit.format.policy_templates.writers import xml_formatted_writer
 
 
-def GetWriter(config, messages):
+def GetWriter(config):
   '''Factory method for creating PListWriter objects.
   See the constructor of TemplateWriter for description of
   arguments.
   '''
-  return PListWriter(['mac'], config, messages)
+  return PListWriter(['mac'], config)
 
 
 class PListWriter(xml_formatted_writer.XMLFormattedWriter):
@@ -24,7 +24,9 @@ class PListWriter(xml_formatted_writer.XMLFormattedWriter):
   STRING_TABLE = 'Localizable.strings'
   TYPE_TO_INPUT = {
     'string': 'string',
-    'enum': 'integer',
+    'int': 'integer',
+    'int-enum': 'integer',
+    'string-enum': 'string',
     'main': 'boolean',
     'list': 'array',
   }
@@ -71,6 +73,9 @@ class PListWriter(xml_formatted_writer.XMLFormattedWriter):
     array = self._AddKeyValuePair(parent, 'pfm_targets', 'array')
     self.AddElement(array, 'string', {}, 'user-managed')
 
+  def PreprocessPolicies(self, policy_list):
+    return self.FlattenGroupsAndSortPolicies(policy_list)
+
   def WritePolicy(self, policy):
     policy_name = policy['name']
     policy_type = policy['type']
@@ -85,10 +90,14 @@ class PListWriter(xml_formatted_writer.XMLFormattedWriter):
     self._AddTargets(dict)
     self._AddStringKeyValuePair(dict, 'pfm_type',
                                 self.TYPE_TO_INPUT[policy_type])
-    if (policy_type == 'enum'):
+    if policy_type in ('int-enum', 'string-enum'):
       range_list = self._AddKeyValuePair(dict, 'pfm_range_list', 'array')
       for item in policy['items']:
-        self.AddElement(range_list, 'integer', {}, item['value'])
+        if policy_type == 'int-enum':
+          element_type = 'integer'
+        else:
+          element_type = 'string'
+        self.AddElement(range_list, element_type, {}, str(item['value']))
 
   def BeginTemplate(self):
     self._plist.attributes['version'] = '1'
@@ -122,7 +131,7 @@ class PListWriter(xml_formatted_writer.XMLFormattedWriter):
     # Get all the XML content in a one-line string.
     xml = self._doc.toxml()
     # Determine where the line breaks will be. (They will only be between tags.)
-    lines = xml[1:len(xml)-1].split('><')
+    lines = xml[1:len(xml) - 1].split('><')
     indent = ''
     res = ''
     # Determine indent for each line.
@@ -134,7 +143,7 @@ class PListWriter(xml_formatted_writer.XMLFormattedWriter):
         indent = indent[2:]
       lines[i] = indent + '<' + line + '>'
       if (line[0] not in ['/', '?', '!'] and '</' not in line and
-          line[len(line)-1] != '/'):
+          line[len(line) - 1] != '/'):
         # If the current line starts with an opening tag and does not conatin a
         # closing tag, increase indent after the line is printed.
         indent += '  '

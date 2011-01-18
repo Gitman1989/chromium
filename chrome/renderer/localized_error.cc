@@ -18,7 +18,7 @@
 #include "grit/generated_resources.h"
 #include "net/base/escape.h"
 #include "net/base/net_errors.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLError.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLError.h"
 #include "webkit/glue/webkit_glue.h"
 
 using WebKit::WebURLError;
@@ -169,6 +169,13 @@ const LocalizedErrorMap net_error_options[] = {
    IDS_ERRORPAGES_SUMMARY_ESET_ANTI_VIRUS_SSL_INTERCEPTION,
    IDS_ERRORPAGES_DETAILS_SSL_PROTOCOL_ERROR,
    SUGGEST_LEARNMORE,
+  },
+  {net::ERR_TEMPORARILY_THROTTLED,
+   IDS_ERRORPAGES_TITLE_ACCESS_DENIED,
+   IDS_ERRORPAGES_HEADING_ACCESS_DENIED,
+   IDS_ERRORPAGES_SUMMARY_TEMPORARILY_THROTTLED,
+   IDS_ERRORPAGES_DETAILS_TEMPORARILY_THROTTLED,
+   SUGGEST_NONE,
   },
 };
 

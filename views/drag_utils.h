@@ -10,14 +10,19 @@
 
 #include "base/file_path.h"
 
+class GURL;
+class SkBitmap;
+
 namespace gfx {
 class Canvas;
 class Point;
 class Size;
 }
-class GURL;
+
+namespace ui {
 class OSExchangeData;
-class SkBitmap;
+}
+using ui::OSExchangeData;
 
 namespace drag_utils {
 
@@ -32,7 +37,7 @@ void SetURLAndDragImage(const GURL& url,
 // Chrome (via the download manager, for example). The drag image is set into
 // the supplied data_object. 'file_name' can be a full path, but the directory
 // portion will be truncated in the drag image.
-void CreateDragImageForFile(const FilePath::StringType& file_name,
+void CreateDragImageForFile(const FilePath& file_name,
                             SkBitmap* icon,
                             OSExchangeData* data_object);
 

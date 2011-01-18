@@ -8,10 +8,10 @@
 #include "base/message_loop.h"
 #include "ppapi/c/dev/ppp_scrollbar_dev.h"
 #include "skia/ext/platform_canvas.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebInputEvent.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebRect.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebScrollbar.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebVector.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebRect.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebScrollbar.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebVector.h"
 #include "webkit/plugins/ppapi/common.h"
 #include "webkit/plugins/ppapi/event_conversion.h"
 #include "webkit/plugins/ppapi/plugin_module.h"
@@ -203,8 +203,8 @@ void PPB_Scrollbar_Impl::SetLocationInternal(const PP_Rect* location) {
 
 void PPB_Scrollbar_Impl::valueChanged(WebKit::WebScrollbar* scrollbar) {
   const PPP_Scrollbar_Dev* ppp_scrollbar =
-      static_cast<const PPP_Scrollbar_Dev*>(
-          module()->GetPluginInterface(PPP_SCROLLBAR_DEV_INTERFACE));
+      static_cast<const PPP_Scrollbar_Dev*>(instance()->module()->
+          GetPluginInterface(PPP_SCROLLBAR_DEV_INTERFACE));
   if (!ppp_scrollbar)
     return;
   ScopedResourceId resource(this);

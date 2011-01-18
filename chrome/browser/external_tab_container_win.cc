@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,7 +12,7 @@
 #include "base/i18n/rtl.h"
 #include "base/logging.h"
 #include "base/utf_string_conversions.h"
-#include "base/win_util.h"
+#include "base/win/win_util.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/chrome_dll_resource.h"
 #include "chrome/browser/automation/automation_provider.h"
@@ -30,10 +30,11 @@
 #include "chrome/browser/renderer_host/resource_dispatcher_host_request_info.h"
 #include "chrome/browser/tab_contents/provisional_load_details.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
-#include "chrome/browser/views/browser_dialogs.h"
-#include "chrome/browser/views/page_info_bubble_view.h"
-#include "chrome/browser/views/tab_contents/render_view_context_menu_views.h"
-#include "chrome/browser/views/tab_contents/tab_contents_container.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/views/browser_dialogs.h"
+#include "chrome/browser/ui/views/page_info_bubble_view.h"
+#include "chrome/browser/ui/views/tab_contents/render_view_context_menu_views.h"
+#include "chrome/browser/ui/views/tab_contents/tab_contents_container.h"
 #include "chrome/common/automation_messages.h"
 #include "chrome/common/bindings_policy.h"
 #include "chrome/common/chrome_constants.h"
@@ -344,7 +345,7 @@ void ExternalTabContainer::OpenURLFromTab(TabContents* source,
     case NEW_WINDOW:
     case SAVE_TO_DISK:
       if (automation_) {
-        automation_->Send(new AutomationMsg_OpenURL(0, tab_handle_,
+        automation_->Send(new AutomationMsg_OpenURL(tab_handle_,
                                                     url, referrer,
                                                     disposition));
         // TODO(ananta)
@@ -374,10 +375,10 @@ void ExternalTabContainer::OpenURLFromTab(TabContents* source,
 void ExternalTabContainer::NavigationStateChanged(const TabContents* source,
                                                   unsigned changed_flags) {
   if (automation_) {
-    IPC::NavigationInfo nav_info;
+    NavigationInfo nav_info;
     if (InitNavigationInfo(&nav_info, NavigationType::NAV_IGNORE, 0))
       automation_->Send(new AutomationMsg_NavigationStateChanged(
-          0, tab_handle_, changed_flags, nav_info));
+          tab_handle_, changed_flags, nav_info));
   }
 }
 
@@ -432,14 +433,14 @@ void ExternalTabContainer::AddNewContents(TabContents* source,
     uintptr_t cookie = reinterpret_cast<uintptr_t>(new_container.get());
     pending_tabs_.Get()[cookie] = new_container;
     new_container->set_pending(true);
-    IPC::AttachExternalTabParams attach_params_;
+    AttachExternalTabParams attach_params_;
     attach_params_.cookie = static_cast<uint64>(cookie);
     attach_params_.dimensions = initial_pos;
     attach_params_.user_gesture = user_gesture;
     attach_params_.disposition = disposition;
     attach_params_.profile_name = WideToUTF8(
         tab_contents()->profile()->GetPath().DirName().BaseName().value());
-    automation_->Send(new AutomationMsg_AttachExternalTab(0,
+    automation_->Send(new AutomationMsg_AttachExternalTab(
         tab_handle_, attach_params_));
   } else {
     NOTREACHED();
@@ -479,7 +480,7 @@ void ExternalTabContainer::CloseContents(TabContents* source) {
     automation_->Send(unload_reply_message_);
     unload_reply_message_ = NULL;
   } else {
-    automation_->Send(new AutomationMsg_CloseExternalTab(0, tab_handle_));
+    automation_->Send(new AutomationMsg_CloseExternalTab(tab_handle_));
   }
 }
 
@@ -496,7 +497,7 @@ void ExternalTabContainer::UpdateTargetURL(TabContents* source,
   if (automation_) {
     std::wstring url_string = CA2W(url.spec().c_str());
     automation_->Send(
-        new AutomationMsg_UpdateTargetUrl(0, tab_handle_, url_string));
+        new AutomationMsg_UpdateTargetUrl(tab_handle_, url_string));
   }
 }
 
@@ -511,9 +512,8 @@ void ExternalTabContainer::ForwardMessageToExternalHost(
     const std::string& message, const std::string& origin,
     const std::string& target) {
   if (automation_) {
-    automation_->Send(
-        new AutomationMsg_ForwardMessageToExternalHost(0, tab_handle_,
-            message, origin, target));
+    automation_->Send(new AutomationMsg_ForwardMessageToExternalHost(
+        tab_handle_, message, origin, target));
   }
 }
 
@@ -527,8 +527,8 @@ gfx::NativeWindow ExternalTabContainer::GetFrameNativeWindow() {
 
 bool ExternalTabContainer::TakeFocus(bool reverse) {
   if (automation_) {
-    automation_->Send(new AutomationMsg_TabbedOut(0, tab_handle_,
-        win_util::IsShiftPressed()));
+    automation_->Send(new AutomationMsg_TabbedOut(tab_handle_,
+        base::win::IsShiftPressed()));
   }
 
   return true;
@@ -622,7 +622,7 @@ bool ExternalTabContainer::HandleContextMenu(const ContextMenuParams& params) {
   POINT screen_pt = { params.x, params.y };
   MapWindowPoints(GetNativeView(), HWND_DESKTOP, &screen_pt, 1);
 
-  IPC::MiniContextMenuParams ipc_params(
+  MiniContextMenuParams ipc_params(
       screen_pt.x,
       screen_pt.y,
       params.link_url,
@@ -633,7 +633,7 @@ bool ExternalTabContainer::HandleContextMenu(const ContextMenuParams& params) {
 
   bool rtl = base::i18n::IsRTL();
   automation_->Send(
-      new AutomationMsg_ForwardContextMenuToExternalHost(0, tab_handle_,
+      new AutomationMsg_ForwardContextMenuToExternalHost(tab_handle_,
           external_context_menu_->GetMenuHandle(),
           rtl ? TPM_RIGHTALIGN : TPM_LEFTALIGN, ipc_params));
 
@@ -728,7 +728,7 @@ void ExternalTabContainer::Observe(NotificationType type,
         if (load != NULL && PageTransition::IsMainFrame(load->origin())) {
           TRACE_EVENT_END("ExternalTabContainer::Navigate", 0,
                           load->url().spec());
-          automation_->Send(new AutomationMsg_TabLoaded(0, tab_handle_,
+          automation_->Send(new AutomationMsg_TabLoaded(tab_handle_,
                                                         load->url()));
         }
         break;
@@ -745,18 +745,18 @@ void ExternalTabContainer::Observe(NotificationType type,
         if (commit->http_status_code >= kHttpClientErrorStart &&
             commit->http_status_code <= kHttpServerErrorEnd) {
           automation_->Send(new AutomationMsg_NavigationFailed(
-              0, tab_handle_, commit->http_status_code, commit->entry->url()));
+              tab_handle_, commit->http_status_code, commit->entry->url()));
 
           ignore_next_load_notification_ = true;
         } else {
-          IPC::NavigationInfo navigation_info;
+          NavigationInfo navigation_info;
           // When the previous entry index is invalid, it will be -1, which
           // will still make the computation come out right (navigating to the
           // 0th entry will be +1).
           if (InitNavigationInfo(&navigation_info, commit->type,
                   commit->previous_entry_index -
                   tab_contents_->controller().last_committed_entry_index()))
-            automation_->Send(new AutomationMsg_DidNavigate(0, tab_handle_,
+            automation_->Send(new AutomationMsg_DidNavigate(tab_handle_,
                                                             navigation_info));
         }
         break;
@@ -765,7 +765,7 @@ void ExternalTabContainer::Observe(NotificationType type,
       const ProvisionalLoadDetails* load_details =
           Details<ProvisionalLoadDetails>(details).ptr();
       automation_->Send(new AutomationMsg_NavigationFailed(
-          0, tab_handle_, load_details->error_code(), load_details->url()));
+          tab_handle_, load_details->error_code(), load_details->url()));
 
       ignore_next_load_notification_ = true;
       break;
@@ -845,7 +845,7 @@ bool ExternalTabContainer::ProcessUnhandledKeyStroke(HWND window,
   if (!automation_) {
     return false;
   }
-  if ((wparam == VK_TAB) && !win_util::IsCtrlPressed()) {
+  if ((wparam == VK_TAB) && !base::win::IsCtrlPressed()) {
     // Tabs are handled separately (except if this is Ctrl-Tab or
     // Ctrl-Shift-Tab)
     return false;
@@ -860,11 +860,11 @@ bool ExternalTabContainer::ProcessUnhandledKeyStroke(HWND window,
   msg.message = message;
   msg.wParam = wparam;
   msg.lParam = lparam;
-  automation_->Send(new AutomationMsg_HandleAccelerator(0, tab_handle_, msg));
+  automation_->Send(new AutomationMsg_HandleAccelerator(tab_handle_, msg));
   return true;
 }
 
-bool ExternalTabContainer::InitNavigationInfo(IPC::NavigationInfo* nav_info,
+bool ExternalTabContainer::InitNavigationInfo(NavigationInfo* nav_info,
                                               NavigationType::Type nav_type,
                                               int relative_offset) {
   DCHECK(nav_info);
@@ -990,7 +990,7 @@ void ExternalTabContainer::Navigate(const GURL& url, const GURL& referrer) {
 bool ExternalTabContainer::OnGoToEntryOffset(int offset) {
   if (load_requests_via_automation_) {
     automation_->Send(new AutomationMsg_RequestGoToHistoryEntryOffset(
-        0, tab_handle_, offset));
+        tab_handle_, offset));
     return false;
   }
 
@@ -1023,7 +1023,7 @@ void ExternalTabContainer::LoadAccelerators() {
     bool ctrl_down = (accelerators[i].fVirt & FCONTROL) == FCONTROL;
     bool shift_down = (accelerators[i].fVirt & FSHIFT) == FSHIFT;
     views::Accelerator accelerator(
-        static_cast<app::KeyboardCode>(accelerators[i].key),
+        static_cast<ui::KeyboardCode>(accelerators[i].key),
         shift_down, ctrl_down, alt_down);
     accelerator_table_[accelerator] = accelerators[i].cmd;
 

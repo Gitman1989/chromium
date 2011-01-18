@@ -29,8 +29,8 @@
 #include "net/http/http_util.h"
 #include "net/test/test_server.h"
 #include "net/url_request/url_request_context.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebKit.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebScriptController.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebScriptController.h"
 #include "webkit/glue/webkit_glue.h"
 #include "webkit/glue/window_open_disposition.h"
 #include "webkit/extensions/v8/gc_extension.h"
@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
       parsed_command_line.HasSwitch(test_shell::kGenericTheme);
 #else
   // Stop compiler warnings about unused variables.
-  ux_theme = ux_theme;
+  static_cast<void>(ux_theme);
 #endif
 
   bool enable_gp_fault_error_box = false;

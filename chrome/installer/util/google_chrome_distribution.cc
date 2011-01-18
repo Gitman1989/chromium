@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -26,6 +26,7 @@
 #include "chrome/common/json_value_serializer.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/result_codes.h"
+#include "chrome/installer/util/channel_info.h"
 #include "chrome/installer/util/product.h"
 #include "chrome/installer/util/install_util.h"
 #include "chrome/installer/util/l10n_string_util.h"
@@ -281,9 +282,9 @@ bool GoogleChromeDistribution::BuildUninstallMetricsString(
 }
 
 bool GoogleChromeDistribution::ExtractUninstallMetricsFromFile(
-    const std::wstring& file_path, std::wstring* uninstall_metrics_string) {
-
-  JSONFileValueSerializer json_serializer(FilePath::FromWStringHack(file_path));
+    const FilePath& file_path,
+    std::wstring* uninstall_metrics_string) {
+  JSONFileValueSerializer json_serializer(file_path);
 
   std::string json_error_string;
   scoped_ptr<Value> root(json_serializer.Deserialize(NULL, NULL));
@@ -326,7 +327,8 @@ bool GoogleChromeDistribution::ExtractUninstallMetrics(
 #endif
 
 void GoogleChromeDistribution::DoPostUninstallOperations(
-    const Version& version, const FilePath& local_data_path,
+    const Version& version,
+    const FilePath& local_data_path,
     const std::wstring& distribution_data) {
   // Send the Chrome version and OS version as params to the form.
   // It would be nice to send the locale, too, but I don't see an
@@ -358,8 +360,7 @@ void GoogleChromeDistribution::DoPostUninstallOperations(
       kOSParam + L"=" + os_version;
 
   std::wstring uninstall_metrics;
-  if (ExtractUninstallMetricsFromFile(local_data_path.value(),
-                                      &uninstall_metrics)) {
+  if (ExtractUninstallMetricsFromFile(local_data_path, &uninstall_metrics)) {
     // The user has opted into anonymous usage data collection, so append
     // metrics and distribution data.
     command += uninstall_metrics;
@@ -500,11 +501,12 @@ std::wstring GoogleChromeDistribution::GetVersionKey() {
 // - If we are currently running full installer, we remove this magic
 // string (if it is present) regardless of whether installer failed or not.
 // There is no fall-back for full installer :)
-void GoogleChromeDistribution::UpdateDiffInstallStatus(bool system_install,
-    bool incremental_install, installer::InstallStatus install_status) {
-  GoogleUpdateSettings::UpdateDiffInstallStatus(system_install,
-      incremental_install, InstallUtil::GetInstallReturnCode(install_status),
-      product_guid().c_str());
+void GoogleChromeDistribution::UpdateInstallStatus(bool system_install,
+    bool incremental_install, bool multi_install,
+    installer::InstallStatus install_status) {
+  GoogleUpdateSettings::UpdateInstallStatus(system_install,
+      incremental_install, multi_install,
+      InstallUtil::GetInstallReturnCode(install_status), product_guid());
 }
 
 // The functions below are not used by the 64-bit Windows binary -
@@ -686,3 +688,10 @@ void GoogleChromeDistribution::InactiveUserToastExperiment(int flavor,
   base::LaunchApp(cmd, false, false, NULL);
 }
 #endif
+
+bool GoogleChromeDistribution::SetChannelFlags(
+    bool set,
+    installer::ChannelInfo* channel_info) {
+  DCHECK(channel_info);
+  return channel_info->SetChrome(set);
+}

@@ -8,6 +8,7 @@
 #include "base/basictypes.h"
 #include "base/scoped_ptr.h"
 #include "base/task.h"
+#include "remoting/protocol/message_reader.h"
 
 namespace remoting {
 
@@ -17,7 +18,6 @@ namespace protocol {
 
 class ControlMessage;
 class HostStub;
-class MessageReader;
 class InputStub;
 class Session;
 
@@ -29,7 +29,7 @@ class Session;
 // communications channels into protocol buffer messages.
 // EventStreamReader is registered with protocol::Session given to it.
 //
-// Object of this class is owned by ChromotingHost to dispatch messages
+// Object of this class is owned by ConnectionToClient to dispatch messages
 // to itself.
 class HostMessageDispatcher {
  public:
@@ -39,8 +39,7 @@ class HostMessageDispatcher {
 
   // Initialize the message dispatcher with the given connection and
   // message handlers.
-  // Return true if initalization was successful.
-  bool Initialize(protocol::Session* session,
+  void Initialize(protocol::Session* session,
                   HostStub* host_stub, InputStub* input_stub);
 
  private:
@@ -55,10 +54,10 @@ class HostMessageDispatcher {
   // MessageReader that runs on the control channel. It runs a loop
   // that parses data on the channel and then delegates the message to this
   // class.
-  scoped_ptr<MessageReader> control_message_reader_;
+  scoped_ptr<ProtobufMessageReader<ControlMessage> > control_message_reader_;
 
   // MessageReader that runs on the event channel.
-  scoped_ptr<MessageReader> event_message_reader_;
+  scoped_ptr<ProtobufMessageReader<EventMessage> > event_message_reader_;
 
   // Stubs for host and input. These objects are not owned.
   // They are called on the thread there data is received, i.e. jingle thread.

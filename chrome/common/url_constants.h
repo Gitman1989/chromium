@@ -44,6 +44,7 @@ extern const char kAboutBrowserCrash[];
 extern const char kAboutConflicts[];
 extern const char kAboutCacheURL[];
 extern const char kAboutCrashURL[];
+extern const char kAboutKillURL[];
 extern const char kAboutCreditsURL[];
 extern const char kAboutDNSURL[];
 extern const char kAboutFlagsURL[];
@@ -56,6 +57,8 @@ extern const char kAboutMemoryURL[];
 extern const char kAboutNetInternalsURL[];
 extern const char kAboutPluginsURL[];
 extern const char kAboutShorthangURL[];
+extern const char kAboutSyncURL[];
+extern const char kAboutSyncInternalsURL[];
 extern const char kAboutTermsURL[];
 extern const char kAboutVaporwareURL[];
 extern const char kAboutVersionURL[];
@@ -63,6 +66,7 @@ extern const char kAboutVersionURL[];
 // chrome: URLs (including schemes). Should be kept in sync with the
 // components below.
 extern const char kChromeUIAboutAboutURL[];
+extern const char kChromeUIAboutCreditsURL[];
 extern const char kChromeUIAboutURL[];
 extern const char kChromeUIAppLauncherURL[];
 extern const char kChromeUIBookmarksURL[];
@@ -85,6 +89,7 @@ extern const char kChromeUISettingsURL[];
 extern const char kChromeUITextfieldsURL[];
 
 #if defined(OS_CHROMEOS)
+extern const char kChromeUIAboutOSCreditsURL[];
 extern const char kChromeUIFileBrowseURL[];
 extern const char kChromeUIImageBurnerURL[];
 extern const char kChromeUIKeyboardOverlayURL[];
@@ -120,6 +125,7 @@ extern const char kChromeUIRemotingResourcesHost[];
 extern const char kChromeUIResourcesHost[];
 extern const char kChromeUIScreenshotPath[];
 extern const char kChromeUISettingsHost[];
+extern const char kChromeUISyncInternalsHost[];
 extern const char kChromeUISyncResourcesHost[];
 extern const char kChromeUITextfieldsHost[];
 extern const char kChromeUIThemePath[];
@@ -157,6 +163,9 @@ extern const char kCloudPrintSetupHost[];
 extern const char kNetworkViewCacheURL[];
 extern const char kNetworkViewInternalsURL[];
 
+// Sync related URLs.
+extern const char kSyncViewInternalsURL[];
+
 // GPU related URLs
 extern const char kGpuInternalsURL[];
 
@@ -186,8 +195,18 @@ extern const char kPageInfoHelpCenterURL[];
 // "Learn more" URL for "Aw snap" page.
 extern const char kCrashReasonURL[];
 
+// "Learn more" URL for killed tab page.
+extern const char kKillReasonURL[];
+
 // "Learn more" URL for the Privacy section under Options.
 extern const char kPrivacyLearnMoreURL[];
+
+// The URL for the Chromium project used in the About dialog.
+extern const char kChromiumProjectURL[];
+
+// The URL for the "Learn more" page for the usage/crash reporting option in the
+// first run dialog.
+extern const char kLearnMoreReportingURL[];
 
 // Call near the beginning of startup to register Chrome's internal URLs that
 // should be parsed as "standard" with the googleurl library.

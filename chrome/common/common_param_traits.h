@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -40,7 +40,6 @@ class SkBitmap;
 class DictionaryValue;
 class ListValue;
 struct ThumbnailScore;
-class URLRequestStatus;
 struct WebApplicationInfo;
 class WebCursor;
 
@@ -52,6 +51,7 @@ class Size;
 
 namespace net {
 class UploadData;
+class URLRequestStatus;
 }
 
 namespace printing {
@@ -265,8 +265,8 @@ struct ParamTraits<TransportDIB::Id> {
 
 // Traits for URLRequestStatus
 template <>
-struct ParamTraits<URLRequestStatus> {
-  typedef URLRequestStatus param_type;
+struct ParamTraits<net::URLRequestStatus> {
+  typedef net::URLRequestStatus param_type;
   static void Write(Message* m, const param_type& p);
   static bool Read(const Message* m, void** iter, param_type* r);
   static void Log(const param_type& p, std::string* l);

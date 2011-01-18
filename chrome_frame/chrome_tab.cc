@@ -209,8 +209,12 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE instance,
     g_exit_manager = new base::AtExitManager();
     CommandLine::Init(0, NULL);
     InitializeCrashReporting();
-    logging::InitLogging(NULL, logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
-                        logging::LOCK_LOG_FILE, logging::DELETE_OLD_LOG_FILE);
+    logging::InitLogging(
+        NULL,
+        logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
+        logging::LOCK_LOG_FILE,
+        logging::DELETE_OLD_LOG_FILE,
+        logging::DISABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
 
     DllRedirector* dll_redirector = DllRedirector::GetInstance();
     DCHECK(dll_redirector);
@@ -347,7 +351,7 @@ HRESULT SetupRunOnce() {
 // started at next boot.
 void SetupUserLevelHelper() {
   // Remove existing run-at-startup entry.
-  win_util::RemoveCommandFromAutoRun(HKEY_CURRENT_USER, kRunKeyName);
+  base::win::RemoveCommandFromAutoRun(HKEY_CURRENT_USER, kRunKeyName);
 
   // Build the chrome_frame_helper command line.
   FilePath module_path;
@@ -373,7 +377,7 @@ void SetupUserLevelHelper() {
 
   if (file_util::PathExists(helper_path)) {
     // Add new run-at-startup entry.
-    win_util::AddCommandToAutoRun(HKEY_CURRENT_USER, kRunKeyName,
+    base::win::AddCommandToAutoRun(HKEY_CURRENT_USER, kRunKeyName,
                                   helper_path.value());
 
     // Start new instance.
@@ -430,13 +434,35 @@ HRESULT SetChromeFrameUA(bool is_system, const wchar_t* value) {
   HKEY parent_hive = is_system ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER;
 
   RegKey ua_key;
-  if (ua_key.Create(parent_hive, kPostPlatformUAKey, KEY_WRITE)) {
+  if (ua_key.Create(parent_hive, kPostPlatformUAKey, KEY_READ | KEY_WRITE)) {
+    // Make sure that we unregister ChromeFrame UA strings registered previously
+    wchar_t value_name[MAX_PATH + 1] = {};
+    wchar_t value_data[MAX_PATH + 1] = {};
+
+    DWORD value_index = 0;
+    while (value_index < ua_key.ValueCount()) {
+      DWORD name_size = arraysize(value_name);
+      DWORD value_size = arraysize(value_data);
+      DWORD type = 0;
+      LRESULT ret = ::RegEnumValue(ua_key.Handle(), value_index, value_name,
+                                   &name_size, NULL, &type,
+                                   reinterpret_cast<BYTE*>(value_data),
+                                   &value_size);
+      if (ret == ERROR_SUCCESS) {
+        if (StartsWith(value_name, kChromeFramePrefix, false)) {
+          ua_key.DeleteValue(value_name);
+        } else {
+          ++value_index;
+        }
+      } else {
+        break;
+      }
+    }
+
     std::wstring chrome_frame_ua_value_name = kChromeFramePrefix;
     chrome_frame_ua_value_name += GetCurrentModuleVersion();
     if (value) {
       ua_key.WriteValue(chrome_frame_ua_value_name.c_str(), value);
-    } else {
-      ua_key.DeleteValue(chrome_frame_ua_value_name.c_str());
     }
     hr = S_OK;
   } else {
@@ -510,7 +536,7 @@ STDAPI CustomRegistration(UINT reg_flags, BOOL reg, bool is_system) {
         // that during updates we don't have a time window with no running
         // helper. Uninstalls and updates will explicitly kill the helper from
         // within the installer. Unregister existing run-at-startup entry.
-        win_util::RemoveCommandFromAutoRun(HKEY_CURRENT_USER, kRunKeyName);
+        base::win::RemoveCommandFromAutoRun(HKEY_CURRENT_USER, kRunKeyName);
       }
     }
   }

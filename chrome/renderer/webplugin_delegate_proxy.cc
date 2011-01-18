@@ -21,7 +21,6 @@
 #include "base/sys_info.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/common/child_process_logging.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/plugin_messages.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/plugin/npobject_proxy.h"
@@ -41,13 +40,13 @@
 #include "net/base/mime_util.h"
 #include "printing/native_metafile.h"
 #include "skia/ext/platform_canvas.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebBindings.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebCursorInfo.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDragData.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebString.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebVector.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebView.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebBindings.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCursorInfo.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDragData.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebVector.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "webkit/plugins/npapi/webplugin.h"
 #include "webkit/glue/webkit_glue.h"
 
@@ -424,9 +423,10 @@ void WebPluginDelegateProxy::InstallMissingPlugin() {
   Send(new PluginMsg_InstallMissingPlugin(instance_id_));
 }
 
-void WebPluginDelegateProxy::OnMessageReceived(const IPC::Message& msg) {
+bool WebPluginDelegateProxy::OnMessageReceived(const IPC::Message& msg) {
   child_process_logging::SetActiveURL(page_url_);
 
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(WebPluginDelegateProxy, msg)
     IPC_MESSAGE_HANDLER(PluginHostMsg_SetWindow, OnSetWindow)
 #if defined(OS_WIN)
@@ -478,9 +478,10 @@ void WebPluginDelegateProxy::OnMessageReceived(const IPC::Message& msg) {
 #endif
     IPC_MESSAGE_HANDLER(PluginHostMsg_URLRedirectResponse,
                         OnURLRedirectResponse)
-
-    IPC_MESSAGE_UNHANDLED_ERROR()
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
+  DCHECK(handled);
+  return handled;
 }
 
 void WebPluginDelegateProxy::OnChannelError() {
@@ -1565,4 +1566,3 @@ void WebPluginDelegateProxy::OnURLRedirectResponse(bool allow,
 
   plugin_->URLRedirectResponse(allow, resource_id);
 }
-

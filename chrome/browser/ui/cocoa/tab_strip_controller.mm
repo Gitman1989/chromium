@@ -10,9 +10,9 @@
 #include <string>
 
 #include "app/l10n_util.h"
+#include "app/mac/nsimage_cache.h"
 #include "app/resource_bundle.h"
-#include "base/mac_util.h"
-#include "base/nsimage_cache_mac.h"
+#include "base/mac/mac_util.h"
 #include "base/sys_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/autocomplete/autocomplete.h"
@@ -316,9 +316,9 @@ private:
     [newTabButton_ setTag:IDC_NEW_TAB];
     // Set the images from code because Cocoa fails to find them in our sub
     // bundle during tests.
-    [newTabButton_ setImage:nsimage_cache::ImageNamed(kNewTabImage)];
-    [newTabButton_
-        setAlternateImage:nsimage_cache::ImageNamed(kNewTabPressedImage)];
+    [newTabButton_ setImage:app::mac::GetCachedImageWithName(kNewTabImage)];
+    [newTabButton_ setAlternateImage:
+        app::mac::GetCachedImageWithName(kNewTabPressedImage)];
     newTabButtonShowingHoverImage_ = NO;
     newTabTrackingArea_.reset(
         [[NSTrackingArea alloc] initWithRect:[newTabButton_ bounds]
@@ -431,7 +431,7 @@ private:
 + (CGFloat)defaultIndentForControls {
   // Default indentation leaves enough room so tabs don't overlap with the
   // window controls.
-  return 64.0;
+  return 68.0;
 }
 
 // Finds the TabContentsController associated with the given index into the tab
@@ -791,7 +791,6 @@ private:
   BOOL visible = [[tabStripView_ window] isVisible];
 
   CGFloat offset = [self indentForControls];
-  NSUInteger i = 0;
   bool hasPlaceholderGap = false;
   for (TabController* tab in tabArray_.get()) {
     // Ignore a tab that is going through a close animation.
@@ -811,9 +810,8 @@ private:
     // If the tab is hidden, we consider it a new tab. We make it visible
     // and animate it in.
     BOOL newTab = [[tab view] isHidden];
-    if (newTab) {
+    if (newTab)
       [[tab view] setHidden:NO];
-    }
 
     if (isPlaceholder) {
       // Move the current tab to the correct location instantly.
@@ -896,7 +894,6 @@ private:
       offset += NSWidth(tabFrame);
       offset -= kTabOverlap;
     }
-    i++;
   }
 
   // Hide the new tab button if we're explicitly told to. It may already
@@ -909,10 +906,8 @@ private:
     // We've already ensured there's enough space for the new tab button
     // so we don't have to check it against the available space. We do need
     // to make sure we put it after any placeholder.
-    newTabNewFrame.origin = NSMakePoint(offset, 0);
-    newTabNewFrame.origin.x = MAX(newTabNewFrame.origin.x,
-                                  NSMaxX(placeholderFrame_)) +
-                                      kNewTabButtonOffset;
+    CGFloat maxTabX = MAX(offset, NSMaxX(placeholderFrame_) - kTabOverlap);
+    newTabNewFrame.origin = NSMakePoint(maxTabX + kNewTabButtonOffset, 0);
     if ([tabContentsArray_ count])
       [newTabButton_ setHidden:NO];
 
@@ -1215,12 +1210,16 @@ private:
 - (NSImageView*)iconImageViewForContents:(TabContents*)contents {
   BOOL isApp = contents->is_app();
   NSImage* image = nil;
+  // Favicons come from the renderer, and the renderer draws everything in the
+  // system color space.
+  CGColorSpaceRef colorSpace = base::mac::GetSystemColorSpace();
   if (isApp) {
     SkBitmap* icon = contents->GetExtensionAppIcon();
     if (icon)
-      image = gfx::SkBitmapToNSImage(*icon);
+      image = gfx::SkBitmapToNSImageWithColorSpace(*icon, colorSpace);
   } else {
-    image = gfx::SkBitmapToNSImage(contents->GetFavIcon());
+    image = gfx::SkBitmapToNSImageWithColorSpace(contents->GetFavIcon(),
+                                                 colorSpace);
   }
 
   // Either we don't have a valid favicon or there was some issue converting it
@@ -1590,10 +1589,11 @@ private:
 - (void)setNewTabButtonHoverState:(BOOL)shouldShowHover {
   if (shouldShowHover && !newTabButtonShowingHoverImage_) {
     newTabButtonShowingHoverImage_ = YES;
-    [newTabButton_ setImage:nsimage_cache::ImageNamed(kNewTabHoverImage)];
+    [newTabButton_ setImage:
+        app::mac::GetCachedImageWithName(kNewTabHoverImage)];
   } else if (!shouldShowHover && newTabButtonShowingHoverImage_) {
     newTabButtonShowingHoverImage_ = NO;
-    [newTabButton_ setImage:nsimage_cache::ImageNamed(kNewTabImage)];
+    [newTabButton_ setImage:app::mac::GetCachedImageWithName(kNewTabImage)];
   }
 }
 

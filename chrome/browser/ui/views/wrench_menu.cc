@@ -1,8 +1,8 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/wrench_menu.h"
+#include "chrome/browser/ui/views/wrench_menu.h"
 
 #include <cmath>
 
@@ -11,6 +11,7 @@
 #include "base/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/metrics/user_metrics.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/browser.h"
@@ -36,7 +37,7 @@
 #include "views/controls/menu/submenu_view.h"
 #include "views/window/window.h"
 
-using menus::MenuModel;
+using ui::MenuModel;
 using views::CustomButton;
 using views::ImageButton;
 using views::Label;
@@ -244,12 +245,12 @@ class ScheduleAllView : public views::View {
   DISALLOW_COPY_AND_ASSIGN(ScheduleAllView);
 };
 
-std::wstring GetAccessibleNameForWrenchMenuItem(
+string16 GetAccessibleNameForWrenchMenuItem(
       MenuModel* model, int item_index, int accessible_string_id) {
-  std::wstring accessible_name = l10n_util::GetString(accessible_string_id);
-  std::wstring accelerator_text;
+  string16 accessible_name = l10n_util::GetStringUTF16(accessible_string_id);
+  string16 accelerator_text;
 
-  menus::Accelerator menu_accelerator;
+  ui::Accelerator menu_accelerator;
   if (model->GetAcceleratorAt(item_index, &menu_accelerator)) {
     accelerator_text =
         views::Accelerator(menu_accelerator.GetKeyCode(),
@@ -280,7 +281,7 @@ class WrenchMenuView : public ScheduleAllView, public views::ButtonListener {
                                       MenuButtonBackground** background,
                                       int acc_string_id) {
     TextButton* button =
-        new TextButton(this, l10n_util::GetString(string_id));
+        new TextButton(this, UTF16ToWide(l10n_util::GetStringUTF16(string_id)));
     button->SetAccessibleName(
         GetAccessibleNameForWrenchMenuItem(menu_model_, index, acc_string_id));
     button->SetFocusable(true);
@@ -397,7 +398,8 @@ class WrenchMenu::ZoomView : public WrenchMenuView,
         IDS_ZOOM_MINUS2, MenuButtonBackground::LEFT_BUTTON, decrement_index,
         NULL, IDS_ACCNAME_ZOOM_MINUS2);
 
-    zoom_label_ = new Label(l10n_util::GetStringF(IDS_ZOOM_PERCENT, L"100"));
+    zoom_label_ = new Label(
+        UTF16ToWide(l10n_util::GetStringFUTF16Int(IDS_ZOOM_PERCENT, 100)));
     zoom_label_->SetColor(MenuConfig::instance().text_color);
     zoom_label_->SetHorizontalAlignment(Label::ALIGN_RIGHT);
     MenuButtonBackground* center_bg =
@@ -502,9 +504,9 @@ class WrenchMenu::ZoomView : public WrenchMenuView,
       zoom = selected_tab->GetZoomPercent(&enable_increment, &enable_decrement);
     increment_button_->SetEnabled(enable_increment);
     decrement_button_->SetEnabled(enable_decrement);
-    zoom_label_->SetText(l10n_util::GetStringF(
-                             IDS_ZOOM_PERCENT,
-                             UTF8ToWide(base::IntToString(zoom))));
+    zoom_label_->SetText(UTF16ToWide(l10n_util::GetStringFUTF16Int(
+                                     IDS_ZOOM_PERCENT,
+                                     zoom)));
 
     zoom_label_width_ = MaxWidthForZoomLabel();
   }
@@ -525,11 +527,13 @@ class WrenchMenu::ZoomView : public WrenchMenuView,
 
       int step = (max_percent - min_percent) / 10;
       for (int i = min_percent; i <= max_percent; i += step) {
-        int w = font.GetStringWidth(l10n_util::GetStringF(IDS_ZOOM_PERCENT, i));
+        int w = font.GetStringWidth(
+            l10n_util::GetStringFUTF16Int(IDS_ZOOM_PERCENT, i));
         max_w = std::max(w, max_w);
       }
     } else {
-      max_w = font.GetStringWidth(l10n_util::GetStringF(IDS_ZOOM_PERCENT, 100));
+      max_w = font.GetStringWidth(
+          l10n_util::GetStringFUTF16Int(IDS_ZOOM_PERCENT, 100));
     }
 
     return max_w + insets.width();
@@ -565,10 +569,10 @@ WrenchMenu::WrenchMenu(Browser* browser)
       selected_index_(0) {
 }
 
-void WrenchMenu::Init(menus::MenuModel* model) {
+void WrenchMenu::Init(ui::MenuModel* model) {
   DCHECK(!root_.get());
   root_.reset(new MenuItemView(this));
-  root_->SetAccessibleName(l10n_util::GetString(IDS_ACCNAME_APP));
+  root_->SetAccessibleName(l10n_util::GetStringUTF16(IDS_ACCNAME_APP));
   root_->set_has_icons(true);  // We have checks, radios and icons, set this
                                // so we get the taller menu style.
   int next_id = 1;
@@ -584,6 +588,7 @@ void WrenchMenu::RunMenu(views::MenuButton* host) {
   gfx::Point screen_loc;
   views::View::ConvertPointToScreen(host, &screen_loc);
   gfx::Rect bounds(screen_loc, host->size());
+  UserMetrics::RecordAction(UserMetricsAction("ShowAppMenu"));
   root_->RunMenuAt(host->GetWindow()->GetNativeWindow(), host, bounds,
       base::i18n::IsRTL() ? MenuItemView::TOPLEFT : MenuItemView::TOPRIGHT,
       true);
@@ -631,7 +636,7 @@ bool WrenchMenu::GetAccelerator(int id, views::Accelerator* accelerator) {
     return false;
   }
 
-  menus::Accelerator menu_accelerator;
+  ui::Accelerator menu_accelerator;
   if (!entry.first->GetAcceleratorAt(entry.second, &menu_accelerator))
     return false;
 
@@ -661,7 +666,7 @@ void WrenchMenu::PopulateMenu(MenuItemView* parent,
       DCHECK_LT(i + 2, max);
       DCHECK_EQ(IDC_COPY, model->GetCommandIdAt(index + 1));
       DCHECK_EQ(IDC_PASTE, model->GetCommandIdAt(index + 2));
-      item->SetTitle(l10n_util::GetString(IDS_EDIT2));
+      item->SetTitle(UTF16ToWide(l10n_util::GetStringUTF16(IDS_EDIT2)));
       item->AddChildView(
           new CutCopyPasteView(this, model, index, index + 1, index + 2));
       i += 2;
@@ -669,7 +674,7 @@ void WrenchMenu::PopulateMenu(MenuItemView* parent,
       DCHECK_EQ(MenuModel::TYPE_COMMAND, model->GetTypeAt(index));
       DCHECK_EQ(IDC_ZOOM_PLUS, model->GetCommandIdAt(index + 1));
       DCHECK_EQ(IDC_FULLSCREEN, model->GetCommandIdAt(index + 2));
-      item->SetTitle(l10n_util::GetString(IDS_ZOOM_MENU2));
+      item->SetTitle(UTF16ToWide(l10n_util::GetStringUTF16(IDS_ZOOM_MENU2)));
       item->AddChildView(
           new ZoomView(this, model, index, index + 1, index + 2));
       i += 2;

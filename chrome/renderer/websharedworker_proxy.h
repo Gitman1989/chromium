@@ -9,7 +9,7 @@
 #include "base/basictypes.h"
 #include "chrome/renderer/webworker_base.h"
 #include "googleurl/src/gurl.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSharedWorker.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSharedWorker.h"
 
 class ChildThread;
 
@@ -41,7 +41,7 @@ class WebSharedWorkerProxy : public WebKit::WebSharedWorker,
   virtual void clientDestroyed();
 
   // IPC::Channel::Listener implementation.
-  virtual void OnMessageReceived(const IPC::Message& message);
+  virtual bool OnMessageReceived(const IPC::Message& message);
 
  private:
   void OnWorkerCreated();

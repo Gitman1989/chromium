@@ -1,7 +1,6 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
 
 //------------------------------------------------------------------------------
 // Description of the life cycle of a instance of MetricsService.
@@ -58,7 +57,7 @@
 #include "base/string_split.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "base/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/common/chrome_version_info.h"
@@ -134,7 +133,7 @@ extern base::LazyInstance<base::StatisticsRecorder> g_statistics_recorder_;
 
 // This class provides HTTP request context information for metrics upload
 // requests initiated by ChromeFrame.
-class ChromeFrameUploadRequestContext : public URLRequestContext {
+class ChromeFrameUploadRequestContext : public net::URLRequestContext {
  public:
   explicit ChromeFrameUploadRequestContext(MessageLoop* io_loop)
       : io_loop_(io_loop) {
@@ -190,6 +189,7 @@ class ChromeFrameUploadRequestContext : public URLRequestContext {
                                              http_auth_handler_factory_,
                                              network_delegate_,
                                              NULL),
+        NULL /* net_log */,
         net::HttpCache::DefaultBackend::InMemory(0));
   }
 
@@ -210,7 +210,7 @@ class ChromeFrameUploadRequestContextGetter : public URLRequestContextGetter {
   explicit ChromeFrameUploadRequestContextGetter(MessageLoop* io_loop)
       : io_loop_(io_loop) {}
 
-  virtual URLRequestContext* GetURLRequestContext() {
+  virtual net::URLRequestContext* GetURLRequestContext() {
     if (!context_)
       context_ = new ChromeFrameUploadRequestContext(io_loop_);
     return context_;
@@ -228,7 +228,7 @@ class ChromeFrameUploadRequestContextGetter : public URLRequestContextGetter {
     DVLOG(1) << __FUNCTION__;
   }
 
-  scoped_refptr<URLRequestContext> context_;
+  scoped_refptr<net::URLRequestContext> context_;
   mutable scoped_refptr<base::MessageLoopProxy> io_message_loop_proxy_;
   MessageLoop* io_loop_;
 };
@@ -251,12 +251,12 @@ class ChromeFrameMetricsDataUploader
   ChromeFrameMetricsDataUploader()
       : fetcher_(NULL) {
     DVLOG(1) << __FUNCTION__;
-    creator_thread_id_ = PlatformThread::CurrentId();
+    creator_thread_id_ = base::PlatformThread::CurrentId();
   }
 
   ~ChromeFrameMetricsDataUploader() {
     DVLOG(1) << __FUNCTION__;
-    DCHECK(creator_thread_id_ == PlatformThread::CurrentId());
+    DCHECK(creator_thread_id_ == base::PlatformThread::CurrentId());
   }
 
   virtual void OnFinalMessage(HWND wnd) {
@@ -333,7 +333,7 @@ class ChromeFrameMetricsDataUploader
   // URLFetcher::Delegate
   virtual void OnURLFetchComplete(const URLFetcher* source,
                                   const GURL& url,
-                                  const URLRequestStatus& status,
+                                  const net::URLRequestStatus& status,
                                   int response_code,
                                   const ResponseCookies& cookies,
                                   const std::string& data) {
@@ -350,7 +350,7 @@ class ChromeFrameMetricsDataUploader
 
  private:
   URLFetcher* fetcher_;
-  PlatformThreadId creator_thread_id_;
+  base::PlatformThreadId creator_thread_id_;
 };
 
 MetricsService* MetricsService::GetInstance() {
@@ -383,7 +383,7 @@ MetricsService::~MetricsService() {
 void MetricsService::InitializeMetricsState() {
   DCHECK(state_ == INITIALIZED);
 
-  thread_ = PlatformThread::CurrentId();
+  thread_ = base::PlatformThread::CurrentId();
 
   user_permits_upload_ = GoogleUpdateSettings::GetCollectStatsConsent();
   // Update session ID
@@ -480,7 +480,7 @@ void CALLBACK MetricsService::TransmissionTimerProc(HWND window,
 void MetricsService::SetReporting(bool enable) {
   static const int kChromeFrameMetricsTimerId = 0xFFFFFFFF;
 
-  DCHECK_EQ(thread_, PlatformThread::CurrentId());
+  DCHECK_EQ(thread_, base::PlatformThread::CurrentId());
   if (reporting_active_ != enable) {
     reporting_active_ = enable;
     if (reporting_active_) {
@@ -498,7 +498,7 @@ void MetricsService::SetReporting(bool enable) {
 // Recording control methods
 
 void MetricsService::StartRecording() {
-  DCHECK_EQ(thread_, PlatformThread::CurrentId());
+  DCHECK_EQ(thread_, base::PlatformThread::CurrentId());
   if (current_log_)
     return;
 
@@ -509,7 +509,7 @@ void MetricsService::StartRecording() {
 }
 
 void MetricsService::StopRecording(bool save_log) {
-  DCHECK_EQ(thread_, PlatformThread::CurrentId());
+  DCHECK_EQ(thread_, base::PlatformThread::CurrentId());
   if (!current_log_)
     return;
 
@@ -527,7 +527,7 @@ void MetricsService::StopRecording(bool save_log) {
 }
 
 void MetricsService::MakePendingLog() {
-  DCHECK_EQ(thread_, PlatformThread::CurrentId());
+  DCHECK_EQ(thread_, base::PlatformThread::CurrentId());
   if (pending_log())
     return;
 
@@ -556,7 +556,7 @@ bool MetricsService::TransmissionPermitted() const {
 }
 
 std::string MetricsService::PrepareLogSubmissionString() {
-  DCHECK_EQ(thread_, PlatformThread::CurrentId());
+  DCHECK_EQ(thread_, base::PlatformThread::CurrentId());
 
   MakePendingLog();
   DCHECK(pending_log());
@@ -572,7 +572,7 @@ std::string MetricsService::PrepareLogSubmissionString() {
 }
 
 bool MetricsService::UploadData() {
-  DCHECK_EQ(thread_, PlatformThread::CurrentId());
+  DCHECK_EQ(thread_, base::PlatformThread::CurrentId());
 
   if (!GetInstance()->TransmissionPermitted())
     return false;

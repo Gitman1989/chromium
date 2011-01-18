@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 #include "app/l10n_util_mac.h"
-#include "base/mac_util.h"
+#include "base/mac/mac_util.h"
 #import "chrome/browser/themes/browser_theme_provider.h"
 #import "chrome/browser/ui/cocoa/menu_controller.h"
 #import "chrome/browser/ui/cocoa/tab_controller.h"
@@ -30,13 +30,13 @@ namespace TabControllerInternal {
 // A C++ delegate that handles enabling/disabling menu items and handling when
 // a menu command is chosen. Also fixes up the menu item label for "pin/unpin
 // tab".
-class MenuDelegate : public menus::SimpleMenuModel::Delegate {
+class MenuDelegate : public ui::SimpleMenuModel::Delegate {
  public:
   explicit MenuDelegate(id<TabControllerTarget> target, TabController* owner)
       : target_(target),
         owner_(owner) {}
 
-  // Overridden from menus::SimpleMenuModel::Delegate
+  // Overridden from ui::SimpleMenuModel::Delegate
   virtual bool IsCommandIdChecked(int command_id) const { return false; }
   virtual bool IsCommandIdEnabled(int command_id) const {
     TabStripModel::ContextMenuCommand command =
@@ -45,7 +45,7 @@ class MenuDelegate : public menus::SimpleMenuModel::Delegate {
   }
   virtual bool GetAcceleratorForCommandId(
       int command_id,
-      menus::Accelerator* accelerator) { return false; }
+      ui::Accelerator* accelerator) { return false; }
   virtual void ExecuteCommand(int command_id) {
     TabStripModel::ContextMenuCommand command =
         static_cast<TabStripModel::ContextMenuCommand>(command_id);
@@ -73,7 +73,7 @@ class MenuDelegate : public menus::SimpleMenuModel::Delegate {
 }
 
 - (id)init {
-  self = [super initWithNibName:@"TabView" bundle:mac_util::MainAppBundle()];
+  self = [super initWithNibName:@"TabView" bundle:base::mac::MainAppBundle()];
   if (self != nil) {
     isIconShowing_ = YES;
     NSNotificationCenter* defaultCenter = [NSNotificationCenter defaultCenter];

@@ -14,19 +14,20 @@
 
 #include <string>
 
-#include "app/menus/accelerator.h"
+#include "base/string16.h"
+#include "ui/base/models/accelerator.h"
 #include "views/event.h"
 
 namespace views {
 
-class Accelerator : public menus::Accelerator {
+class Accelerator : public ui::Accelerator {
  public:
-  Accelerator() : menus::Accelerator() {}
+  Accelerator() : ui::Accelerator() {}
 
-  Accelerator(app::KeyboardCode keycode, int modifiers)
-      : menus::Accelerator(keycode, modifiers) {}
+  Accelerator(ui::KeyboardCode keycode, int modifiers)
+      : ui::Accelerator(keycode, modifiers) {}
 
-  Accelerator(app::KeyboardCode keycode,
+  Accelerator(ui::KeyboardCode keycode,
               bool shift_pressed, bool ctrl_pressed, bool alt_pressed) {
     key_code_ = keycode;
     modifiers_ = 0;
@@ -53,7 +54,7 @@ class Accelerator : public menus::Accelerator {
   }
 
   // Returns a string with the localized shortcut if any.
-  std::wstring GetShortcutText() const;
+  string16 GetShortcutText() const;
 };
 
 // An interface that classes that want to register for keyboard accelerators

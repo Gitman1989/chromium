@@ -34,7 +34,7 @@
       'worker',
       'service',
       '../printing/printing.gyp:printing',
-#      '../third_party/WebKit/WebKit/chromium/WebKit.gyp:inspector_resources',
+      '../third_party/WebKit/WebKit/chromium/WebKit.gyp:inspector_resources',
     ],
     'nacl_win64_dependencies': [
       'common_nacl_win64',
@@ -53,6 +53,7 @@
     ],
     'chrome_resources_grds': [
       # Data resources.
+      'browser/autofill/autofill_resources.grd',
       'browser/browser_resources.grd',
       'common/common_resources.grd',
       'renderer/renderer_resources.grd',
@@ -61,11 +62,13 @@
       # These resources end up in resources.pak because they are resources
       # used by internal pages.  Putting them in a spearate pak file makes
       # it easier for us to reference them internally.
-      'browser/resources/bookmark_manager_resources.grd',
+      'browser/resources/component_extension_resources.grd',
       'browser/resources/net_internals_resources.grd',
-      'browser/resources/shared_resources.grd'
+      'browser/resources/shared_resources.grd',
+      'browser/resources/sync_internals_resources.grd',
     ],
-    'grit_info_cmd': ['python', '../tools/grit/grit_info.py'],
+    'grit_info_cmd': ['python', '../tools/grit/grit_info.py',
+                      '<@(grit_defines)'],
     'grit_cmd': ['python', '../tools/grit/grit.py'],
     'repack_locales_cmd': ['python', 'tools/build/repack_locales.py'],
     # TODO: remove this helper when we have loops in GYP
@@ -185,17 +188,7 @@
             'build', '-o', '<(grit_out_dir)',
             '-D', '<(chrome_build)',
             '-E', '<(branded_env)',
-          ],
-          'conditions': [
-            ['chromeos==1', {
-              'action': ['-D', 'chromeos'],
-            }],
-            ['toolkit_views==1', {
-              'action': ['-D', 'toolkit_views'],
-            }],
-            ['use_titlecase_in_grd_files==1', {
-              'action': ['-D', 'use_titlecase'],
-            }],
+            '<@(grit_defines)',
           ],
           'message': 'Generating resources from <(RULE_INPUT_PATH)',
         },
@@ -272,15 +265,8 @@
           'action': ['<@(grit_cmd)', '-i',
                     '<(RULE_INPUT_PATH)',
                     'build', '-o', '<(grit_out_dir)',
-                    '-D', '<(chrome_build)'],
-          'conditions': [
-            ['chromeos==1', {
-              'action': ['-D', 'chromeos'],
-            }],
-            ['use_titlecase_in_grd_files==1', {
-              'action': ['-D', 'use_titlecase'],
-            }],
-          ],
+                    '-D', '<(chrome_build)',
+                    '<@(grit_defines)' ],
           'message': 'Generating resources from <(RULE_INPUT_PATH)',
         },
       ],
@@ -328,18 +314,8 @@
             '<@(grit_cmd)',
             '-i', '<(input_path)', 'build',
             '-o', '<(grit_out_dir)',
-            '-D', '<(chrome_build)'
-          ],
-          'conditions': [
-            ['chromeos==1', {
-              'action': ['-D', 'chromeos'],
-            }],
-            ['toolkit_views==1', {
-              'action': ['-D', 'toolkit_views'],
-            }],
-            ['use_titlecase_in_grd_files==1', {
-              'action': ['-D', 'use_titlecase'],
-            }],
+            '-D', '<(chrome_build)',
+            '<@(grit_defines)',
           ],
           'message': 'Generating resources from <(input_path)',
         },
@@ -386,15 +362,8 @@
             '<@(grit_cmd)',
             '-i', '<(input_path)', 'build',
             '-o', '<(grit_out_dir)',
-            '-D', '<(chrome_build)'
-          ],
-          'conditions': [
-            ['chromeos==1', {
-              'action': ['-D', 'chromeos'],
-            }],
-            ['use_titlecase_in_grd_files==1', {
-              'action': ['-D', 'use_titlecase'],
-            }],
+            '-D', '<(chrome_build)',
+            '<@(grit_defines)',
           ],
           'message': 'Generating resources from <(input_path)',
         },
@@ -458,14 +427,7 @@
             'build', '-o', '<(grit_out_dir)',
             '-D', '<(chrome_build)',
             '-E', '<(branded_env)',
-          ],
-          'conditions': [
-            ['chromeos==1', {
-              'action': ['-D', 'chromeos'],
-            }],
-            ['use_titlecase_in_grd_files==1', {
-              'action': ['-D', 'use_titlecase'],
-            }],
+            '<@(grit_defines)',
           ],
           'message': 'Generating resources from <(RULE_INPUT_PATH)',
         },
@@ -1135,8 +1097,8 @@
         'service/gaia/service_gaia_authenticator.h',
         'service/net/service_url_request_context.cc',
         'service/net/service_url_request_context.h',
-        'service/remoting/remoting_directory_service.cc',
-        'service/remoting/remoting_directory_service.h',
+        'service/remoting/chromoting_host_manager.cc',
+        'service/remoting/chromoting_host_manager.h',
       ],
       'include_dirs': [
         '..',
@@ -1185,9 +1147,13 @@
         }],
         ['remoting==1', {
           'dependencies': [
-            '../remoting/remoting.gyp:chromoting_base',
             '../remoting/remoting.gyp:chromoting_host',
-            '../remoting/remoting.gyp:chromoting_jingle_glue',
+          ],
+        }],
+        ['remoting==0', {
+          'sources!': [
+            'service/remoting/chromoting_host_manager.cc',
+            'service/remoting/chromoting_host_manager.h',
           ],
         }],
       ],
@@ -1445,6 +1411,7 @@
           'dependencies': [
             'chrome_strings',
             '../base/base.gyp:base',
+            '../app/app.gyp:app_base',
           ],
           'include_dirs': [
             '<(grit_out_dir)',
@@ -1517,9 +1484,10 @@
               'action_name': 'repack_resources',
               'variables': {
                 'pak_inputs': [
-                  '<(grit_out_dir)/bookmark_manager_resources.pak',
+                  '<(grit_out_dir)/component_extension_resources.pak',
                   '<(grit_out_dir)/net_internals_resources.pak',
                   '<(grit_out_dir)/shared_resources.pak',
+                  '<(grit_out_dir)/sync_internals_resources.pak',
                 ],
               },
               'inputs': [
@@ -1833,6 +1801,7 @@
             'action_name': 'repack_chrome',
             'variables': {
               'pak_inputs': [
+                '<(grit_out_dir)/autofill_resources.pak',
                 '<(grit_out_dir)/browser_resources.pak',
                 '<(grit_out_dir)/common_resources.pak',
                 '<(grit_out_dir)/default_plugin_resources/default_plugin_resources.pak',

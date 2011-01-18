@@ -9,12 +9,15 @@
 #include <string>
 #include <vector>
 
-#include "app/table_model.h"
 #include "base/basictypes.h"
+#include "base/compiler_specific.h"
+#include "ui/base/models/table_model.h"
 
+namespace ui {
 class TableModelObserver;
+}
 
-class LanguageOrderTableModel : public TableModel {
+class LanguageOrderTableModel : public ui::TableModel {
  public:
   LanguageOrderTableModel();
 
@@ -43,16 +46,16 @@ class LanguageOrderTableModel : public TableModel {
   std::string GetLanguageList();
 
   // TableModel overrides:
-  virtual int RowCount();
-  virtual std::wstring GetText(int row, int column_id);
-  virtual void SetObserver(TableModelObserver* observer);
+  virtual int RowCount() OVERRIDE;
+  virtual string16 GetText(int row, int column_id) OVERRIDE;
+  virtual void SetObserver(ui::TableModelObserver* observer) OVERRIDE;
 
  private:
   // Set of entries we're showing.
   std::vector<std::string> languages_;
   std::string comma_separated_language_list_;
 
-  TableModelObserver* observer_;
+  ui::TableModelObserver* observer_;
 
   DISALLOW_COPY_AND_ASSIGN(LanguageOrderTableModel);
 };

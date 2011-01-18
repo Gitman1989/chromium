@@ -19,11 +19,11 @@
 #include "base/stl_util-inl.h"
 #include "base/string_util.h"
 #include "base/task.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "base/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
-#include "base/waitable_event.h"
+#include "base/synchronization/waitable_event.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/autofill/autofill_manager.h"
 #include "chrome/browser/automation/automation_autocomplete_edit_tracker.h"
@@ -111,7 +111,9 @@ using base::Time;
 
 AutomationProvider::AutomationProvider(Profile* profile)
     : profile_(profile),
-      reply_message_(NULL) {
+      reply_message_(NULL),
+      is_connected_(false),
+      initial_loads_complete_(false) {
   TRACE_EVENT_BEGIN("AutomationProvider::AutomationProvider", 0, "");
 
   browser_tracker_.reset(new AutomationBrowserTracker(this));
@@ -147,23 +149,38 @@ AutomationProvider::~AutomationProvider() {
   g_browser_process->ReleaseModule();
 }
 
-void AutomationProvider::ConnectToChannel(const std::string& channel_id) {
-  TRACE_EVENT_BEGIN("AutomationProvider::ConnectToChannel", 0, "");
+bool AutomationProvider::InitializeChannel(const std::string& channel_id) {
+  TRACE_EVENT_BEGIN("AutomationProvider::InitializeChannel", 0, "");
+
+  std::string effective_channel_id = channel_id;
+
+  // If the channel_id starts with kNamedInterfacePrefix, create a named IPC
+  // server and listen on it, else connect as client to an existing IPC server
+  bool use_named_interface =
+      channel_id.find(automation::kNamedInterfacePrefix) == 0;
+  if (use_named_interface) {
+    effective_channel_id = channel_id.substr(
+        strlen(automation::kNamedInterfacePrefix));
+    if (effective_channel_id.length() <= 0)
+      return false;
+  }
 
   if (!automation_resource_message_filter_.get()) {
     automation_resource_message_filter_ = new AutomationResourceMessageFilter;
   }
 
-  channel_.reset(
-      new IPC::SyncChannel(channel_id, IPC::Channel::MODE_CLIENT, this,
-                           g_browser_process->io_thread()->message_loop(),
-                           true, g_browser_process->shutdown_event()));
+  channel_.reset(new IPC::SyncChannel(
+      effective_channel_id,
+      use_named_interface ? IPC::Channel::MODE_NAMED_SERVER
+                          : IPC::Channel::MODE_CLIENT,
+      this,
+      g_browser_process->io_thread()->message_loop(),
+      true, g_browser_process->shutdown_event()));
   channel_->AddFilter(automation_resource_message_filter_);
 
-  // Send a hello message with our current automation protocol version.
-  channel_->Send(new AutomationMsg_Hello(0, GetProtocolVersion().c_str()));
+  TRACE_EVENT_END("AutomationProvider::InitializeChannel", 0, "");
 
-  TRACE_EVENT_END("AutomationProvider::ConnectToChannel", 0, "");
+  return true;
 }
 
 std::string AutomationProvider::GetProtocolVersion() {
@@ -172,11 +189,16 @@ std::string AutomationProvider::GetProtocolVersion() {
 }
 
 void AutomationProvider::SetExpectedTabCount(size_t expected_tabs) {
-  if (expected_tabs == 0) {
-    Send(new AutomationMsg_InitialLoadsComplete(0));
-  } else {
+  if (expected_tabs == 0)
+    OnInitialLoadsComplete();
+  else
     initial_load_observer_.reset(new InitialLoadObserver(expected_tabs, this));
-  }
+}
+
+void AutomationProvider::OnInitialLoadsComplete() {
+  initial_loads_complete_ = true;
+  if (is_connected_)
+    Send(new AutomationMsg_InitialLoadsComplete());
 }
 
 NotificationObserver* AutomationProvider::AddNavigationStatusListener(
@@ -325,14 +347,25 @@ const Extension* AutomationProvider::GetDisabledExtension(
   return NULL;
 }
 
-void AutomationProvider::OnMessageReceived(const IPC::Message& message) {
+void AutomationProvider::OnChannelConnected(int pid) {
+  is_connected_ = true;
+  LOG(INFO) << "Testing channel connected, sending hello message";
+
+  // Send a hello message with our current automation protocol version.
+  channel_->Send(new AutomationMsg_Hello(GetProtocolVersion()));
+  if (initial_loads_complete_)
+    Send(new AutomationMsg_InitialLoadsComplete());
+}
+
+bool AutomationProvider::OnMessageReceived(const IPC::Message& message) {
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(AutomationProvider, message)
 #if !defined(OS_MACOSX)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_WindowDrag,
                                     WindowSimulateDrag)
 #endif  // !defined(OS_MACOSX)
     IPC_MESSAGE_HANDLER(AutomationMsg_HandleUnused, HandleUnused)
-    IPC_MESSAGE_HANDLER(AutomationMsg_SetProxyConfig, SetProxyConfig);
+    IPC_MESSAGE_HANDLER(AutomationMsg_SetProxyConfig, SetProxyConfig)
     IPC_MESSAGE_HANDLER(AutomationMsg_PrintAsync, PrintAsync)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_Find, HandleFindRequest)
     IPC_MESSAGE_HANDLER(AutomationMsg_OverrideEncoding, OverrideEncoding)
@@ -369,6 +402,8 @@ void AutomationProvider::OnMessageReceived(const IPC::Message& message) {
                         GetExtensionProperty)
     IPC_MESSAGE_HANDLER(AutomationMsg_SaveAsAsync, SaveAsAsync)
     IPC_MESSAGE_HANDLER(AutomationMsg_RemoveBrowsingData, RemoveBrowsingData)
+    IPC_MESSAGE_HANDLER(AutomationMsg_JavaScriptStressTestControl,
+                        JavaScriptStressTestControl)
 #if defined(OS_WIN)
     // These are for use with external tabs.
     IPC_MESSAGE_HANDLER(AutomationMsg_CreateExternalTab, CreateExternalTab)
@@ -396,8 +431,9 @@ void AutomationProvider::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_LoginWithUserAndPass,
                                     LoginWithUserAndPass)
 #endif  // defined(OS_CHROMEOS)
-    IPC_MESSAGE_UNHANDLED(OnUnhandledMessage())
+    IPC_MESSAGE_UNHANDLED(handled = false;OnUnhandledMessage())
   IPC_END_MESSAGE_MAP()
+  return handled;
 }
 
 void AutomationProvider::OnUnhandledMessage() {
@@ -729,6 +765,18 @@ void AutomationProvider::RemoveBrowsingData(int remove_mask) {
   // BrowsingDataRemover deletes itself.
 }
 
+void AutomationProvider::JavaScriptStressTestControl(int tab_handle,
+                                                     int cmd,
+                                                     int param) {
+  RenderViewHost* view = GetViewForTab(tab_handle);
+  if (!view) {
+    NOTREACHED();
+    return;
+  }
+
+  view->JavaScriptStressTestControl(cmd, param);
+}
+
 RenderViewHost* AutomationProvider::GetViewForTab(int tab_handle) {
   if (tab_tracker_->ContainsHandle(tab_handle)) {
     NavigationController* tab = tab_tracker_->GetResource(tab_handle);
@@ -899,11 +947,11 @@ void AutomationProvider::ExecuteExtensionActionInActiveTabAsync(
   if (extension && service && message_service && browser) {
     int tab_id = ExtensionTabUtil::GetTabId(browser->GetSelectedTabContents());
     if (extension->page_action()) {
-      ExtensionBrowserEventRouter::GetInstance()->PageActionExecuted(
+      service->browser_event_router()->PageActionExecuted(
           browser->profile(), extension->id(), "action", tab_id, "", 1);
       success = true;
     } else if (extension->browser_action()) {
-      ExtensionBrowserEventRouter::GetInstance()->BrowserActionExecuted(
+      service->browser_event_router()->BrowserActionExecuted(
           browser->profile(), extension->id(), browser);
       success = true;
     }

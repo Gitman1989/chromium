@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,23 +9,20 @@
 #include <sstream>
 
 #include "base/message_loop.h"
-#if defined(OS_LINUX) || defined(OS_MACOSX)
-#include "base/file_descriptor_posix.h"
-#endif  // defined(OS_LINUX) || defined(OS_MACOSX)
-#include "base/platform_thread.h"
 #include "base/process_util.h"
+#include "build/build_config.h"
 #include "ipc/ipc_channel.h"
 #include "ipc/ipc_channel_proxy.h"
+#include "ipc/ipc_message_macros.h"
 #include "ipc/ipc_message_utils.h"
 #include "ipc/ipc_message_utils_impl.h"
 #include "ipc/ipc_tests.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/multiprocess_func_list.h"
 
-
-// We don't actually use the messages defined in this file, but we do this
-// to get to the IPC macros.
-#include "ipc/ipc_sync_message_unittest.h"
+#if defined(OS_LINUX) || defined(OS_MACOSX)
+#include "base/file_descriptor_posix.h"
+#endif  // defined(OS_LINUX) || defined(OS_MACOSX)
 
 enum IPCMessageIds {
   UNUSED_IPC_TYPE,
@@ -107,13 +104,14 @@ class SyncSocketServerListener : public IPC::Channel::Listener {
     chan_ = chan;
   }
 
-  virtual void OnMessageReceived(const IPC::Message& msg) {
+  virtual bool OnMessageReceived(const IPC::Message& msg) {
     if (msg.routing_id() == MSG_ROUTING_CONTROL) {
       IPC_BEGIN_MESSAGE_MAP(SyncSocketServerListener, msg)
         IPC_MESSAGE_HANDLER(MsgClassSetHandle, OnMsgClassSetHandle)
         IPC_MESSAGE_HANDLER(MsgClassShutdown, OnMsgClassShutdown)
       IPC_END_MESSAGE_MAP()
     }
+    return true;
   }
 
  private:
@@ -175,12 +173,13 @@ class SyncSocketClientListener : public IPC::Channel::Listener {
     chan_ = chan;
   }
 
-  virtual void OnMessageReceived(const IPC::Message& msg) {
+  virtual bool OnMessageReceived(const IPC::Message& msg) {
     if (msg.routing_id() == MSG_ROUTING_CONTROL) {
       IPC_BEGIN_MESSAGE_MAP(SyncSocketClientListener, msg)
         IPC_MESSAGE_HANDLER(MsgClassResponse, OnMsgClassResponse)
       IPC_END_MESSAGE_MAP()
     }
+    return true;
   }
 
  private:

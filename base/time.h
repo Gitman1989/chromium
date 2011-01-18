@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -385,6 +385,9 @@ class Time {
  private:
   friend class TimeDelta;
 
+  explicit Time(int64 us) : us_(us) {
+  }
+
   // Explodes the given time to either local time |is_local = true| or UTC
   // |is_local = false|.
   void Explode(bool is_local, Exploded* exploded) const;
@@ -392,9 +395,6 @@ class Time {
   // Unexplodes a given time assuming the source is either local time
   // |is_local = true| or UTC |is_local = false|.
   static Time FromExploded(bool is_local, const Exploded& exploded);
-
-  explicit Time(int64 us) : us_(us) {
-  }
 
   // The representation of Jan 1, 1970 UTC in microseconds since the
   // platform-dependent epoch.
@@ -410,10 +410,6 @@ class Time {
   // Time in microseconds in UTC.
   int64 us_;
 };
-
-inline Time TimeDelta::operator+(Time t) const {
-  return Time(t.us_ + delta_);
-}
 
 // Inline the TimeDelta factory methods, for fast TimeDelta construction.
 
@@ -445,6 +441,10 @@ inline TimeDelta TimeDelta::FromMilliseconds(int64 ms) {
 // static
 inline TimeDelta TimeDelta::FromMicroseconds(int64 us) {
   return TimeDelta(us);
+}
+
+inline Time TimeDelta::operator+(Time t) const {
+  return Time(t.us_ + delta_);
 }
 
 // TimeTicks ------------------------------------------------------------------

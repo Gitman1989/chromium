@@ -14,7 +14,7 @@
 #include "base/string16.h"
 #include "base/ref_counted.h"
 #include "ipc/ipc_channel.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebMessagePortChannel.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebMessagePortChannel.h"
 
 // This is thread safe.
 class WebMessagePortChannelImpl
@@ -48,7 +48,7 @@ class WebMessagePortChannelImpl
   void Send(IPC::Message* message);
 
   // IPC::Channel::Listener implementation.
-  virtual void OnMessageReceived(const IPC::Message& message);
+  virtual bool OnMessageReceived(const IPC::Message& message);
 
   void OnMessage(const string16& message,
                  const std::vector<int>& sent_message_port_ids,

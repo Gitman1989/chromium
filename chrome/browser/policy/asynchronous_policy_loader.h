@@ -7,13 +7,13 @@
 #pragma once
 
 #include "base/message_loop.h"
+#include "base/observer_list.h"
 #include "base/ref_counted.h"
 #include "base/values.h"
 #include "chrome/browser/policy/asynchronous_policy_provider.h"
+#include "chrome/browser/policy/configuration_policy_provider.h"
 
 namespace policy {
-
-class ConfigurationPolicyProvider;
 
 // Used by the implementation of asynchronous policy provider to manage the
 // tasks on the file thread that do the heavy lifting of loading policies.
@@ -21,7 +21,8 @@ class AsynchronousPolicyLoader
     : public base::RefCountedThreadSafe<AsynchronousPolicyLoader> {
  public:
   explicit AsynchronousPolicyLoader(
-      AsynchronousPolicyProvider::Delegate* delegate);
+      AsynchronousPolicyProvider::Delegate* delegate,
+      int reload_interval_minutes);
 
   // Triggers initial policy load.
   virtual void Init();
@@ -33,9 +34,8 @@ class AsynchronousPolicyLoader
   // Stops any pending reload tasks.
   virtual void Stop();
 
-  // Associates a provider with the loader to allow the loader to notify the
-  // provider when policy changes.
-  void SetProvider(AsynchronousPolicyProvider* provider);
+  void AddObserver(ConfigurationPolicyProvider::Observer* observer);
+  void RemoveObserver(ConfigurationPolicyProvider::Observer* observer);
 
   const DictionaryValue* policy() const { return policy_.get(); }
 
@@ -55,17 +55,36 @@ class AsynchronousPolicyLoader
     return delegate_.get();
   }
 
-  AsynchronousPolicyProvider* provider() {
-    return provider_;
-  }
+  // Performs start operations that must be performed on the file thread.
+  virtual void InitOnFileThread();
+
+  // Performs stop operations that must be performed on the file thread.
+  virtual void StopOnFileThread();
+
+  // Schedules a reload task to run when |delay| expires. Must be called on the
+  // file thread.
+  void ScheduleReloadTask(const base::TimeDelta& delay);
+
+  // Schedules a reload task to run after the number of minutes specified
+  // in |reload_interval_minutes_|. Must be called on the file thread.
+  void ScheduleFallbackReloadTask();
+
+  void CancelReloadTask();
+
+  // Invoked from the reload task on the file thread.
+  void ReloadFromTask();
 
  private:
   friend class AsynchronousPolicyLoaderTest;
 
+  // Finishes loader initialization after the threading system has been fully
+  // intialized.
+  void InitAfterFileThreadAvailable();
+
   // Replaces the existing policy to value map with a new one, sending
-  // notification to the provider if there is a policy change. Must be called on
-  // |origin_loop_| so that it's safe to call back into the provider, which is
-  // not thread-safe. Takes ownership of |new_policy|.
+  // notification to the observers if there is a policy change. Must be called
+  // on |origin_loop_| so that it's safe to call back into the provider, which
+  // is not thread-safe. Takes ownership of |new_policy|.
   void UpdatePolicy(DictionaryValue* new_policy);
 
   // Provides the low-level mechanics for loading policy.
@@ -74,14 +93,22 @@ class AsynchronousPolicyLoader
   // Current policy.
   scoped_ptr<DictionaryValue> policy_;
 
-  // The provider this loader is associated with. Access only on the thread that
-  // called the constructor. See |origin_loop_| below.
-  AsynchronousPolicyProvider* provider_;
+  // The reload task. Access only on the file thread. Holds a reference to the
+  // currently posted task, so we can cancel and repost it if necessary.
+  CancelableTask* reload_task_;
+
+  // The interval at which a policy reload will be triggered as a fallback.
+  const base::TimeDelta  reload_interval_;
 
   // The message loop on which this object was constructed. Recorded so that
   // it's possible to call back into the non thread safe provider to fire the
   // notification.
   MessageLoop* origin_loop_;
+
+  // True if Stop has been called.
+  bool stopped_;
+
+  ObserverList<ConfigurationPolicyProvider::Observer, true> observer_list_;
 
   DISALLOW_COPY_AND_ASSIGN(AsynchronousPolicyLoader);
 };

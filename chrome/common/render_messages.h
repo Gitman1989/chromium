@@ -11,7 +11,6 @@
 
 // TODO(erg): This list has been temporarily annotated by erg while doing work
 // on which headers to pull out.
-#include "app/clipboard/clipboard.h"                   // enum
 #include "base/basictypes.h"
 #include "base/ref_counted.h"
 #include "base/string16.h"
@@ -23,6 +22,7 @@
 #include "chrome/common/webkit_param_traits.h"
 #include "ipc/ipc_message_utils.h"
 #include "ipc/ipc_platform_file.h"                     // ifdefed typedef.
+#include "ui/base/clipboard/clipboard.h"                   // enum
 #include "webkit/appcache/appcache_interfaces.h"  // enum appcache::Status
 #include "webkit/fileapi/file_system_types.h"  // enum fileapi::FileSystemType
 
@@ -61,7 +61,6 @@ struct ResourceLoadTimingInfo;
 struct ResourceResponseInfo;
 struct WebAccessibility;
 struct WebCookie;
-struct WebAccessibility;
 }
 
 namespace webkit {
@@ -79,6 +78,7 @@ class SkBitmap;
 class URLPattern;
 struct ContextMenuParams;
 struct EditCommand;
+struct PP_Flash_NetAddress;
 struct ResourceResponseHead;
 struct SyncLoadResult;
 struct RendererPreferences;
@@ -124,6 +124,18 @@ enum ViewHostMsg_EnablePreferredSizeChangedMode_Flags {
   kPreferredSizeWidth = 1 << 0,
   // Requesting the height currently requires a polling loop in render_view.cc.
   kPreferredSizeHeightThisIsSlow = 1 << 1,
+};
+
+// Command values for the cmd parameter of the
+// ViewHost_JavaScriptStressTestControl message. For each command the parameter
+// passed has a different meaning:
+// For the command kJavaScriptStressTestSetStressRunType the parameter it the
+// type taken from the enumeration v8::Testing::StressType.
+// For the command kJavaScriptStressTestPrepareStressRun the parameter it the
+// number of the stress run about to take place.
+enum ViewHostMsg_JavaScriptStressTestControl_Commands {
+  kJavaScriptStressTestSetStressRunType = 0,
+  kJavaScriptStressTestPrepareStressRun = 1,
 };
 
 namespace IPC {
@@ -431,30 +443,30 @@ struct ParamTraits<URLPattern> {
 };
 
 template <>
-struct ParamTraits<Clipboard::Buffer> {
-  typedef Clipboard::Buffer param_type;
+struct ParamTraits<ui::Clipboard::Buffer> {
+  typedef ui::Clipboard::Buffer param_type;
   static void Write(Message* m, const param_type& p) {
     m->WriteInt(p);
   }
   static bool Read(const Message* m, void** iter, param_type* p) {
     int buffer;
-    if (!m->ReadInt(iter, &buffer) || !Clipboard::IsValidBuffer(buffer))
+    if (!m->ReadInt(iter, &buffer) || !ui::Clipboard::IsValidBuffer(buffer))
       return false;
-    *p = Clipboard::FromInt(buffer);
+    *p = ui::Clipboard::FromInt(buffer);
     return true;
   }
   static void Log(const param_type& p, std::string* l) {
     std::string type;
     switch (p) {
-      case Clipboard::BUFFER_STANDARD:
+      case ui::Clipboard::BUFFER_STANDARD:
         type = "BUFFER_STANDARD";
         break;
 #if defined(USE_X11)
-      case Clipboard::BUFFER_SELECTION:
+      case ui::Clipboard::BUFFER_SELECTION:
         type = "BUFFER_SELECTION";
         break;
 #endif
-      case Clipboard::BUFFER_DRAG:
+      case ui::Clipboard::BUFFER_DRAG:
         type = "BUFFER_DRAG";
         break;
       default:
@@ -547,6 +559,14 @@ struct ParamTraits<AudioBuffersState> {
 template <>
 struct ParamTraits<speech_input::SpeechInputResultItem> {
   typedef speech_input::SpeechInputResultItem param_type;
+  static void Write(Message* m, const param_type& p);
+  static bool Read(const Message* m, void** iter, param_type* p);
+  static void Log(const param_type& p, std::string* l);
+};
+
+template <>
+struct ParamTraits<PP_Flash_NetAddress> {
+  typedef PP_Flash_NetAddress param_type;
   static void Write(Message* m, const param_type& p);
   static bool Read(const Message* m, void** iter, param_type* p);
   static void Log(const param_type& p, std::string* l);

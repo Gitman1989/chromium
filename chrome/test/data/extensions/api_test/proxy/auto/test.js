@@ -7,12 +7,8 @@
 
 chrome.test.runTests([
   function setAutoSettings() {
-    var pacScriptObject = {
-      url: "http://wpad/windows.pac"
-    };
     var config = {
-      autoDetect: true,
-      pacScript: pacScriptObject
+      mode: "auto_detect",
     };
     chrome.experimental.proxy.useCustomProxySettings(config);
     chrome.test.succeed();

@@ -5,7 +5,6 @@
 #include "chrome/browser/possible_url_model.h"
 
 #include "app/resource_bundle.h"
-#include "app/table_model_observer.h"
 #include "app/text_elider.h"
 #include "base/callback.h"
 #include "base/i18n/rtl.h"
@@ -20,6 +19,7 @@
 #include "grit/app_resources.h"
 #include "grit/generated_resources.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/base/models/table_model_observer.h"
 
 using base::Time;
 using base::TimeDelta;
@@ -125,14 +125,14 @@ const std::wstring& PossibleURLModel::GetTitle(int row) {
   return results_[row].title;
 }
 
-std::wstring PossibleURLModel::GetText(int row, int col_id) {
+string16 PossibleURLModel::GetText(int row, int col_id) {
   if (row < 0 || row >= RowCount()) {
     NOTREACHED();
-    return std::wstring();
+    return string16();
   }
 
   if (col_id == IDS_ASI_PAGE_COLUMN) {
-    std::wstring title = GetTitle(row);
+    string16 title = WideToUTF16Hack(GetTitle(row));
     // TODO(xji): Consider adding a special case if the title text is a URL,
     // since those should always have LTR directionality. Please refer to
     // http://crbug.com/6726 for more information.
@@ -143,7 +143,7 @@ std::wstring PossibleURLModel::GetText(int row, int col_id) {
   // TODO(brettw): this should probably pass the GURL up so the URL elider
   // can be used at a higher level when we know the width.
   string16 url = results_[row].display_url.display_url();
-  return UTF16ToWide(base::i18n::GetDisplayStringInLTRDirectionality(url));
+  return base::i18n::GetDisplayStringInLTRDirectionality(url);
 }
 
 SkBitmap PossibleURLModel::GetIcon(int row) {
@@ -180,7 +180,7 @@ int PossibleURLModel::CompareValues(int row1, int row2, int column_id) {
     return results_[row1].display_url.Compare(
         results_[row2].display_url, GetCollator());
   }
-  return TableModel::CompareValues(row1, row2, column_id);
+  return ui::TableModel::CompareValues(row1, row2, column_id);
 }
 
 void PossibleURLModel::OnFavIconAvailable(
@@ -205,6 +205,6 @@ void PossibleURLModel::OnFavIconAvailable(
   }
 }
 
-void PossibleURLModel::SetObserver(TableModelObserver* observer) {
+void PossibleURLModel::SetObserver(ui::TableModelObserver* observer) {
   observer_ = observer;
 }

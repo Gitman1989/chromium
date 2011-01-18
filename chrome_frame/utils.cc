@@ -20,7 +20,7 @@
 #include "base/string_tokenizer.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
-#include "base/thread_local.h"
+#include "base/threading/thread_local.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/registry.h"
 #include "base/win/scoped_bstr.h"
@@ -415,7 +415,7 @@ uint32 GetIEMajorVersion() {
     wchar_t exe_path[MAX_PATH];
     HMODULE mod = GetModuleHandle(NULL);
     GetModuleFileName(mod, exe_path, arraysize(exe_path) - 1);
-    std::wstring exe_name(file_util::GetFilenameFromPath(exe_path));
+    std::wstring exe_name = FilePath(exe_path).BaseName().value();
     if (!LowerCaseEqualsASCII(exe_name, kIEImageName)) {
       ie_major_version = 0;
     } else {
@@ -847,9 +847,17 @@ HRESULT NavigateBrowserToMoniker(IUnknown* browser, IMoniker* moniker,
       uri_container->GetIUri(uri_obj.Receive());
       DCHECK(uri_obj);
 
-      hr = browser_priv2->NavigateWithBindCtx2(uri_obj, NULL, NULL, NULL,
-                                               headers_var.AsInput(), bind_ctx,
-                                               const_cast<wchar_t*>(fragment));
+      if (GetIEVersion() < IE_9) {
+        hr = browser_priv2->NavigateWithBindCtx2(
+            uri_obj, NULL, NULL, NULL, headers_var.AsInput(), bind_ctx,
+            const_cast<wchar_t*>(fragment));
+      } else {
+        IWebBrowserPriv2CommonIE9* browser_priv2_ie9 =
+            reinterpret_cast<IWebBrowserPriv2CommonIE9*>(browser_priv2.get());
+        hr = browser_priv2_ie9->NavigateWithBindCtx2(
+            uri_obj, NULL, NULL, NULL, headers_var.AsInput(), bind_ctx,
+            const_cast<wchar_t*>(fragment), 0);
+      }
       DLOG_IF(WARNING, FAILED(hr))
           << base::StringPrintf(L"NavigateWithBindCtx2 0x%08X", hr);
     }

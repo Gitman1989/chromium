@@ -1,16 +1,16 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/location_bar/page_action_image_view.h"
+#include "chrome/browser/ui/views/location_bar/page_action_image_view.h"
 
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_list.h"
 #include "chrome/browser/extensions/extension_browser_event_router.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/views/frame/browser_view.h"
-#include "chrome/browser/views/location_bar/location_bar_view.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/common/extensions/extension_action.h"
 #include "chrome/common/extensions/extension_resource.h"
@@ -83,19 +83,23 @@ void PageActionImageView::ExecuteAction(int button,
     View::ConvertPointToScreen(this, &origin);
     screen_bounds.set_origin(origin);
 
+    BubbleBorder::ArrowLocation arrow_location = base::i18n::IsRTL() ?
+        BubbleBorder::TOP_LEFT : BubbleBorder::TOP_RIGHT;
+
     popup_ = ExtensionPopup::Show(
         page_action_->GetPopupUrl(current_tab_id_),
         browser,
         browser->profile(),
         browser->window()->GetNativeHandle(),
         screen_bounds,
-        BubbleBorder::TOP_RIGHT,
+        arrow_location,
         true,  // Activate the popup window.
         inspect_with_devtools,
         ExtensionPopup::BUBBLE_CHROME,
         this);  // ExtensionPopup::Observer
   } else {
-    ExtensionBrowserEventRouter::GetInstance()->PageActionExecuted(
+    ExtensionService* service = profile_->GetExtensionService();
+    service->browser_event_router()->PageActionExecuted(
         profile_, page_action_->extension_id(), page_action_->id(),
         current_tab_id_, current_url_.spec(), button);
   }
@@ -136,8 +140,8 @@ void PageActionImageView::OnMouseReleased(const views::MouseEvent& event,
 }
 
 bool PageActionImageView::OnKeyPressed(const views::KeyEvent& e) {
-  if (e.GetKeyCode() == app::VKEY_SPACE ||
-      e.GetKeyCode() == app::VKEY_RETURN) {
+  if (e.GetKeyCode() == ui::VKEY_SPACE ||
+      e.GetKeyCode() == ui::VKEY_RETURN) {
     ExecuteAction(1, false);
     return true;
   }

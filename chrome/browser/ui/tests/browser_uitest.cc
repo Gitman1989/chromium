@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2008 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,6 +9,7 @@
 #include "base/string_util.h"
 #include "base/sys_info.h"
 #include "base/test/test_file_util.h"
+#include "base/test/test_timeouts.h"
 #include "base/values.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/platform_util.h"
@@ -83,7 +84,7 @@ TEST_F(BrowserTest, PosixSessionEnd) {
 #ifdef CHROME_V8
 TEST_F(BrowserTest, NullOpenerRedirectForksProcess) {
   // This test only works in multi-process mode
-  if (in_process_renderer())
+  if (ProxyLauncher::in_process_renderer())
     return;
 
   net::TestServer test_server(net::TestServer::TYPE_HTTP,
@@ -113,7 +114,7 @@ TEST_F(BrowserTest, NullOpenerRedirectForksProcess) {
   // Make sure that a new tab has been created and that we have a new renderer
   // process for it.
   ASSERT_TRUE(tab->NavigateToURLAsync(fork_url));
-  PlatformThread::Sleep(sleep_timeout_ms());
+  PlatformThread::Sleep(TestTimeouts::action_timeout_ms());
   ASSERT_EQ(orig_process_count + 1, GetBrowserProcessCount());
   int new_tab_count = -1;
   ASSERT_TRUE(window->GetTabCount(&new_tab_count));
@@ -134,7 +135,7 @@ TEST_F(BrowserTest, NullOpenerRedirectForksProcess) {
 // a same-page-redirect) will not fork a new process.
 TEST_F(BrowserTest, MAYBE_OtherRedirectsDontForkProcess) {
   // This test only works in multi-process mode
-  if (in_process_renderer())
+  if (ProxyLauncher::in_process_renderer())
     return;
 
   net::TestServer test_server(net::TestServer::TYPE_HTTP,
@@ -166,7 +167,7 @@ TEST_F(BrowserTest, MAYBE_OtherRedirectsDontForkProcess) {
 
   // Make sure that a new tab but not new process has been created.
   ASSERT_TRUE(tab->NavigateToURLAsync(dont_fork_url));
-  PlatformThread::Sleep(sleep_timeout_ms());
+  base::PlatformThread::Sleep(TestTimeouts::action_timeout_ms());
   ASSERT_EQ(orig_process_count, GetBrowserProcessCount());
   int new_tab_count = -1;
   ASSERT_TRUE(window->GetTabCount(&new_tab_count));
@@ -181,7 +182,7 @@ TEST_F(BrowserTest, MAYBE_OtherRedirectsDontForkProcess) {
 
   // Make sure that no new process has been created.
   ASSERT_TRUE(tab->NavigateToURLAsync(dont_fork_url2));
-  PlatformThread::Sleep(sleep_timeout_ms());
+  base::PlatformThread::Sleep(TestTimeouts::action_timeout_ms());
   ASSERT_EQ(orig_process_count, GetBrowserProcessCount());
 }
 

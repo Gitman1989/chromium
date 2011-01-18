@@ -437,22 +437,6 @@
    fun:gtk_im_multicontext_get_slave
    fun:gtk_im_multicontext_set_client_window
    fun:gtk_im_context_set_client_window
-   fun:gtk_entry_realize
-   fun:g_cclosure_marshal_VOID__VOID
-   fun:g_type_class_meta_marshal
-   fun:g_closure_invoke
-   fun:signal_emit_unlocked_R
-   fun:g_signal_emit_valist
-   fun:g_signal_emit
-   fun:gtk_widget_realize
-   fun:gtk_widget_set_parent
-   fun:gtk_fixed_put
-   fun:gtk_fixed_add
-   fun:g_cclosure_marshal_VOID__OBJECT
-   fun:g_type_class_meta_marshal
-   fun:g_closure_invoke
-   fun:signal_emit_unlocked_R
-   fun:g_signal_emit_valist
 }
 {
    bug_51332a
@@ -620,99 +604,99 @@
    Memcheck sanity test 01 (memory leak).
    Memcheck:Leak
    fun:_Zna*
-   fun:_ZN31ToolsSanityTest_MemoryLeak_Test8TestBodyEv
+   fun:_ZN4base31ToolsSanityTest_MemoryLeak_Test8TestBodyEv
 }
 {
    Memcheck sanity test 02 (malloc/read left).
    Memcheck:Addr1
    fun:*ReadValueOutOfArrayBoundsLeft*
    fun:*MakeSomeErrors*
-   fun:_ZN43ToolsSanityTest_AccessesToMallocMemory_Test8TestBodyEv
+   fun:_ZN4base43ToolsSanityTest_AccessesToMallocMemory_Test8TestBodyEv
 }
 {
    Memcheck sanity test 03 (malloc/read right).
    Memcheck:Addr1
    fun:*ReadValueOutOfArrayBoundsRight*
    fun:*MakeSomeErrors*
-   fun:_ZN43ToolsSanityTest_AccessesToMallocMemory_Test8TestBodyEv
+   fun:_ZN4base43ToolsSanityTest_AccessesToMallocMemory_Test8TestBodyEv
 }
 {
    Memcheck sanity test 04 (malloc/write left).
    Memcheck:Addr1
    fun:*WriteValueOutOfArrayBoundsLeft*
    fun:*MakeSomeErrors*
-   fun:_ZN43ToolsSanityTest_AccessesToMallocMemory_Test8TestBodyEv
+   fun:_ZN4base43ToolsSanityTest_AccessesToMallocMemory_Test8TestBodyEv
 }
 {
    Memcheck sanity test 05 (malloc/write right).
    Memcheck:Addr1
    fun:*WriteValueOutOfArrayBoundsRight*
    fun:*MakeSomeErrors*
-   fun:_ZN43ToolsSanityTest_AccessesToMallocMemory_Test8TestBodyEv
+   fun:_ZN4base43ToolsSanityTest_AccessesToMallocMemory_Test8TestBodyEv
 }
 {
    Memcheck sanity test 06 (new/read left).
    Memcheck:Addr1
    fun:*ReadValueOutOfArrayBoundsLeft*
    fun:*MakeSomeErrors*
-   fun:_ZN40ToolsSanityTest_AccessesToNewMemory_Test8TestBodyEv
+   fun:_ZN4base40ToolsSanityTest_AccessesToNewMemory_Test8TestBodyEv
 }
 {
    Memcheck sanity test 07 (new/read right).
    Memcheck:Addr1
    fun:*ReadValueOutOfArrayBoundsRight*
    fun:*MakeSomeErrors*
-   fun:_ZN40ToolsSanityTest_AccessesToNewMemory_Test8TestBodyEv
+   fun:_ZN4base40ToolsSanityTest_AccessesToNewMemory_Test8TestBodyEv
 }
 {
    Memcheck sanity test 08 (new/write left).
    Memcheck:Addr1
    fun:*WriteValueOutOfArrayBoundsLeft*
    fun:*MakeSomeErrors*
-   fun:_ZN40ToolsSanityTest_AccessesToNewMemory_Test8TestBodyEv
+   fun:_ZN4base40ToolsSanityTest_AccessesToNewMemory_Test8TestBodyEv
 }
 {
    Memcheck sanity test 09 (new/write right).
    Memcheck:Addr1
    fun:*WriteValueOutOfArrayBoundsRight*
    fun:*MakeSomeErrors*
-   fun:_ZN40ToolsSanityTest_AccessesToNewMemory_Test8TestBodyEv
+   fun:_ZN4base40ToolsSanityTest_AccessesToNewMemory_Test8TestBodyEv
 }
 {
    Memcheck sanity test 10 (write after free).
    Memcheck:Addr1
-   fun:_ZN43ToolsSanityTest_AccessesToMallocMemory_Test8TestBodyEv
+   fun:_ZN4base43ToolsSanityTest_AccessesToMallocMemory_Test8TestBodyEv
 }
 {
    Memcheck sanity test 11 (write after delete).
    Memcheck:Addr1
-   fun:_ZN40ToolsSanityTest_AccessesToNewMemory_Test8TestBodyEv
+   fun:_ZN4base40ToolsSanityTest_AccessesToNewMemory_Test8TestBodyEv
 }
 {
    Memcheck sanity test 12 (array deleted without []).
    Memcheck:Free
    ...
-   fun:_ZN46ToolsSanityTest_ArrayDeletedWithoutBraces_Test8TestBodyEv
+   fun:_ZN4base46ToolsSanityTest_ArrayDeletedWithoutBraces_Test8TestBodyEv
 }
 {
    Memcheck sanity test 13 (single element deleted with []).
    Memcheck:Free
    ...
-   fun:_ZN51ToolsSanityTest_SingleElementDeletedWithBraces_Test8TestBodyEv
+   fun:_ZN4base51ToolsSanityTest_SingleElementDeletedWithBraces_Test8TestBodyEv
 }
 {
    Memcheck sanity test 14 (malloc/read uninit).
    Memcheck:Cond
    fun:*ReadUninitializedValue*
    fun:*MakeSomeErrors*
-   fun:_ZN43ToolsSanityTest_AccessesToMallocMemory_Test8TestBodyEv
+   fun:_ZN4base43ToolsSanityTest_AccessesToMallocMemory_Test8TestBodyEv
 }
 {
    Memcheck sanity test 15 (new/read uninit).
    Memcheck:Cond
    fun:*ReadUninitializedValue*
    fun:*MakeSomeErrors*
-   fun:_ZN40ToolsSanityTest_AccessesToNewMemory_Test8TestBodyEv
+   fun:_ZN4base40ToolsSanityTest_AccessesToNewMemory_Test8TestBodyEv
 }
 {
    logging::InitLogging never frees filename. It would be hard to free properly.
@@ -1317,6 +1301,16 @@
    ...
    fun:sqlite3_exec
    fun:_ZN3sql10Connection7ExecuteEPKc
+   fun:_ZN11WebDatabase*
+}
+{
+   bug_60556f
+   Memcheck:Addr4
+   ...
+   fun:sqlite3_close
+   fun:_ZN3sql10Connection5CloseEv
+   fun:_ZN3sql10ConnectionD2Ev
+   fun:_ZN3sql10ConnectionD1Ev
    fun:_ZN11WebDatabase*
 }
 {
@@ -2188,39 +2182,14 @@
    fun:_ZN11MessageLoop10RunHandlerEv
 }
 {
-   bug_46162_a
+   bug_46162
    Memcheck:Leak
    ...
    fun:malloc
-   fun:_ZN3WTF10fastMallocEj
-   fun:_ZN3WTF13FastAllocBasenwEj
-   fun:_ZN3WTF14ThreadSpecificINS_13WTFThreadDataEE3setEPS1_
-   fun:_ZN3WTF14ThreadSpecificINS_13WTFThreadDataEEcvPS1_Ev
-   fun:_ZN3WTF14ThreadSpecificINS_13WTFThreadDataEEdeEv
-   fun:_ZN3WTF13wtfThreadDataEv
-   fun:_ZN7WebCore11stringTableEv
-   fun:_ZN7WebCore12AtomicString3addEPKc
-   fun:_ZN7WebCore12AtomicStringC1EPKc
-   fun:_ZN7WebCore12AtomicString4initEv
-   fun:_ZN6WebKit10initializeEPNS_12WebKitClientE
-   fun:_ZN12WebKitThread20InternalWebKitThread4InitEv
-   fun:_ZN4base6Thread10ThreadMainEv
-}
-{
-   bug_46162_b
-   Memcheck:Leak
    ...
-   fun:malloc
-   fun:_ZN3WTF10fastMallocEj
-   fun:_ZN3WTF13FastAllocBasenwEj
-   fun:_ZN3WTF14ThreadSpecificINS_13WTFThreadDataEE3setEPS1_
-   fun:_ZN3WTF14ThreadSpecificINS_13WTFThreadDataEEcvPS1_Ev
-   fun:_ZN3WTF14ThreadSpecificINS_13WTFThreadDataEEdeEv
    fun:_ZN3WTF13wtfThreadDataEv
    fun:_ZN3WTF11stringTableEv
-   fun:_ZN3WTF12AtomicString3addEPKc
-   fun:_ZN3WTF12AtomicStringC1EPKc
-   fun:_ZN3WTF12AtomicString4initEv
+   ...
    fun:_ZN6WebKit10initializeEPNS_12WebKitClientE
    fun:_ZN12WebKitThread20InternalWebKitThread4InitEv
    fun:_ZN4base6Thread10ThreadMainEv
@@ -2507,12 +2476,20 @@
    fun:_ZN11ProfileImpl22GetOffTheRecordProfileEv
 }
 {
-   bug_50968
+   bug_50968_a
    Memcheck:Leak
    ...
    fun:_ZN14WebDataService29InitializeDatabaseIfNecessaryEv
    fun:_Z16DispatchToMethodI14WebDataServiceMS0_FvvEEvPT_T0_RK6Tuple0
 }
+{
+   bug_50968_b
+   Memcheck:Addr4
+   ...
+   fun:_ZN14WebDataService29InitializeDatabaseIfNecessaryEv
+   fun:_Z16DispatchToMethodI14WebDataServiceMS0_FvvEEvPT_T0_RK6Tuple0
+}
+
 {
    bug_56359_a
    Memcheck:Leak
@@ -3226,6 +3203,20 @@
    fun:CERT_FindCertIssuer
 }
 {
+   bug_69073
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:sqlite3*
+   ...
+   fun:find_objects
+   fun:find_objects_by_template
+   fun:nssToken_FindCertificatesBySubject
+   fun:nssTrustDomain_FindCertificatesBySubject
+   fun:nssCertificate_BuildChain
+   fun:NSSCertificate_BuildChain
+}
+{
    bug_61424
    Memcheck:Leak
    fun:_Znw*
@@ -3397,7 +3388,7 @@
    bug_65664c
    Memcheck:Leak
    fun:_Znw*
-   fun:_ZN11webkit_glue20SimpleDataSourceTest20InitializeDataSourceEPKc
+   fun:_ZN11webkit_glue20SimpleDataSourceTest20InitializeDataSourceEPKcPN5media12MockCallbackE
    fun:_ZN11webkit_glue*SimpleDataSourceTest*
 }
 {
@@ -3507,4 +3498,78 @@
    fun:_ZN9Extension6CreateERK8FilePathNS_8LocationERK15DictionaryValuebPSs
    fun:_ZN19extension_file_util13LoadExtensionERK8FilePathN9Extension8LocationEbPSs
    fun:_ZN23ExtensionServiceBackend19LoadSingleExtensionERK8FilePath13scoped_refptrI16ExtensionServiceE
+}
+{
+   bug_68069a
+   Memcheck:Leak
+   ...
+   fun:_ZN3gfx15PixmapGLContext11MakeCurrentEv
+   fun:_ZN3gfx15PixmapGLContext10InitializeEPNS_9GLContextE
+   fun:_ZN3gfx9GLContext24CreateOffscreenGLContextEPS0_
+   fun:*19InitializeGLContextEv
+   fun:_ZN18gpu_info_collector19CollectGraphicsInfoEP7GPUInfo
+   fun:_ZN9GpuThread4InitERKN4base4TimeE
+   fun:_Z7GpuMainRK18MainFunctionParams
+   fun:*23RunNamedProcessTypeMainERKSsRK18MainFunctionParams
+}
+{
+   bug_68069b
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:_ZN3gfx9GLContext16InitializeOneOffEv
+   fun:_Z7GpuMainRK18MainFunctionParams
+   fun:*23RunNamedProcessTypeMainERKSsRK18MainFunctionParams
+   fun:ChromeMain
+   fun:main
+}
+{
+   bug_68292
+   Memcheck:Leak
+   fun:_Znw*
+   fun:_ZN29ExecuteBrowserCommandObserver25CreateAndRegisterObserverEP18AutomationProviderP7BrowseriPN3IPC7MessageE
+   fun:_ZN25TestingAutomationProvider21ExecuteBrowserCommandEiiPN3IPC7MessageE
+   fun:_Z16DispatchToMethodI25TestingAutomationProviderMS0_FviiPN3IPC7MessageEEiiRS2_EvPT_T0_RK6Tuple2IT1_T2_EP6Tuple1IT3_E
+   fun:_ZN3IPC16MessageWithReplyI6Tuple2IiiE6Tuple1IRbEE18DispatchDelayReplyI25TestingAutomationProviderMS8_FviiPNS_7MessageEEEEbPKS9_PT_T0_
+   fun:_ZN25TestingAutomationProvider17OnMessageReceivedERKN3IPC7MessageE
+   fun:_ZN3IPC12ChannelProxy7Context17OnDispatchMessageERKNS_7MessageE
+   fun:_ZN3IPC11SyncChannel20ReceivedSyncMsgQueue16DispatchMessagesEv
+   fun:_ZN3IPC11SyncChannel11SyncContext16DispatchMessagesEv
+   fun:_ZN3IPC11SyncChannel23OnWaitableEventSignaledEPN4base13WaitableEventE
+   fun:_ZN4base17AsyncCallbackTask3RunEv
+   fun:_ZN11MessageLoop7RunTaskEP4Task
+   fun:_ZN11MessageLoop21DeferOrRunPendingTaskERKNS_11PendingTaskE
+   fun:_ZN11MessageLoop6DoWorkEv
+}
+{
+   bug_68553
+   Memcheck:Leak
+   fun:_Znw*
+   fun:_ZN3net25DiskCacheBasedSSLHostInfoC1ERKSsRKNS_9SSLConfigEPNS_9HttpCacheE
+   fun:_ZN3net9HttpCache25SSLHostInfoFactoryAdaptor10GetForHostERKSsRKNS_9SSLConfigE
+   fun:_ZN3net13SSLConnectJob12DoTCPConnectEv
+   fun:_ZN3net13SSLConnectJob6DoLoopEi
+   fun:_ZN3net13SSLConnectJob15ConnectInternalEv
+   fun:_ZN3net10ConnectJob7ConnectEv
+   fun:_ZN3net8internal26ClientSocketPoolBaseHelper21RequestSocketInternalERKSsPKNS1_7RequestE
+   fun:_ZN3net8internal26ClientSocketPoolBaseHelper13RequestSocketERKSsPKNS1_7RequestE
+   fun:_ZN3net20ClientSocketPoolBaseINS_15SSLSocketParamsEE13RequestSocketERKSsRK13scoped_refptrIS1_ENS_15RequestPriorityEPNS_18ClientSocketHandleEP14CallbackRunnerI6Tuple1IiEERKNS_11BoundNetLogE
+   fun:_ZN3net19SSLClientSocketPool13RequestSocketERKSsPKvNS_15RequestPriorityEPNS_18ClientSocketHandleEP14CallbackRunnerI6Tuple1IiEERKNS_11BoundNetLogE
+   fun:_ZN3net18ClientSocketHandle4InitINS_15SSLSocketParamsENS_19SSLClientSocketPoolEEEiRKSsRK13scoped_refptrIT_ENS_15RequestPriorityEP14CallbackRunnerI6Tuple1IiEEPT0_RKNS_11BoundNetLogE
+   fun:_ZN3net17HttpStreamRequest16DoInitConnectionEv
+   fun:_ZN3net17HttpStreamRequest6DoLoopEi
+   fun:_ZN3net17HttpStreamRequest7RunLoopEi
+   fun:_ZN3net17HttpStreamRequest13StartInternalEPKNS_15HttpRequestInfoEPNS_9SSLConfigEPNS_9ProxyInfoERKNS_11BoundNetLogE
+   fun:_ZN3net17HttpStreamRequest5StartEPKNS_15HttpRequestInfoEPNS_9SSLConfigEPNS_9ProxyInfoEPNS_13StreamRequest8DelegateERKNS_11BoundNetLogE
+   fun:_ZN3net17HttpStreamFactory13RequestStreamEPKNS_15HttpRequestInfoEPNS_9SSLConfigEPNS_9ProxyInfoEPNS_18HttpNetworkSessionEPNS_13StreamRequest8DelegateERKNS_11BoundNetLogE
+   fun:_ZN3net22HttpNetworkTransaction14DoCreateStreamEv
+   fun:_ZN3net22HttpNetworkTransaction6DoLoopEi
+   fun:_ZN3net22HttpNetworkTransaction5StartEPKNS_15HttpRequestInfoEP14CallbackRunnerI6Tuple1IiEERKNS_11BoundNetLogE
+   fun:_ZN3net9HttpCache11Transaction13DoSendRequestEv
+}
+{
+   bug_69414
+   Memcheck:Leak
+   fun:_Znw*
+   fun:_ZN28PrerenderResourceHandlerTestC2Ev
 }

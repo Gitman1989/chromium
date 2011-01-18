@@ -15,12 +15,16 @@
 #include "views/focus/focus_manager.h"
 #include "views/widget/widget.h"
 
-class OSExchangeData;
-class OSExchangeDataProviderGtk;
-
 namespace gfx {
 class Rect;
 }
+
+namespace ui {
+class OSExchangeData;
+class OSExchangeDataProviderGtk;
+}
+using ui::OSExchangeData;
+using ui::OSExchangeDataProviderGtk;
 
 namespace views {
 
@@ -183,7 +187,7 @@ class WidgetGtk
   virtual void GenerateMousePressedForView(View* view,
                                            const gfx::Point& point);
   virtual TooltipManager* GetTooltipManager();
-  virtual bool GetAccelerator(int cmd_id, menus::Accelerator* accelerator);
+  virtual bool GetAccelerator(int cmd_id, ui::Accelerator* accelerator);
   virtual Window* GetWindow();
   virtual const Window* GetWindow() const;
   virtual void SetNativeWindowProperty(const char* name, void* value);

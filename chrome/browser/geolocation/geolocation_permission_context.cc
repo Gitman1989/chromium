@@ -4,6 +4,9 @@
 
 #include "chrome/browser/geolocation/geolocation_permission_context.h"
 
+#include <string>
+#include <vector>
+
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
 #include "base/utf_string_conversions.h"
@@ -20,7 +23,6 @@
 #include "chrome/browser/tab_contents/infobar_delegate.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/tab_contents/tab_util.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/render_messages.h"
@@ -419,7 +421,7 @@ void GeolocationPermissionContext::RequestGeolocationPermission(
   } else if (content_setting == CONTENT_SETTING_ALLOW) {
     NotifyPermissionSet(render_process_id, render_view_id, bridge_id,
                         requesting_frame, true);
-  } else { // setting == ask. Prompt the user.
+  } else {  // setting == ask. Prompt the user.
     geolocation_infobar_queue_controller_->CreateInfoBarRequest(
         render_process_id, render_view_id, bridge_id, requesting_frame,
         embedder);
@@ -430,38 +432,6 @@ void GeolocationPermissionContext::CancelGeolocationPermissionRequest(
     int render_process_id, int render_view_id, int bridge_id,
     const GURL& requesting_frame) {
   CancelPendingInfoBarRequest(render_process_id, render_view_id, bridge_id);
-}
-
-void GeolocationPermissionContext::StartUpdatingRequested(
-    int render_process_id, int render_view_id, int bridge_id,
-    const GURL& requesting_frame) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  // Note we cannot store the arbitrator as a member as it is not thread safe.
-  GeolocationProvider* provider = GeolocationProvider::GetInstance();
-
-#if defined(ENABLE_CLIENT_BASED_GEOLOCATION)
-  // Client-based Geolocation uses a preemptive permission model, so permission
-  // ought to have been requested and granted before the controller requests
-  // the client to start updating.
-  DCHECK(provider->HasPermissionBeenGranted());
-#else
-  // WebKit will not request permission until it has received a valid
-  // location, but the google network location provider will not give a
-  // valid location until the user has granted permission. So we cut the Gordian
-  // Knot by reusing the the 'start updating' request to also trigger
-  // a 'permission request' should the provider still be awaiting permission.
-  if (!provider->HasPermissionBeenGranted()) {
-    RequestGeolocationPermission(render_process_id, render_view_id, bridge_id,
-                                 requesting_frame);
-  }
-#endif
-}
-
-void GeolocationPermissionContext::StopUpdatingRequested(
-    int render_process_id, int render_view_id, int bridge_id) {
-#if !defined(ENABLE_CLIENT_BASED_GEOLOCATION)
-  CancelPendingInfoBarRequest(render_process_id, render_view_id, bridge_id);
-#endif
 }
 
 void GeolocationPermissionContext::NotifyPermissionSet(

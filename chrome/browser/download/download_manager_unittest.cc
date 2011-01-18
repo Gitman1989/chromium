@@ -112,8 +112,13 @@ const struct {
     true,
     false,
     true, },
-  { "http://www.foo.com/always_prompt.pdf",
+  { "http://www.foo.com/sometimes_prompt.pdf",
     "application/pdf",
+    false,
+    true,
+    false, },
+  { "http://www.foo.com/always_prompt.jar",
+    "application/jar",
     false,
     true,
     true, },
@@ -246,6 +251,8 @@ TEST_F(DownloadManagerTest, DownloadRenameTest) {
 
     if (kDownloadRenameCases[i].will_delete_crdownload)
       EXPECT_CALL(*download, DeleteCrDownload()).Times(1);
+
+    download_manager_->CreateDownloadItem(info);
 
     if (kDownloadRenameCases[i].finish_before_rename) {
       download_manager_->OnAllDataSaved(i, 1024);

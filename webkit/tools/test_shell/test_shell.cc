@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,7 +8,7 @@
 
 #include "base/base_paths.h"
 #include "base/command_line.h"
-#include "base/debug_on_start.h"
+#include "base/debug/debug_on_start_win.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/md5.h"
@@ -29,19 +29,20 @@
 #include "skia/ext/bitmap_platform_device.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkBitmap.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebAccessibilityObject.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDeviceOrientationClientMock.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSpeechInputControllerMock.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebKit.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebScriptController.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebRect.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSize.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebString.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURL.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLRequest.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLResponse.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebView.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebAccessibilityObject.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDeviceOrientationClientMock.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebGeolocationClientMock.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSpeechInputControllerMock.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebScriptController.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebRect.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSize.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURL.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLRequest.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLResponse.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "webkit/glue/glue_serialize.h"
 #include "webkit/glue/webkit_glue.h"
 #include "webkit/glue/webpreferences.h"
@@ -56,14 +57,6 @@
 #include "webkit/tools/test_shell/test_shell_request_context.h"
 #include "webkit/tools/test_shell/test_shell_switches.h"
 #include "webkit/tools/test_shell/test_webview_delegate.h"
-
-#if defined(ENABLE_CLIENT_BASED_GEOLOCATION)
-#include "third_party/WebKit/WebKit/chromium/public/WebGeolocationClientMock.h"
-#endif
-
-#if defined(OS_MACOSX)
-#include "base/mac_util.h"
-#endif
 
 using WebKit::WebCanvas;
 using WebKit::WebFrame;
@@ -154,7 +147,7 @@ TestShell::TestShell()
     navigation_controller_.reset(new TestNavigationController(this));
     notification_presenter_.reset(new TestNotificationPresenter(this));
 
-    URLRequestFilter* filter = URLRequestFilter::GetInstance();
+    net::URLRequestFilter* filter = net::URLRequestFilter::GetInstance();
     filter->AddHostnameHandler("test-shell-resource", "inspector",
                                &URLRequestTestShellFileJob::InspectorFactory);
     url_util::AddStandardScheme("test-shell-resource");
@@ -424,10 +417,12 @@ void TestShell::InitLogging(bool suppress_error_dialogs,
     FilePath log_filename;
     PathService::Get(base::DIR_EXE, &log_filename);
     log_filename = log_filename.AppendASCII("test_shell.log");
-    logging::InitLogging(log_filename.value().c_str(),
-                         destination,
-                         logging::LOCK_LOG_FILE,
-                         logging::DELETE_OLD_LOG_FILE);
+    logging::InitLogging(
+        log_filename.value().c_str(),
+        destination,
+        logging::LOCK_LOG_FILE,
+        logging::DELETE_OLD_LOG_FILE,
+        logging::DISABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
 
     // we want process and thread IDs because we may have multiple processes
     logging::SetLogItems(true, true, false, true);
@@ -654,10 +649,8 @@ void TestShell::ResetTestController() {
   event_sending_controller_->Reset();
   notification_presenter_->Reset();
   delegate_->Reset();
-#if defined(ENABLE_CLIENT_BASED_GEOLOCATION)
   if (geolocation_client_mock_.get())
     geolocation_client_mock_->resetMock();
-#endif
 }
 
 void TestShell::LoadFile(const FilePath& file) {
@@ -797,7 +790,6 @@ TestShell::speech_input_controller_mock() {
   return speech_input_controller_mock_.get();
 }
 
-#if defined(ENABLE_CLIENT_BASED_GEOLOCATION)
 WebKit::WebGeolocationClientMock* TestShell::geolocation_client_mock() {
   if (!geolocation_client_mock_.get()) {
     geolocation_client_mock_.reset(
@@ -805,7 +797,6 @@ WebKit::WebGeolocationClientMock* TestShell::geolocation_client_mock() {
   }
   return geolocation_client_mock_.get();
 }
-#endif
 
 //-----------------------------------------------------------------------------
 
@@ -908,7 +899,7 @@ void GetPlugins(bool refresh,
   // the copy in webkit.org's repository instead.
   const FilePath::StringType kPluginBlackList[] = {
     FILE_PATH_LITERAL("npapi_layout_test_plugin.dll"),
-    FILE_PATH_LITERAL("TestNetscapePlugIn.plugin"),
+    FILE_PATH_LITERAL("WebKitTestNetscapePlugIn.plugin"),
     FILE_PATH_LITERAL("libnpapi_layout_test_plugin.so"),
   };
   for (int i = plugins->size() - 1; i >= 0; --i) {

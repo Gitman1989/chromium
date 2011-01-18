@@ -22,13 +22,13 @@ namespace views {
 ////////////////////////////////////////////////////////////////////////////////
 class ButtonDropDown : public ImageButton {
  public:
-  ButtonDropDown(ButtonListener* listener, menus::MenuModel* model);
+  ButtonDropDown(ButtonListener* listener, ui::MenuModel* model);
   virtual ~ButtonDropDown();
 
   // Accessibility accessors, overridden from View.
-  virtual std::wstring GetAccessibleDefaultAction();
-  virtual AccessibilityTypes::Role GetAccessibleRole();
-  virtual AccessibilityTypes::State GetAccessibleState();
+  virtual string16 GetAccessibleDefaultAction() OVERRIDE;
+  virtual AccessibilityTypes::Role GetAccessibleRole() OVERRIDE;
+  virtual AccessibilityTypes::State GetAccessibleState() OVERRIDE;
 
  private:
   // Overridden from CustomButton
@@ -53,7 +53,7 @@ class ButtonDropDown : public ImageButton {
   void ShowDropDownMenu(gfx::NativeView window);
 
   // The model that populates the attached menu.
-  menus::MenuModel* model_;
+  ui::MenuModel* model_;
   scoped_ptr<Menu2> menu_;
 
   // Y position of mouse when left mouse button is pressed

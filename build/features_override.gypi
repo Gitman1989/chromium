@@ -3,7 +3,8 @@
 # found in the LICENSE file.
 
 # This file is only included in full-chromium builds, and overrides the
-# feature_defines variable in third_party/WebKit/WebKit/chromium/features.gypi.
+# feature_defines variable in
+# third_party/WebKit/Source/WebKit/chromium/features.gypi.
 {
   'variables': {
     # WARNING: This list of strings completely replaces the list in
@@ -15,7 +16,7 @@
       'ENABLE_BLOB=1',
       'ENABLE_BLOB_SLICE=1',
       'ENABLE_CHANNEL_MESSAGING=1',
-      'ENABLE_CLIENT_BASED_GEOLOCATION=0',
+      'ENABLE_CLIENT_BASED_GEOLOCATION=1',
       'ENABLE_DASHBOARD_SUPPORT=0',
       'ENABLE_DATABASE=1',
       'ENABLE_DATAGRID=0',

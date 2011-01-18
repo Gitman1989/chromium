@@ -17,7 +17,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_action.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/ui_test_utils.h"
@@ -70,7 +69,8 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiTest, Basic) {
   ui_test_utils::NavigateToURL(browser(),
       test_server()->GetURL("files/extensions/test_file.txt"));
 
-  ExtensionBrowserEventRouter::GetInstance()->BrowserActionExecuted(
+  ExtensionService* service = browser()->profile()->GetExtensionService();
+  service->browser_event_router()->BrowserActionExecuted(
       browser()->profile(), action->extension_id(), browser());
 
   // Verify the command worked.

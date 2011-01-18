@@ -1,12 +1,13 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "base/file_path.h"
 #include "base/string_util.h"
+#include "base/test/test_timeouts.h"
+#include "base/threading/platform_thread.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/worker_host/worker_service.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/automation/browser_proxy.h"
 #include "chrome/test/automation/tab_proxy.h"
@@ -83,7 +84,7 @@ class WorkerTest : public UILayoutTest {
   bool WaitForProcessCountToBe(int tabs, int workers) {
     // The 1 is for the browser process.
     int number_of_processes = 1 + workers +
-        (UITest::in_process_renderer() ? 0 : tabs);
+        (ProxyLauncher::in_process_renderer() ? 0 : tabs);
 #if defined(OS_LINUX)
     // On Linux, we also have a zygote process and a sandbox host process.
     number_of_processes += 2;
@@ -95,7 +96,7 @@ class WorkerTest : public UILayoutTest {
       if (cur_process_count == number_of_processes)
         return true;
 
-      PlatformThread::Sleep(sleep_timeout_ms() / 10);
+      base::PlatformThread::Sleep(TestTimeouts::action_timeout_ms() / 10);
     }
 
     EXPECT_EQ(number_of_processes, cur_process_count);
@@ -467,7 +468,8 @@ TEST_F(WorkerTest, WorkerWebSocketLayoutTests) {
 
   FilePath websocket_root_dir(temp_test_dir_);
   websocket_root_dir = websocket_root_dir.AppendASCII("LayoutTests");
-  ui_test_utils::TestWebSocketServer websocket_server(websocket_root_dir);
+  ui_test_utils::TestWebSocketServer websocket_server;
+  ASSERT_TRUE(websocket_server.Start(websocket_root_dir));
 
   StartHttpServer(new_http_root_dir_);
   for (size_t i = 0; i < arraysize(kLayoutTestFiles); ++i)
@@ -627,7 +629,8 @@ TEST_F(WorkerTest, QueuedSharedWorkerShutdown) {
   ASSERT_TRUE(WaitForProcessCountToBe(1, max_workers_per_tab));
 }
 
-TEST_F(WorkerTest, MultipleTabsQueuedSharedWorker) {
+// Flaky, http://crbug.com/69881.
+TEST_F(WorkerTest, FLAKY_MultipleTabsQueuedSharedWorker) {
   // Tests to make sure that only one instance of queued shared workers are
   // started up even when those instances are on multiple tabs.
   int max_workers_per_tab = WorkerService::kMaxWorkersPerTabWhenSeparate;

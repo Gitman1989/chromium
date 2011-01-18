@@ -10,6 +10,7 @@
 #include "chrome/browser/prefs/pref_member.h"
 #include "chrome/browser/prefs/pref_set_observer.h"
 #include "chrome/browser/printing/cloud_print/cloud_print_setup_flow.h"
+#include "chrome/browser/remoting/remoting_options_handler.h"
 #include "chrome/browser/shell_dialogs.h"
 
 class OptionsManagedBannerHandler;
@@ -55,10 +56,10 @@ class AdvancedOptionsHandler
   // if the user toggles the metrics reporting checkbox.
   void HandleMetricsReportingCheckbox(const ListValue* args);
 
-  // Callback for the "defaultZoomLevelAction" message.  This is called if the
-  // user changes the default zoom level.  |args| is an array that contains
-  // one item, the zoom level as a numeric value.
-  void HandleDefaultZoomLevel(const ListValue* args);
+  // Callback for the "defaultFontSizeAction" message.  This is called if the
+  // user changes the default font size.  |args| is an array that contains
+  // one item, the font size as a numeric value.
+  void HandleDefaultFontSize(const ListValue* args);
 
 #if defined(OS_WIN)
   // Callback for the "Check SSL Revocation" checkbox.  This is needed so we
@@ -108,6 +109,19 @@ class AdvancedOptionsHandler
   // Setup the enabled or disabled state of the cloud print proxy
   // management UI.
   void SetupCloudPrintProxySection();
+
+  // Remove cloud print proxy section if cloud print proxy management UI is
+  // disabled.
+  void RemoveCloudPrintProxySection();
+
+#endif
+
+#if defined(ENABLE_REMOTING) && !defined(OS_CHROMEOS)
+  // Removes remoting section. Called if remoting is not enabled.
+  void RemoveRemotingSection();
+
+  // Callback for Setup Remoting button.
+  void ShowRemotingSetupDialog(const ListValue* args);
 #endif
 
   // Setup the checked state for the metrics reporting checkbox.
@@ -116,7 +130,7 @@ class AdvancedOptionsHandler
   // Setup the visibility for the metrics reporting setting.
   void SetupMetricsReportingSettingVisibility();
 
-  void SetupDefaultZoomLevel();
+  void SetupFontSizeLabel();
 
   // Setup the download path based on user preferences.
   void SetupDownloadLocationPath();
@@ -140,9 +154,14 @@ class AdvancedOptionsHandler
   bool cloud_print_proxy_ui_enabled_;
 #endif
 
+#if defined(ENABLE_REMOTING) && !defined(OS_CHROMEOS)
+  remoting::RemotingOptionsHandler remoting_options_handler_;
+#endif
+
   FilePathPrefMember default_download_location_;
   StringPrefMember auto_open_files_;
-  RealPrefMember default_zoom_level_;
+  IntegerPrefMember default_font_size_;
+  IntegerPrefMember default_fixed_font_size_;
   scoped_ptr<PrefSetObserver> proxy_prefs_;
   scoped_ptr<OptionsManagedBannerHandler> banner_handler_;
 

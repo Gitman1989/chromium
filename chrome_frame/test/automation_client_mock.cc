@@ -1,6 +1,7 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
 #include "chrome_frame/test/automation_client_mock.h"
 
 #include "base/callback.h"
@@ -170,18 +171,18 @@ TEST(CFACWithChrome, NavigateOk) {
 
   EXPECT_CALL(cfd, GetBounds(_)).Times(testing::AnyNumber());
 
-  EXPECT_CALL(cfd, OnNavigationStateChanged(_, _))
+  EXPECT_CALL(cfd, OnNavigationStateChanged(_))
       .Times(testing::AnyNumber());
 
   {
     testing::InSequence s;
 
-    EXPECT_CALL(cfd, OnDidNavigate(_, EqNavigationInfoUrl(GURL())))
+    EXPECT_CALL(cfd, OnDidNavigate(EqNavigationInfoUrl(GURL())))
         .Times(1);
 
-    EXPECT_CALL(cfd, OnUpdateTargetUrl(_, _)).Times(testing::AtMost(1));
+    EXPECT_CALL(cfd, OnUpdateTargetUrl(_)).Times(testing::AtMost(1));
 
-    EXPECT_CALL(cfd, OnLoad(_, _))
+    EXPECT_CALL(cfd, OnLoad(_))
         .Times(1)
         .WillOnce(QUIT_LOOP(loop));
   }
@@ -205,8 +206,8 @@ TEST(CFACWithChrome, NavigateFailed) {
   const FilePath profile_path(
       chrome_frame_test::GetProfilePath(L"Adam.N.Epilinter"));
   const std::string url = "http://127.0.0.3:65412/";
-  const URLRequestStatus connection_failed(URLRequestStatus::FAILED,
-                                           net::ERR_INVALID_URL);
+  const net::URLRequestStatus connection_failed(net::URLRequestStatus::FAILED,
+                                                net::ERR_INVALID_URL);
 
   scoped_refptr<ChromeFrameAutomationClient> client;
   client = new ChromeFrameAutomationClient;
@@ -218,18 +219,18 @@ TEST(CFACWithChrome, NavigateFailed) {
           url, std::string(), &navigation_constraints))));
 
   EXPECT_CALL(cfd, GetBounds(_)).Times(testing::AnyNumber());
-  EXPECT_CALL(cfd, OnNavigationStateChanged(_, _)).Times(testing::AnyNumber());
+  EXPECT_CALL(cfd, OnNavigationStateChanged(_)).Times(testing::AnyNumber());
 
-  EXPECT_CALL(cfd, OnRequestStart(_, _, _))
+  EXPECT_CALL(cfd, OnRequestStart(_, _))
       // Often there's another request for the error page
       .Times(testing::Between(1, 2))
-      .WillRepeatedly(testing::WithArgs<1>(testing::Invoke(CreateFunctor(&cfd,
+      .WillRepeatedly(testing::WithArgs<0>(testing::Invoke(CreateFunctor(&cfd,
           &MockCFDelegate::Reply, connection_failed))));
 
-  EXPECT_CALL(cfd, OnUpdateTargetUrl(_, _)).Times(testing::AnyNumber());
-  EXPECT_CALL(cfd, OnLoad(_, _)).Times(testing::AtMost(1));
+  EXPECT_CALL(cfd, OnUpdateTargetUrl(_)).Times(testing::AnyNumber());
+  EXPECT_CALL(cfd, OnLoad(_)).Times(testing::AtMost(1));
 
-  EXPECT_CALL(cfd, OnNavigationFailed(_, _, GURL(url)))
+  EXPECT_CALL(cfd, OnNavigationFailed(_, GURL(url)))
       .Times(1)
       .WillOnce(QUIT_LOOP_SOON(loop, 2));
 
@@ -320,7 +321,8 @@ class TestChromeFrameAutomationProxyImpl
  public:
   TestChromeFrameAutomationProxyImpl()
         // 1 is an unneeded timeout.
-      : ChromeFrameAutomationProxyImpl(NULL, 1) {
+      : ChromeFrameAutomationProxyImpl(
+          NULL, AutomationProxy::GenerateChannelID(), 1) {
   }
   MOCK_METHOD3(
       SendAsAsync,
@@ -476,4 +478,3 @@ TEST_F(CFACMockTest, NavigateTwiceAfterInitToSameUrl) {
   EXPECT_CALL(mock_proxy_, ReleaseTabProxy(testing::Eq(tab_handle_))).Times(1);
   client_->Uninitialize();
 }
-

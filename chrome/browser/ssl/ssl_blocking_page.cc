@@ -13,7 +13,6 @@
 #include "base/values.h"
 #include "chrome/browser/cert_store.h"
 #include "chrome/browser/dom_operation_notification_details.h"
-#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/renderer_host/render_process_host.h"
 #include "chrome/browser/renderer_host/render_view_host.h"
 #include "chrome/browser/ssl/ssl_cert_error_handler.h"
@@ -21,10 +20,8 @@
 #include "chrome/browser/tab_contents/navigation_controller.h"
 #include "chrome/browser/tab_contents/navigation_entry.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/common/jstemplate_builder.h"
 #include "chrome/common/notification_service.h"
-#include "chrome/common/pref_names.h"
 #include "grit/browser_resources.h"
 #include "grit/generated_resources.h"
 
@@ -68,8 +65,8 @@ std::string SSLBlockingPage::GetHTMLContents() {
   // Let's build the html error page.
   DictionaryValue strings;
   SSLErrorInfo error_info = delegate_->GetSSLErrorInfo(handler_);
-  strings.SetString("headLine", WideToUTF16Hack(error_info.title()));
-  strings.SetString("description", WideToUTF16Hack(error_info.details()));
+  strings.SetString("headLine", error_info.title());
+  strings.SetString("description", error_info.details());
 
   strings.SetString("moreInfoTitle",
                     l10n_util::GetStringUTF16(IDS_CERT_ERROR_EXTRA_INFO_TITLE));
@@ -158,14 +155,14 @@ void SSLBlockingPage::NotifyAllowCertificate() {
 // static
 void SSLBlockingPage::SetExtraInfo(
     DictionaryValue* strings,
-    const std::vector<std::wstring>& extra_info) {
+    const std::vector<string16>& extra_info) {
   DCHECK(extra_info.size() < 5);  // We allow 5 paragraphs max.
   const char* keys[5] = {
       "moreInfo1", "moreInfo2", "moreInfo3", "moreInfo4", "moreInfo5"
   };
   int i;
   for (i = 0; i < static_cast<int>(extra_info.size()); i++) {
-    strings->SetString(keys[i], WideToUTF16Hack(extra_info[i]));
+    strings->SetString(keys[i], extra_info[i]);
   }
   for (; i < 5; i++) {
     strings->SetString(keys[i], "");

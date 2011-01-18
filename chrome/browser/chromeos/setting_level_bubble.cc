@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,7 +12,7 @@
 #include "chrome/browser/chromeos/setting_level_bubble_view.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/views/info_bubble.h"
+#include "chrome/browser/ui/views/info_bubble.h"
 #include "views/widget/root_view.h"
 
 namespace {
@@ -67,7 +67,7 @@ SettingLevelBubble::SettingLevelBubble(SkBitmap* increase_icon,
       view_(NULL),
       animation_(this) {
   animation_.SetSlideDuration(kAnimationDurationMs);
-  animation_.SetTweenType(Tween::LINEAR);
+  animation_.SetTweenType(ui::Tween::LINEAR);
 }
 
 void SettingLevelBubble::ShowBubble(int percent) {
@@ -136,16 +136,16 @@ void SettingLevelBubble::InfoBubbleClosing(InfoBubble* info_bubble, bool) {
   view_ = NULL;
 }
 
-void SettingLevelBubble::AnimationEnded(const Animation* animation) {
+void SettingLevelBubble::AnimationEnded(const ui::Animation* animation) {
   previous_percent_ = current_percent_;
 }
 
-void SettingLevelBubble::AnimationProgressed(const Animation* animation) {
+void SettingLevelBubble::AnimationProgressed(const ui::Animation* animation) {
   if (view_) {
     view_->Update(
-        Tween::ValueBetween(animation->GetCurrentValue(),
-                            previous_percent_,
-                            current_percent_));
+        ui::Tween::ValueBetween(animation->GetCurrentValue(),
+                                previous_percent_,
+                                current_percent_));
   }
 }
 

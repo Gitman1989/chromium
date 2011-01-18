@@ -302,6 +302,8 @@
         '../third_party/skia/src/effects/Sk1DPathEffect.cpp',
         '../third_party/skia/src/effects/Sk2DPathEffect.cpp',
         '../third_party/skia/src/effects/SkAvoidXfermode.cpp',
+        '../third_party/skia/src/effects/SkBitmapCache.cpp',
+        '../third_party/skia/src/effects/SkBitmapCache.h',
         '../third_party/skia/src/effects/SkBlurDrawLooper.cpp',
         '../third_party/skia/src/effects/SkBlurMask.cpp',
         '../third_party/skia/src/effects/SkBlurMask.h',
@@ -610,7 +612,6 @@
             '../build/linux/system.gyp:fontconfig',
             '../build/linux/system.gyp:freetype2',
             '../third_party/harfbuzz/harfbuzz.gyp:harfbuzz',
-            '../third_party/harfbuzz/harfbuzz.gyp:harfbuzz_interface',
             '../third_party/icu/icu.gyp:icuuc',
           ],
           'cflags': [
@@ -618,17 +619,11 @@
             '-Wno-unused-function',
           ],
           'sources': [
-            # http://code.google.com/p/chromium/wiki/LinuxSandboxIPC
             'ext/SkFontHost_fontconfig.cpp',
             'ext/SkFontHost_fontconfig_direct.cpp',
-            'ext/SkFontHost_fontconfig_ipc.cpp',
             '../third_party/skia/src/core/SkBlitter_ARGB32_Subpixel.cpp',
             '../third_party/skia/src/ports/SkFontHost_FreeType_Subpixel.cpp',
             '../third_party/skia/src/core/SkFontHost.cpp',
-          ],
-          'export_dependent_settings': [
-            '../third_party/harfbuzz/harfbuzz.gyp:harfbuzz',
-            '../third_party/harfbuzz/harfbuzz.gyp:harfbuzz_interface',
           ],
           'defines': [
             'SK_SUPPORT_LCDTEXT',

@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -44,13 +44,13 @@ cr.define('options.contentSettings', function() {
       if (this.pattern) {
         var patternLabel = cr.doc.createElement('span');
         patternLabel.textContent = this.pattern;
-        patternLabel.className = 'exceptionPattern';
+        patternLabel.className = 'exception-pattern';
         this.contentElement.appendChild(patternLabel);
         this.patternLabel = patternLabel;
 
         var settingLabel = cr.doc.createElement('span');
         settingLabel.textContent = this.settingForDisplay();
-        settingLabel.className = 'exceptionSetting';
+        settingLabel.className = 'exception-setting';
         this.contentElement.appendChild(settingLabel);
         this.settingLabel = settingLabel;
       }
@@ -59,7 +59,7 @@ cr.define('options.contentSettings', function() {
       var input = cr.doc.createElement('input');
       input.type = 'text';
       this.contentElement.appendChild(input);
-      input.className = 'exceptionPattern hidden';
+      input.className = 'exception-pattern hidden';
 
       var select = cr.doc.createElement('select');
       var optionAllow = cr.doc.createElement('option');
@@ -85,7 +85,7 @@ cr.define('options.contentSettings', function() {
       select.appendChild(optionBlock);
 
       this.contentElement.appendChild(select);
-      select.className = 'exceptionSetting hidden';
+      select.className = 'exception-setting hidden';
 
       // Used to track whether the URL pattern in the input is valid.
       // This will be true if the browser process has informed us that the
@@ -402,6 +402,7 @@ cr.define('options.contentSettings', function() {
     decorate: function() {
       DeletableItemList.prototype.decorate.call(this);
 
+      this.selectionModel = new cr.ui.ListSingleSelectionModel;
       this.classList.add('settings-list');
 
       for (var parentNode = this.parentNode; parentNode;
@@ -423,7 +424,7 @@ cr.define('options.contentSettings', function() {
         window.setTimeout(function() {
           var activeElement = doc.activeElement;
           if (!exceptionList.contains(activeElement))
-            exceptionList.selectionModel.clear();
+            exceptionList.selectionModel.unselectAll();
         }, 50);
       }
 
@@ -457,16 +458,21 @@ cr.define('options.contentSettings', function() {
     },
 
     /**
-     * Adds an exception to the js model.
-     * @param {Object} entry A dictionary of values for the exception.
+     * Sets the exceptions in the js model.
+     * @param {Object} entries A list of dictionaries of values, each dictionary
+     *     represents an exception.
      */
-    addException: function(entry) {
+    setExceptions: function(entries) {
+      var deleteCount = this.dataModel.length;
+
       if (this.isEditable()) {
-        // We have to add it before the Add New Exception row.
-        this.dataModel.splice(this.dataModel.length - 1, 0, entry);
-      } else {
-        this.dataModel.push(entry);
+        // We don't want to remove the Add New Exception row.
+        deleteCount = deleteCount - 1;
       }
+
+      var args = [0, deleteCount];
+      args.push.apply(args, entries);
+      this.dataModel.splice.apply(this.dataModel, args);
     },
 
     /**
@@ -512,10 +518,8 @@ cr.define('options.contentSettings', function() {
     /** @inheritDoc */
     deleteItemAtIndex: function(index) {
       var listItem = this.getListItemByIndex(index);
-      if (listItem.undeletable) {
-        console.log('Tried to delete an undeletable row.');
+      if (listItem.undeletable)
         return;
-      }
 
       var dataItem = listItem.dataItem;
       var args = [listItem.contentType];
@@ -547,7 +551,7 @@ cr.define('options.contentSettings', function() {
    */
   function ContentSettingsExceptionsArea() {
     OptionsPage.call(this, 'contentExceptions',
-                     '', 'contentSettingsExceptionsArea');
+                     '', 'content-settings-exceptions-area');
   }
 
   cr.addSingletonGetter(ContentSettingsExceptionsArea);

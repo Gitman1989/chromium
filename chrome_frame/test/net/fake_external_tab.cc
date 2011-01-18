@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,9 +10,9 @@
 
 #include "app/app_paths.h"
 #include "app/resource_bundle.h"
-#include "app/win_util.h"
+#include "app/win/scoped_com_initializer.h"
 #include "base/command_line.h"
-#include "base/debug_util.h"
+#include "base/debug/debugger.h"
 #include "base/file_util.h"
 #include "base/file_version_info.h"
 #include "base/i18n/icu_util.h"
@@ -20,6 +20,8 @@
 #include "base/scoped_comptr_win.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
+#include "base/threading/platform_thread.h"
+#include "base/win/scoped_handle.h"
 #include "chrome/browser/automation/automation_provider_list.h"
 #include "chrome/browser/plugin_service.h"
 #include "chrome/browser/prefs/browser_prefs.h"
@@ -269,7 +271,7 @@ void CFUrlRequestUnittestRunner::StartChromeFrameInHostBrowser() {
   if (!ShouldLaunchBrowser())
     return;
 
-  win_util::ScopedCOMInitializer com;
+  app::win::ScopedCOMInitializer com;
   chrome_frame_test::CloseAllIEWindows();
 
   test_http_server_.reset(new test_server::SimpleWebServer(kTestServerPort));
@@ -278,7 +280,7 @@ void CFUrlRequestUnittestRunner::StartChromeFrameInHostBrowser() {
                                       kTestServerPort).c_str());
 
   // Launch IE.  This launches IE correctly on Vista too.
-  ScopedHandle ie_process(chrome_frame_test::LaunchIE(url));
+  base::win::ScopedHandle ie_process(chrome_frame_test::LaunchIE(url));
   EXPECT_TRUE(ie_process.IsValid());
 
   // NOTE: If you're running IE8 and CF is not being loaded, you need to
@@ -291,7 +293,7 @@ void CFUrlRequestUnittestRunner::StartChromeFrameInHostBrowser() {
 
 void CFUrlRequestUnittestRunner::ShutDownHostBrowser() {
   if (ShouldLaunchBrowser()) {
-    win_util::ScopedCOMInitializer com;
+    app::win::ScopedCOMInitializer com;
     chrome_frame_test::CloseAllIEWindows();
   }
 }
@@ -308,7 +310,7 @@ void CFUrlRequestUnittestRunner::Initialize() {
   base::Time::EnableHighResolutionTimer(true);
 
   SuppressErrorDialogs();
-  DebugUtil::SuppressDialogs();
+  base::debug::SetSuppressDebugUI(true);
 #if !defined(PURIFY)
   logging::SetLogAssertHandler(UnitTestAssertHandler);
 #endif  // !defined(PURIFY)
@@ -358,7 +360,7 @@ void CFUrlRequestUnittestRunner::StartTests() {
 
 // static
 DWORD CFUrlRequestUnittestRunner::RunAllUnittests(void* param) {
-  PlatformThread::SetName("CFUrlRequestUnittestRunner");
+  base::PlatformThread::SetName("CFUrlRequestUnittestRunner");
   // Needed for some url request tests like the intercept job tests, etc.
   NotificationService service;
   CFUrlRequestUnittestRunner* me =
@@ -382,10 +384,12 @@ void CFUrlRequestUnittestRunner::InitializeLogging() {
   FilePath exe;
   PathService::Get(base::FILE_EXE, &exe);
   FilePath log_filename = exe.ReplaceExtension(FILE_PATH_LITERAL("log"));
-  logging::InitLogging(log_filename.value().c_str(),
-                       logging::LOG_TO_BOTH_FILE_AND_SYSTEM_DEBUG_LOG,
-                       logging::LOCK_LOG_FILE,
-                       logging::DELETE_OLD_LOG_FILE);
+  logging::InitLogging(
+      log_filename.value().c_str(),
+      logging::LOG_TO_BOTH_FILE_AND_SYSTEM_DEBUG_LOG,
+      logging::LOCK_LOG_FILE,
+      logging::DELETE_OLD_LOG_FILE,
+      logging::DISABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
   // We want process and thread IDs because we may have multiple processes.
   // Note: temporarily enabled timestamps in an effort to catch bug 6361.
   logging::SetLogItems(true, true, true, true);

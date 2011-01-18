@@ -5,6 +5,7 @@
 #include "chrome/browser/tabs/tab_strip_model.h"
 
 #include <algorithm>
+#include <map>
 
 #include "base/command_line.h"
 #include "base/stl_util-inl.h"
@@ -26,7 +27,6 @@
 #include "chrome/browser/tab_contents/tab_contents_delegate.h"
 #include "chrome/browser/tab_contents/tab_contents_view.h"
 #include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/notification_service.h"
 #include "chrome/common/url_constants.h"
@@ -176,7 +176,7 @@ TabContentsWrapper* TabStripModel::ReplaceTabContentsAt(
   contents_data_[index]->contents = new_contents;
 
   FOR_EACH_OBSERVER(TabStripModelObserver, observers_,
-                    TabReplacedAt(old_contents, new_contents, index));
+                    TabReplacedAt(this, old_contents, new_contents, index));
 
   // When the selected tab contents is replaced send out selected notification
   // too. We do this as nearly all observers need to treat a replace of the
@@ -209,7 +209,12 @@ TabContentsWrapper* TabStripModel::DetachTabContentsAt(int index) {
   DCHECK(ContainsIndex(index));
 
   TabContentsWrapper* removed_contents = GetContentsAt(index);
-  int next_selected_index = order_controller_->DetermineNewSelectedIndex(index);
+  // TODO(sky): nuke reason and old_data when we figure out what is causing
+  // 34135.
+  volatile int reason = 0;
+  int next_selected_index =
+      order_controller_->DetermineNewSelectedIndex(index, &reason);
+  volatile TabContentsData old_data = *contents_data_.at(index);
   delete contents_data_.at(index);
   contents_data_.erase(contents_data_.begin() + index);
   if (empty())
@@ -778,7 +783,8 @@ void TabStripModel::Observe(NotificationType type,
     }
 
     case NotificationType::EXTENSION_UNLOADED: {
-      const Extension* extension = Details<const Extension>(details).ptr();
+      const Extension* extension =
+          Details<UnloadedExtensionInfo>(details)->extension;
       // Iterate backwards as we may remove items while iterating.
       for (int i = count() - 1; i >= 0; i--) {
         TabContentsWrapper* contents = GetTabContentsAt(i);

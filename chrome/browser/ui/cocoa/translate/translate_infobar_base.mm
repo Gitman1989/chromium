@@ -7,7 +7,6 @@
 
 #include "app/l10n_util.h"
 #include "base/logging.h"
-#include "base/mac_util.h"
 #include "base/metrics/histogram.h"
 #include "base/sys_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
@@ -472,6 +471,11 @@ InfoBar* TranslateInfoBarDelegate::CreateInfoBar() {
            object:infoBarView_];
   // Show and place GUI elements.
   [self updateState];
+}
+
+- (void)infobarWillClose {
+  [[optionsPopUp_ menu] cancelTracking];
+  [super infobarWillClose];
 }
 
 - (void)adjustOptionsButtonSizeAndVisibilityForView:(NSView*)lastView {

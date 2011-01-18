@@ -10,11 +10,13 @@
 #include <string>
 
 #include "app/drag_drop_types.h"
-#include "app/os_exchange_data.h"
 #include "base/logging.h"
+#include "ui/base/dragdrop/os_exchange_data.h"
 #include "views/controls/menu/controller.h"
 #include "views/controls/menu/menu_item_view.h"
 #include "views/event.h"
+
+using ui::OSExchangeData;
 
 namespace views {
 
@@ -25,7 +27,7 @@ class MenuButton;
 
 // Delegate for a menu. This class is used as part of MenuItemView, see it
 // for details.
-// TODO(sky): merge this with menus::MenuModel.
+// TODO(sky): merge this with ui::MenuModel.
 class MenuDelegate : Controller {
  public:
   // Used during drag and drop to indicate where the drop indicator should

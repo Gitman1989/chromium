@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -23,7 +23,7 @@ const char* PepperPluginRegistry::kPDFPluginDescription =
 
 const char* PepperPluginRegistry::kNaClPluginName = "Chrome NaCl";
 const char* PepperPluginRegistry::kNaClPluginMimeType =
-    "application/x-ppapi-nacl-srpc";
+    "application/x-nacl";
 const char* PepperPluginRegistry::kNaClPluginExtension = "nexe";
 const char* PepperPluginRegistry::kNaClPluginDescription =
     "Native Client Executable";
@@ -162,6 +162,12 @@ void PepperPluginRegistry::GetExtraPlugins(
       nacl.path = path;
       nacl.name = kNaClPluginName;
       nacl.mime_types.push_back(kNaClPluginMimeType);
+
+      // TODO(bbudge) Remove this mime type after NaCl tree has been updated.
+      const char* kNaClPluginOldMimeType =
+          "application/x-ppapi-nacl-srpc";
+      nacl.mime_types.push_back(kNaClPluginOldMimeType);
+
       nacl.file_extensions = kNaClPluginExtension;
       nacl.type_descriptions = kNaClPluginDescription;
       plugins->push_back(nacl);
@@ -221,14 +227,41 @@ bool PepperPluginRegistry::RunOutOfProcessForPlugin(
 }
 
 webkit::ppapi::PluginModule* PepperPluginRegistry::GetModule(
-    const FilePath& path) const {
-  ModuleMap::const_iterator it = modules_.find(path);
-  if (it == modules_.end())
+    const FilePath& path) {
+  NonOwningModuleMap::iterator it = live_modules_.find(path);
+  if (it == live_modules_.end())
     return NULL;
   return it->second;
 }
 
-PepperPluginRegistry::~PepperPluginRegistry() {}
+void PepperPluginRegistry::AddLiveModule(const FilePath& path,
+                                         webkit::ppapi::PluginModule* module) {
+  DCHECK(live_modules_.find(path) == live_modules_.end());
+  live_modules_[path] = module;
+}
+
+void PepperPluginRegistry::PluginModuleDestroyed(
+    webkit::ppapi::PluginModule* destroyed_module) {
+  // Modules aren't destroyed very often and there are normally at most a
+  // couple of them. So for now we just do a brute-force search.
+  for (NonOwningModuleMap::iterator i = live_modules_.begin();
+       i != live_modules_.end(); ++i) {
+    if (i->second == destroyed_module) {
+      live_modules_.erase(i);
+      return;
+    }
+  }
+  NOTREACHED();  // Should have always found the module above.
+}
+
+PepperPluginRegistry::~PepperPluginRegistry() {
+  // Explicitly clear all preloaded modules first. This will cause callbacks
+  // to erase these modules from the live_modules_ list, and we don't want
+  // that to happen implicitly out-of-order.
+  preloaded_modules_.clear();
+
+  DCHECK(live_modules_.empty());
+}
 
 PepperPluginRegistry::PepperPluginRegistry() {
   InternalPluginInfoList internal_plugin_info;
@@ -240,13 +273,15 @@ PepperPluginRegistry::PepperPluginRegistry() {
        it != internal_plugin_info.end();
        ++it) {
     const FilePath& path = it->path;
-    ModuleHandle module(new webkit::ppapi::PluginModule);
+    scoped_refptr<webkit::ppapi::PluginModule> module(
+        new webkit::ppapi::PluginModule(this));
     if (!module->InitAsInternalPlugin(it->entry_points)) {
       DLOG(ERROR) << "Failed to load pepper module: " << path.value();
       continue;
     }
     module->set_name(it->name);
-    modules_[path] = module;
+    preloaded_modules_[path] = module;
+    AddLiveModule(path, module);
   }
 
   // Add the modules specified on the command line last so that they can
@@ -259,12 +294,16 @@ PepperPluginRegistry::PepperPluginRegistry() {
       continue;  // Only preload in-process plugins.
 
     const FilePath& path = plugins[i].path;
-    ModuleHandle module(new webkit::ppapi::PluginModule);
+    scoped_refptr<webkit::ppapi::PluginModule> module(
+        new webkit::ppapi::PluginModule(this));
+    // Must call this before bailing out later since the PluginModule's
+    // destructor will call the corresponding Remove in the "continue" case.
+    AddLiveModule(path, module);
     if (!module->InitAsLibrary(path)) {
       DLOG(ERROR) << "Failed to load pepper module: " << path.value();
       continue;
     }
     module->set_name(plugins[i].name);
-    modules_[path] = module;
+    preloaded_modules_[path] = module;
   }
 }

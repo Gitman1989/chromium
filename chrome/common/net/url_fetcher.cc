@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,7 +13,7 @@
 #include "base/scoped_ptr.h"
 #include "base/stl_util-inl.h"
 #include "base/string_util.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "chrome/common/net/url_request_context_getter.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/load_flags.h"
@@ -91,7 +91,7 @@ class URLFetcher::Core
   void StartURLRequest();
   void StartURLRequestWhenAppropriate();
   void CancelURLRequest();
-  void OnCompletedURLRequest(const URLRequestStatus& status);
+  void OnCompletedURLRequest(const net::URLRequestStatus& status);
   void NotifyMalformedContent();
 
   // Deletes the request, removes it from the registry, and removes the
@@ -408,7 +408,8 @@ void URLFetcher::Core::CancelURLRequest() {
   was_cancelled_ = true;
 }
 
-void URLFetcher::Core::OnCompletedURLRequest(const URLRequestStatus& status) {
+void URLFetcher::Core::OnCompletedURLRequest(
+    const net::URLRequestStatus& status) {
   DCHECK(delegate_loop_proxy_->BelongsToCurrentThread());
 
   // Checks the response from server.

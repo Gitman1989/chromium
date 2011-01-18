@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,15 +8,14 @@
 
 #include "base/basictypes.h"
 #include "base/command_line.h"
-#include "base/logging.h"
 #include "base/message_loop.h"
 #include "base/path_service.h"
-#include "base/platform_thread.h"
 #include "base/string_util.h"
 #include "base/task.h"
 #include "base/test/test_timeouts.h"
+#include "base/threading/platform_thread.h"
 #include "base/values.h"
-#include "base/waitable_event.h"
+#include "base/synchronization/waitable_event.h"
 #include "chrome/browser/browser_thread.h"
 #include "chrome/browser/password_manager/encryptor.h"
 #include "chrome/browser/profiles/profile.h"
@@ -38,10 +37,20 @@
 #include "net/url_request/url_request_status.h"
 
 namespace switches {
-const std::string kPasswordFileForTest = "password-file-for-test";
-const std::string kSyncUserForTest = "sync-user-for-test";
-const std::string kSyncPasswordForTest = "sync-password-for-test";
-const std::string kSyncServerCommandLine = "sync-server-command-line";
+const char kPasswordFileForTest[] = "password-file-for-test";
+const char kSyncUserForTest[] = "sync-user-for-test";
+const char kSyncPasswordForTest[] = "sync-password-for-test";
+const char kSyncServerCommandLine[] = "sync-server-command-line";
+}
+
+namespace {
+// The URLs for different calls in the Google Accounts programmatic login API.
+const char kClientLoginUrl[] = "https://www.google.com/accounts/ClientLogin";
+const char kGetUserInfoUrl[] = "https://www.google.com/accounts/GetUserInfo";
+const char kIssueAuthTokenUrl[] =
+    "https://www.google.com/accounts/IssueAuthToken";
+const char kSearchDomainCheckUrl[] =
+    "https://www.google.com/searchdomaincheck?format=domain&type=chrome";
 }
 
 // Helper class that checks whether a sync test server is running or not.
@@ -51,11 +60,11 @@ class SyncServerStatusChecker : public URLFetcher::Delegate {
 
   virtual void OnURLFetchComplete(const URLFetcher* source,
                                   const GURL& url,
-                                  const URLRequestStatus& status,
+                                  const net::URLRequestStatus& status,
                                   int response_code,
                                   const ResponseCookies& cookies,
                                   const std::string& data) {
-    running_ = (status.status() == URLRequestStatus::SUCCESS &&
+    running_ = (status.status() == net::URLRequestStatus::SUCCESS &&
                 response_code == 200 && data.find("ok") == 0);
     MessageLoop::current()->Quit();
   }
@@ -97,9 +106,6 @@ LiveSyncTest::LiveSyncTest(TestType test_type)
       test_server_handle_(base::kNullProcessHandle) {
   InProcessBrowserTest::set_show_window(true);
 
-  // TODO(rsimha): Remove after investigating flaky and failing sync tests.
-  logging::SetMinLogLevel(logging::LOG_VERBOSE);
-
   switch (test_type_) {
     case SINGLE_CLIENT: {
       num_clients_ = 1;
@@ -121,35 +127,18 @@ LiveSyncTest::LiveSyncTest(TestType test_type)
 }
 
 void LiveSyncTest::SetUp() {
-  // At this point, the browser hasn't been launched, and no services are
-  // available.  But we can verify our command line parameters and fail
-  // early.
   CommandLine* cl = CommandLine::ForCurrentProcess();
   if (cl->HasSwitch(switches::kPasswordFileForTest)) {
     ReadPasswordFile();
-  } else {
-    // Read GAIA credentials from the "--sync-XXX-for-test" command line
-    // parameters.
+  } else if (cl->HasSwitch(switches::kSyncUserForTest) &&
+             cl->HasSwitch(switches::kSyncPasswordForTest)) {
     username_ = cl->GetSwitchValueASCII(switches::kSyncUserForTest);
     password_ = cl->GetSwitchValueASCII(switches::kSyncPasswordForTest);
+  } else {
+    SetupMockGaiaResponses();
   }
   if (username_.empty() || password_.empty())
     LOG(FATAL) << "Cannot run sync tests without GAIA credentials.";
-
-  // TODO(rsimha): Until we implement a fake Tango server against which tests
-  // can run, we need to set the --sync-notification-method to "p2p".
-  if (!cl->HasSwitch(switches::kSyncNotificationMethod))
-    cl->AppendSwitchASCII(switches::kSyncNotificationMethod, "p2p");
-
-  // TODO(sync): Remove this once sessions sync is enabled by default.
-  if (!cl->HasSwitch(switches::kEnableSyncSessions)) {
-    cl->AppendSwitch(switches::kEnableSyncSessions);
-  }
-
-  // TODO(sync): Remove this once passwords sync is enabled by default.
-  if (!cl->HasSwitch(switches::kEnableSyncPasswords)) {
-    cl->AppendSwitch(switches::kEnableSyncPasswords);
-  }
 
   // Mock the Mac Keychain service.  The real Keychain can block on user input.
 #if defined(OS_MACOSX)
@@ -169,6 +158,21 @@ void LiveSyncTest::TearDown() {
 
   // Stop the local sync test server. This is a no-op if one wasn't started.
   TearDownLocalTestServer();
+}
+
+void LiveSyncTest::SetUpCommandLine(CommandLine* cl) {
+  // TODO(rsimha): Until we implement a fake Tango server against which tests
+  // can run, we need to set the --sync-notification-method to "p2p".
+  if (!cl->HasSwitch(switches::kSyncNotificationMethod))
+    cl->AppendSwitchASCII(switches::kSyncNotificationMethod, "p2p");
+
+  // TODO(sync): Remove this once sessions sync is enabled by default.
+  if (!cl->HasSwitch(switches::kEnableSyncSessions))
+    cl->AppendSwitch(switches::kEnableSyncSessions);
+
+  // Disable non-essential access of external network resources.
+  if (!cl->HasSwitch(switches::kDisableBackgroundNetworking))
+    cl->AppendSwitch(switches::kDisableBackgroundNetworking);
 }
 
 // static
@@ -264,6 +268,10 @@ void LiveSyncTest::SetUpInProcessBrowserTestFixture() {
 
 void LiveSyncTest::TearDownInProcessBrowserTestFixture() {
   mock_host_resolver_override_.reset();
+
+  // Switch back to using the default URLFetcher factory. This is a no-op if
+  // a fake factory wasn't used.
+  URLFetcher::set_factory(NULL);
 }
 
 void LiveSyncTest::ReadPasswordFile() {
@@ -284,6 +292,17 @@ void LiveSyncTest::ReadPasswordFile() {
       << "\" must contain exactly two lines of text.";
   username_ = tokens[0];
   password_ = tokens[1];
+}
+
+void LiveSyncTest::SetupMockGaiaResponses() {
+  username_ = "user@gmail.com";
+  password_ = "password";
+  factory_.reset(new FakeURLFetcherFactory());
+  factory_->SetFakeResponse(kClientLoginUrl, "SID=sid\nLSID=lsid", true);
+  factory_->SetFakeResponse(kGetUserInfoUrl, "email=user@gmail.com", true);
+  factory_->SetFakeResponse(kIssueAuthTokenUrl, "auth", true);
+  factory_->SetFakeResponse(kSearchDomainCheckUrl, ".google.com", true);
+  URLFetcher::set_factory(factory_.get());
 }
 
 // Start up a local sync server if required.
@@ -398,7 +417,7 @@ bool LiveSyncTest::WaitForTestServerToStart(int time_ms, int intervals) {
   for (int i = 0; i < intervals; ++i) {
     if (IsTestServerRunning())
       return true;
-    PlatformThread::Sleep(time_ms / intervals);
+    base::PlatformThread::Sleep(time_ms / intervals);
   }
   return false;
 }

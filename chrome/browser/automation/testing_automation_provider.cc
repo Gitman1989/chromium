@@ -13,7 +13,7 @@
 #include "base/process.h"
 #include "base/process_util.h"
 #include "base/stringprintf.h"
-#include "base/thread_restrictions.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
@@ -40,6 +40,7 @@
 #include "chrome/browser/download/download_shelf.h"
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/instant/instant_controller.h"
 #include "chrome/browser/history/top_sites.h"
 #include "chrome/browser/importer/importer.h"
 #include "chrome/browser/notifications/balloon.h"
@@ -202,8 +203,9 @@ void TestingAutomationProvider::Observe(NotificationType type,
   Release();
 }
 
-void TestingAutomationProvider::OnMessageReceived(
+bool TestingAutomationProvider::OnMessageReceived(
     const IPC::Message& message) {
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(TestingAutomationProvider, message)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_CloseBrowser, CloseBrowser)
     IPC_MESSAGE_HANDLER(AutomationMsg_CloseBrowserRequestAsync,
@@ -217,15 +219,12 @@ void TestingAutomationProvider::OnMessageReceived(
     IPC_MESSAGE_HANDLER(AutomationMsg_DeleteCookie, DeleteCookie)
     IPC_MESSAGE_HANDLER(AutomationMsg_ShowCollectedCookiesDialog,
                         ShowCollectedCookiesDialog)
-    IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_NavigateToURL, NavigateToURL)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(
         AutomationMsg_NavigateToURLBlockUntilNavigationsComplete,
         NavigateToURLBlockUntilNavigationsComplete)
     IPC_MESSAGE_HANDLER(AutomationMsg_NavigationAsync, NavigationAsync)
     IPC_MESSAGE_HANDLER(AutomationMsg_NavigationAsyncWithDisposition,
                         NavigationAsyncWithDisposition)
-    IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_GoBack, GoBack)
-    IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_GoForward, GoForward)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_Reload, Reload)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_SetAuth, SetAuth)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_CancelAuth, CancelAuth)
@@ -280,7 +279,6 @@ void TestingAutomationProvider::OnMessageReceived(
                         AutocompleteEditGetMatches)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_WaitForAutocompleteEditFocus,
                                     WaitForAutocompleteEditFocus)
-    IPC_MESSAGE_HANDLER(AutomationMsg_ApplyAccelerator, ApplyAccelerator)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_DomOperation,
                                     ExecuteJavascript)
     IPC_MESSAGE_HANDLER(AutomationMsg_ConstrainedWindowCount,
@@ -297,8 +295,6 @@ void TestingAutomationProvider::OnMessageReceived(
     IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_InspectElement,
                                     HandleInspectElementRequest)
     IPC_MESSAGE_HANDLER(AutomationMsg_DownloadDirectory, GetDownloadDirectory)
-    IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_OpenNewBrowserWindow,
-                                    OpenNewBrowserWindow)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_OpenNewBrowserWindowOfType,
                                     OpenNewBrowserWindowOfType)
     IPC_MESSAGE_HANDLER(AutomationMsg_WindowForBrowser, GetWindowForBrowser)
@@ -394,8 +390,10 @@ void TestingAutomationProvider::OnMessageReceived(
     IPC_MESSAGE_HANDLER(AutomationMsg_LoadBlockedPlugins, LoadBlockedPlugins)
     IPC_MESSAGE_HANDLER(AutomationMsg_ResetToDefaultTheme, ResetToDefaultTheme)
 
-    IPC_MESSAGE_UNHANDLED(AutomationProvider::OnMessageReceived(message));
+    IPC_MESSAGE_UNHANDLED(
+        handled = AutomationProvider::OnMessageReceived(message))
   IPC_END_MESSAGE_MAP()
+  return handled;
 }
 
 void TestingAutomationProvider::OnChannelError() {
@@ -568,12 +566,6 @@ void TestingAutomationProvider::ShowCollectedCookiesDialog(
   }
 }
 
-void TestingAutomationProvider::NavigateToURL(int handle,
-                                              const GURL& url,
-                                              IPC::Message* reply_message) {
-  NavigateToURLBlockUntilNavigationsComplete(handle, url, 1, reply_message);
-}
-
 void TestingAutomationProvider::NavigateToURLBlockUntilNavigationsComplete(
     int handle, const GURL& url, int number_of_navigations,
     IPC::Message* reply_message) {
@@ -594,7 +586,7 @@ void TestingAutomationProvider::NavigateToURLBlockUntilNavigationsComplete(
     }
   }
 
-  AutomationMsg_NavigateToURL::WriteReplyParams(
+  AutomationMsg_NavigateToURLBlockUntilNavigationsComplete::WriteReplyParams(
       reply_message, AUTOMATION_MSG_NAVIGATION_ERROR);
   Send(reply_message);
 }
@@ -626,40 +618,6 @@ void TestingAutomationProvider::NavigationAsyncWithDisposition(
       *status = true;
     }
   }
-}
-
-void TestingAutomationProvider::GoBack(int handle,
-                                       IPC::Message* reply_message) {
-  if (tab_tracker_->ContainsHandle(handle)) {
-    NavigationController* tab = tab_tracker_->GetResource(handle);
-    Browser* browser = FindAndActivateTab(tab);
-    if (browser && browser->command_updater()->IsCommandEnabled(IDC_BACK)) {
-      AddNavigationStatusListener(tab, reply_message, 1, false);
-      browser->GoBack(CURRENT_TAB);
-      return;
-    }
-  }
-
-  AutomationMsg_GoBack::WriteReplyParams(
-      reply_message, AUTOMATION_MSG_NAVIGATION_ERROR);
-  Send(reply_message);
-}
-
-void TestingAutomationProvider::GoForward(int handle,
-                                          IPC::Message* reply_message) {
-  if (tab_tracker_->ContainsHandle(handle)) {
-    NavigationController* tab = tab_tracker_->GetResource(handle);
-    Browser* browser = FindAndActivateTab(tab);
-    if (browser && browser->command_updater()->IsCommandEnabled(IDC_FORWARD)) {
-      AddNavigationStatusListener(tab, reply_message, 1, false);
-      browser->GoForward(CURRENT_TAB);
-      return;
-    }
-  }
-
-  AutomationMsg_GoForward::WriteReplyParams(
-      reply_message, AUTOMATION_MSG_NAVIGATION_ERROR);
-  Send(reply_message);
 }
 
 void TestingAutomationProvider::Reload(int handle,
@@ -911,7 +869,7 @@ void TestingAutomationProvider::WindowSimulateKeyPress(
 
   gfx::NativeWindow window = window_tracker_->GetResource(handle);
   // The key event is sent to whatever window is active.
-  ui_controls::SendKeyPress(window, static_cast<app::KeyboardCode>(key),
+  ui_controls::SendKeyPress(window, static_cast<ui::KeyboardCode>(key),
                             ((flags & views::Event::EF_CONTROL_DOWN) ==
                              views::Event::EF_CONTROL_DOWN),
                             ((flags & views::Event::EF_SHIFT_DOWN) ==
@@ -1147,11 +1105,6 @@ void TestingAutomationProvider::AutocompleteEditIsQueryInProgress(
   }
 }
 
-void TestingAutomationProvider::ApplyAccelerator(int handle, int id) {
-  LOG(ERROR) << "ApplyAccelerator has been deprecated. "
-             << "Please use ExecuteBrowserCommandAsync instead.";
-}
-
 void TestingAutomationProvider::ExecuteJavascript(
     int handle,
     const std::wstring& frame_xpath,
@@ -1215,12 +1168,6 @@ void TestingAutomationProvider::GetDownloadDirectory(
     DownloadManager* dlm = tab->profile()->GetDownloadManager();
     *download_directory = dlm->download_prefs()->download_path();
   }
-}
-
-void TestingAutomationProvider::OpenNewBrowserWindow(
-    bool show, IPC::Message* reply_message) {
-  OpenNewBrowserWindowOfType(static_cast<int>(Browser::TYPE_NORMAL), show,
-                             reply_message);
 }
 
 void TestingAutomationProvider::OpenNewBrowserWindowOfType(
@@ -2041,6 +1988,8 @@ void TestingAutomationProvider::SendJSONRequest(int handle,
   handler_map["OmniboxMovePopupSelection"] =
       &TestingAutomationProvider::OmniboxMovePopupSelection;
 
+  handler_map["GetInstantInfo"] = &TestingAutomationProvider::GetInstantInfo;
+
   handler_map["LoadSearchEngineInfo"] =
       &TestingAutomationProvider::LoadSearchEngineInfo;
   handler_map["GetSearchEngineInfo"] =
@@ -2336,11 +2285,11 @@ void TestingAutomationProvider::GetBrowserInfo(
   DictionaryValue* properties = new DictionaryValue;
   properties->SetString("ChromeVersion", chrome::kChromeVersion);
   properties->SetString("BrowserProcessExecutableName",
-                        WideToUTF16Hack(chrome::kBrowserProcessExecutableName));
+                        chrome::kBrowserProcessExecutableName);
   properties->SetString("HelperProcessExecutableName",
-                        WideToUTF16Hack(chrome::kHelperProcessExecutableName));
+                        chrome::kHelperProcessExecutableName);
   properties->SetString("BrowserProcessExecutablePath",
-                        WideToUTF16Hack(chrome::kBrowserProcessExecutablePath));
+                        chrome::kBrowserProcessExecutablePath);
   properties->SetString("HelperProcessExecutablePath",
                         chrome::kHelperProcessExecutablePath);
   properties->SetString("command_line_string",
@@ -2969,6 +2918,32 @@ void TestingAutomationProvider::OmniboxAcceptInput(
   notification_observer_list_.AddObserver(observer);
 
   browser->window()->GetLocationBar()->AcceptInput();
+}
+
+// Sample json input: { "command": "GetInstantInfo" }
+void TestingAutomationProvider::GetInstantInfo(Browser* browser,
+                                               DictionaryValue* args,
+                                               IPC::Message* reply_message) {
+  DictionaryValue* info = new DictionaryValue;
+  if (browser->instant()) {
+    InstantController* instant = browser->instant();
+    info->SetBoolean("enabled", true);
+    info->SetBoolean("showing", instant->IsShowingInstant());
+    info->SetBoolean("active", instant->is_active());
+    info->SetBoolean("current", instant->IsCurrent());
+    if (instant->GetPreviewContents() &&
+        instant->GetPreviewContents()->tab_contents()) {
+      TabContents* contents = instant->GetPreviewContents()->tab_contents();
+      info->SetBoolean("loading", contents->is_loading());
+      info->SetString("location", contents->GetURL().spec());
+      info->SetString("title", contents->GetTitle());
+    }
+  } else {
+    info->SetBoolean("enabled", false);
+  }
+  scoped_ptr<DictionaryValue> return_value(new DictionaryValue);
+  return_value->Set("instant", info);
+  AutomationJSONReply(this, reply_message).SendSuccess(return_value.get());
 }
 
 // Sample json input: { "command": "GetInitialLoadTimes" }
@@ -3754,12 +3729,15 @@ void TestingAutomationProvider::GetAutoFillProfile(
     Browser* browser,
     DictionaryValue* args,
     IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
   // Get the AutoFillProfiles currently in the database.
   int tab_index = 0;
-  args->GetInteger("tab_index", &tab_index);
-  TabContents* tab_contents = browser->GetTabContentsAt(tab_index);
-  AutomationJSONReply reply(this, reply_message);
+  if (!args->GetInteger("tab_index", &tab_index)) {
+    reply.SendError("Invalid or missing tab_index integer value.");
+    return;
+  }
 
+  TabContents* tab_contents = browser->GetTabContentsAt(tab_index);
   if (tab_contents) {
     PersonalDataManager* pdm = tab_contents->profile()->GetOriginalProfile()
         ->GetPersonalDataManager();
@@ -3795,8 +3773,11 @@ void TestingAutomationProvider::FillAutoFillProfile(
   AutomationJSONReply reply(this, reply_message);
   ListValue* profiles = NULL;
   ListValue* cards = NULL;
+
+  // It's ok for profiles/credit_cards elements to be missing.
   args->GetList("profiles", &profiles);
   args->GetList("credit_cards", &cards);
+
   std::string error_mesg;
 
   std::vector<AutoFillProfile> autofill_profiles;
@@ -3816,7 +3797,11 @@ void TestingAutomationProvider::FillAutoFillProfile(
 
   // Save the AutoFillProfiles.
   int tab_index = 0;
-  args->GetInteger("tab_index", &tab_index);
+  if (!args->GetInteger("tab_index", &tab_index)) {
+    reply.SendError("Invalid or missing tab_index integer");
+    return;
+  }
+
   TabContents* tab_contents = browser->GetTabContentsAt(tab_index);
 
   if (tab_contents) {
@@ -4009,7 +3994,10 @@ void TestingAutomationProvider::DisableSyncForDatatypes(
     return;
   }
   std::string first_datatype;
-  datatypes->GetString(0, &first_datatype);
+  if (!datatypes->GetString(0, &first_datatype)) {
+    reply.SendError("Invalid or missing string");
+    return;
+  }
   if (first_datatype == "All") {
     sync_waiter_->DisableSyncForAllDatatypes();
     ProfileSyncService::Status status = sync_waiter_->GetStatus();

@@ -1,8 +1,8 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/status_icons/status_icon_win.h"
+#include "chrome/browser/ui/views/status_icons/status_icon_win.h"
 
 #include "base/sys_string_conversions.h"
 #include "gfx/icon_util.h"
@@ -61,7 +61,7 @@ void StatusIconWin::InitIconData(NOTIFYICONDATA* icon_data) {
   icon_data->uID = icon_id_;
 }
 
-void StatusIconWin::UpdatePlatformContextMenu(menus::MenuModel* menu) {
+void StatusIconWin::UpdatePlatformContextMenu(ui::MenuModel* menu) {
   // If no items are passed, blow away our context menu.
   if (!menu) {
     context_menu_.reset();

@@ -8,13 +8,16 @@
 
 #include <vector>
 
-#include "app/table_model.h"
 #include "base/string_util.h"
 #include "third_party/skia/include/core/SkCanvas.h"
+#include "ui/base/models/table_model.h"
 #include "views/controls/table/table_view.h"
 #include "views/controls/table/table_view_observer.h"
 #include "views/examples/example_base.h"
 #include "views/fill_layout.h"
+
+using ui::TableModel;
+using ui::TableModelObserver; // TODO(beng): remove these
 
 namespace examples {
 
@@ -124,7 +127,7 @@ class TableExample
 
   virtual void OnMiddleClick() {}
 
-  virtual void OnKeyDown(app::KeyboardCode virtual_keycode) {}
+  virtual void OnKeyDown(ui::KeyboardCode virtual_keycode) {}
 
   virtual void OnTableViewDelete(views::TableView* table_view) {}
 

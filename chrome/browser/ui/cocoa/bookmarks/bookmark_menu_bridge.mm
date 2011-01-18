@@ -6,13 +6,12 @@
 
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
-#include "base/nsimage_cache_mac.h"
+#include "app/mac/nsimage_cache.h"
 #include "base/sys_string_conversions.h"
 #import "chrome/browser/app_controller_mac.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/cocoa/bookmarks/bookmark_menu_bridge.h"
 #import "chrome/browser/ui/cocoa/bookmarks/bookmark_menu_cocoa_controller.h"
@@ -238,7 +237,7 @@ void BookmarkMenuBridge::ConfigureMenuItem(const BookmarkNode* node,
   // Either we do not have a loaded favicon or the conversion from SkBitmap
   // failed. Use the default site image instead.
   if (!favicon)
-    favicon = nsimage_cache::ImageNamed(@"nav.pdf");
+    favicon = app::mac::GetCachedImageWithName(@"nav.pdf");
   [item setImage:favicon];
 }
 

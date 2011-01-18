@@ -6,9 +6,7 @@
 #include "base/scoped_ptr.h"
 #include "chrome/browser/background_mode_manager.h"
 #include "chrome/browser/browser_list.h"
-#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/test/testing_profile.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -21,7 +19,6 @@ class BackgroundModeManagerTest : public testing::Test {
   ~BackgroundModeManagerTest() {}
   void SetUp() {
     command_line_.reset(new CommandLine(CommandLine::NO_PROGRAM));
-    command_line_->AppendSwitch(switches::kEnableBackgroundMode);
   }
   scoped_ptr<CommandLine> command_line_;
 };

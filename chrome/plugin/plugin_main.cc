@@ -14,6 +14,7 @@
 #include "base/command_line.h"
 #include "base/message_loop.h"
 #include "base/string_util.h"
+#include "base/threading/platform_thread.h"
 #include "chrome/common/child_process.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_switches.h"
@@ -67,13 +68,6 @@ bool IsPluginBuiltInFlash(const CommandLine& cmd_line) {
   return (path.BaseName() == FilePath(L"gcswf32.dll"));
 }
 
-// Disables Input method editor services for the whole process.
-void DisableIME() {
-  if (0 == ::GetSystemMetrics(SM_IMMENABLED))
-    return;
-  ::ImmDisableIME(-1);
-}
-
 #endif
 
 // main() routine for running as the plugin process.
@@ -91,7 +85,7 @@ int PluginMain(const MainFunctionParams& parameters) {
   InitializeChromeApplication();
 #endif
   MessageLoop main_message_loop(MessageLoop::TYPE_UI);
-  PlatformThread::SetName("CrPluginMain");
+  base::PlatformThread::SetName("CrPluginMain");
 
   SystemMonitor system_monitor;
   HighResolutionTimerManager high_resolution_timer_manager;
@@ -99,10 +93,6 @@ int PluginMain(const MainFunctionParams& parameters) {
   const CommandLine& parsed_command_line = parameters.command_line_;
 
 #if defined(OS_LINUX)
-  // On Linux we exec ourselves from /proc/self/exe, but that makes the
-  // process name that shows up in "ps" etc. for plugins show as "exe"
-  // instead of "chrome" or something reasonable. Try to fix it.
-  CommandLine::SetProcTitle();
 
 #if defined(ARCH_CPU_64_BITS)
   WorkaroundFlashLAHF();
@@ -143,7 +133,6 @@ int PluginMain(const MainFunctionParams& parameters) {
       // start elevated and it will call DelayedLowerToken(0) when it's ready.
       if (IsPluginBuiltInFlash(parsed_command_line)) {
         DVLOG(1) << "Sandboxing flash";
-        DisableIME();
         DelayedLowerToken(target_services);
       } else {
         target_services->LowerToken();

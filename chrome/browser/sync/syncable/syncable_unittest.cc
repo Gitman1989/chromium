@@ -23,10 +23,10 @@
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "base/platform_thread.h"
 #include "base/scoped_ptr.h"
 #include "base/scoped_temp_dir.h"
 #include "base/string_util.h"
+#include "base/threading/platform_thread.h"
 #include "chrome/browser/sync/engine/syncproto.h"
 #include "chrome/browser/sync/protocol/bookmark_specifics.pb.h"
 #include "chrome/browser/sync/syncable/directory_backing_store.h"
@@ -323,10 +323,6 @@ class SyncableDirectoryTest : public testing::Test {
     EXPECT_FALSE(dir_->initial_sync_ended_for_type(PREFERENCES));
     EXPECT_FALSE(dir_->initial_sync_ended_for_type(AUTOFILL));
     EXPECT_TRUE(dir_->initial_sync_ended_for_type(BOOKMARKS));
-
-    EXPECT_EQ(0, dir_->last_download_timestamp(PREFERENCES));
-    EXPECT_EQ(0, dir_->last_download_timestamp(AUTOFILL));
-    EXPECT_EQ(1, dir_->last_download_timestamp(BOOKMARKS));
   }
 
   scoped_ptr<Directory> dir_;
@@ -386,7 +382,7 @@ TEST_F(SyncableDirectoryTest, TakeSnapshotGetsMetahandlesToPurge) {
   dir_->PurgeEntriesWithTypeIn(to_purge);
 
   Directory::SaveChangesSnapshot snapshot1;
-  AutoLock scoped_lock(dir_->kernel_->save_changes_mutex);
+  base::AutoLock scoped_lock(dir_->kernel_->save_changes_mutex);
   dir_->TakeSnapshotForSaveChanges(&snapshot1);
   EXPECT_TRUE(expected_purges == snapshot1.metahandles_to_purge);
 
@@ -415,7 +411,7 @@ TEST_F(SyncableDirectoryTest, TakeSnapshotGetsAllDirtyHandlesTest) {
   // Fake SaveChanges() and make sure we got what we expected.
   {
     Directory::SaveChangesSnapshot snapshot;
-    AutoLock scoped_lock(dir_->kernel_->save_changes_mutex);
+    base::AutoLock scoped_lock(dir_->kernel_->save_changes_mutex);
     dir_->TakeSnapshotForSaveChanges(&snapshot);
     // Make sure there's an entry for each new metahandle.  Make sure all
     // entries are marked dirty.
@@ -448,7 +444,7 @@ TEST_F(SyncableDirectoryTest, TakeSnapshotGetsAllDirtyHandlesTest) {
   // Fake SaveChanges() and make sure we got what we expected.
   {
     Directory::SaveChangesSnapshot snapshot;
-    AutoLock scoped_lock(dir_->kernel_->save_changes_mutex);
+    base::AutoLock scoped_lock(dir_->kernel_->save_changes_mutex);
     dir_->TakeSnapshotForSaveChanges(&snapshot);
     // Make sure there's an entry for each new metahandle.  Make sure all
     // entries are marked dirty.
@@ -469,12 +465,8 @@ TEST_F(SyncableDirectoryTest, TestPurgeEntriesWithTypeIn) {
   AddDefaultExtensionValue(PREFERENCES, &preference_specs);
   AddDefaultExtensionValue(AUTOFILL, &autofill_specs);
   dir_->set_initial_sync_ended_for_type(BOOKMARKS, true);
-  dir_->set_last_download_timestamp(BOOKMARKS, 1);
   dir_->set_initial_sync_ended_for_type(PREFERENCES, true);
-  dir_->set_last_download_timestamp(PREFERENCES, 1);
   dir_->set_initial_sync_ended_for_type(AUTOFILL, true);
-  dir_->set_last_download_timestamp(AUTOFILL, 1);
-
 
   std::set<ModelType> types_to_purge;
   types_to_purge.insert(PREFERENCES);
@@ -588,7 +580,7 @@ TEST_F(SyncableDirectoryTest, TakeSnapshotGetsOnlyDirtyHandlesTest) {
   // Fake SaveChanges() and make sure we got what we expected.
   {
     Directory::SaveChangesSnapshot snapshot;
-    AutoLock scoped_lock(dir_->kernel_->save_changes_mutex);
+    base::AutoLock scoped_lock(dir_->kernel_->save_changes_mutex);
     dir_->TakeSnapshotForSaveChanges(&snapshot);
     // Make sure there are no dirty_metahandles.
     EXPECT_EQ(0u, snapshot.dirty_metas.size());
@@ -614,7 +606,7 @@ TEST_F(SyncableDirectoryTest, TakeSnapshotGetsOnlyDirtyHandlesTest) {
   // Fake SaveChanges() and make sure we got what we expected.
   {
     Directory::SaveChangesSnapshot snapshot;
-    AutoLock scoped_lock(dir_->kernel_->save_changes_mutex);
+    base::AutoLock scoped_lock(dir_->kernel_->save_changes_mutex);
     dir_->TakeSnapshotForSaveChanges(&snapshot);
     // Make sure there's an entry for each changed metahandle.  Make sure all
     // entries are marked dirty.
@@ -1000,29 +992,22 @@ TEST_F(SyncableDirectoryTest, TestCaseChangeRename) {
 }
 
 TEST_F(SyncableDirectoryTest, TestShareInfo) {
-  dir_->set_last_download_timestamp(AUTOFILL, 100);
-  dir_->set_last_download_timestamp(BOOKMARKS, 1000);
   dir_->set_initial_sync_ended_for_type(AUTOFILL, true);
   dir_->set_store_birthday("Jan 31st");
   dir_->SetNotificationState("notification_state");
   {
     ReadTransaction trans(dir_.get(), __FILE__, __LINE__);
-    EXPECT_EQ(100, dir_->last_download_timestamp(AUTOFILL));
-    EXPECT_EQ(1000, dir_->last_download_timestamp(BOOKMARKS));
     EXPECT_TRUE(dir_->initial_sync_ended_for_type(AUTOFILL));
     EXPECT_FALSE(dir_->initial_sync_ended_for_type(BOOKMARKS));
     EXPECT_EQ("Jan 31st", dir_->store_birthday());
     EXPECT_EQ("notification_state", dir_->GetAndClearNotificationState());
     EXPECT_EQ("", dir_->GetAndClearNotificationState());
   }
-  dir_->set_last_download_timestamp(AUTOFILL, 200);
   dir_->set_store_birthday("April 10th");
   dir_->SetNotificationState("notification_state2");
   dir_->SaveChanges();
   {
     ReadTransaction trans(dir_.get(), __FILE__, __LINE__);
-    EXPECT_EQ(200, dir_->last_download_timestamp(AUTOFILL));
-    EXPECT_EQ(1000, dir_->last_download_timestamp(BOOKMARKS));
     EXPECT_TRUE(dir_->initial_sync_ended_for_type(AUTOFILL));
     EXPECT_FALSE(dir_->initial_sync_ended_for_type(BOOKMARKS));
     EXPECT_EQ("April 10th", dir_->store_birthday());
@@ -1034,8 +1019,6 @@ TEST_F(SyncableDirectoryTest, TestShareInfo) {
   SaveAndReloadDir();
   {
     ReadTransaction trans(dir_.get(), __FILE__, __LINE__);
-    EXPECT_EQ(200, dir_->last_download_timestamp(AUTOFILL));
-    EXPECT_EQ(1000, dir_->last_download_timestamp(BOOKMARKS));
     EXPECT_TRUE(dir_->initial_sync_ended_for_type(AUTOFILL));
     EXPECT_FALSE(dir_->initial_sync_ended_for_type(BOOKMARKS));
     EXPECT_EQ("April 10th", dir_->store_birthday());
@@ -1356,7 +1339,7 @@ TEST(SyncableDirectoryManager, TestFileRelease) {
   ASSERT_TRUE(file_util::Delete(dm.GetSyncDataDatabasePath(), true));
 }
 
-class ThreadOpenTestDelegate : public PlatformThread::Delegate {
+class ThreadOpenTestDelegate : public base::PlatformThread::Delegate {
  public:
   explicit ThreadOpenTestDelegate(DirectoryManager* dm)
       : directory_manager_(dm) {}
@@ -1373,10 +1356,10 @@ class ThreadOpenTestDelegate : public PlatformThread::Delegate {
 
 TEST(SyncableDirectoryManager, ThreadOpenTest) {
   DirectoryManager dm(FilePath(FILE_PATH_LITERAL(".")));
-  PlatformThreadHandle thread_handle;
+  base::PlatformThreadHandle thread_handle;
   ThreadOpenTestDelegate test_delegate(&dm);
-  ASSERT_TRUE(PlatformThread::Create(0, &test_delegate, &thread_handle));
-  PlatformThread::Join(thread_handle);
+  ASSERT_TRUE(base::PlatformThread::Create(0, &test_delegate, &thread_handle));
+  base::PlatformThread::Join(thread_handle);
   {
     ScopedDirLookup dir(&dm, "Open");
     ASSERT_TRUE(dir.good());
@@ -1389,13 +1372,13 @@ TEST(SyncableDirectoryManager, ThreadOpenTest) {
 struct Step {
   Step() : condvar(&mutex), number(0) {}
 
-  Lock mutex;
-  ConditionVariable condvar;
+  base::Lock mutex;
+  base::ConditionVariable condvar;
   int number;
   int64 metahandle;
 };
 
-class ThreadBugDelegate : public PlatformThread::Delegate {
+class ThreadBugDelegate : public base::PlatformThread::Delegate {
  public:
   // a role is 0 or 1, meaning this thread does the odd or event steps.
   ThreadBugDelegate(int role, Step* step, DirectoryManager* dirman)
@@ -1409,7 +1392,7 @@ class ThreadBugDelegate : public PlatformThread::Delegate {
   // PlatformThread::Delegate methods:
   virtual void ThreadMain() {
     const std::string dirname = "ThreadBug1";
-    AutoLock scoped_lock(step_->mutex);
+    base::AutoLock scoped_lock(step_->mutex);
 
     while (step_->number < 3) {
       while (step_->number % 2 != role_) {
@@ -1457,14 +1440,16 @@ TEST(SyncableDirectoryManager, ThreadBug1) {
   ThreadBugDelegate thread_delegate_1(0, &step, &dirman);
   ThreadBugDelegate thread_delegate_2(1, &step, &dirman);
 
-  PlatformThreadHandle thread_handle_1;
-  PlatformThreadHandle thread_handle_2;
+  base::PlatformThreadHandle thread_handle_1;
+  base::PlatformThreadHandle thread_handle_2;
 
-  ASSERT_TRUE(PlatformThread::Create(0, &thread_delegate_1, &thread_handle_1));
-  ASSERT_TRUE(PlatformThread::Create(0, &thread_delegate_2, &thread_handle_2));
+  ASSERT_TRUE(
+      base::PlatformThread::Create(0, &thread_delegate_1, &thread_handle_1));
+  ASSERT_TRUE(
+      base::PlatformThread::Create(0, &thread_delegate_2, &thread_handle_2));
 
-  PlatformThread::Join(thread_handle_1);
-  PlatformThread::Join(thread_handle_2);
+  base::PlatformThread::Join(thread_handle_1);
+  base::PlatformThread::Join(thread_handle_2);
 }
 
 
@@ -1480,7 +1465,7 @@ class DirectoryKernelStalenessBugDelegate : public ThreadBugDelegate {
   virtual void ThreadMain() {
     const char test_bytes[] = "test data";
     const std::string dirname = "DirectoryKernelStalenessBug";
-    AutoLock scoped_lock(step_->mutex);
+    base::AutoLock scoped_lock(step_->mutex);
     const Id jeff_id = TestIdFactory::FromNumber(100);
 
     while (step_->number < 4) {
@@ -1552,17 +1537,19 @@ TEST(SyncableDirectoryManager, DirectoryKernelStalenessBug) {
   DirectoryKernelStalenessBugDelegate thread_delegate_1(0, &step, &dirman);
   DirectoryKernelStalenessBugDelegate thread_delegate_2(1, &step, &dirman);
 
-  PlatformThreadHandle thread_handle_1;
-  PlatformThreadHandle thread_handle_2;
+  base::PlatformThreadHandle thread_handle_1;
+  base::PlatformThreadHandle thread_handle_2;
 
-  ASSERT_TRUE(PlatformThread::Create(0, &thread_delegate_1, &thread_handle_1));
-  ASSERT_TRUE(PlatformThread::Create(0, &thread_delegate_2, &thread_handle_2));
+  ASSERT_TRUE(
+      base::PlatformThread::Create(0, &thread_delegate_1, &thread_handle_1));
+  ASSERT_TRUE(
+      base::PlatformThread::Create(0, &thread_delegate_2, &thread_handle_2));
 
-  PlatformThread::Join(thread_handle_1);
-  PlatformThread::Join(thread_handle_2);
+  base::PlatformThread::Join(thread_handle_1);
+  base::PlatformThread::Join(thread_handle_2);
 }
 
-class StressTransactionsDelegate : public PlatformThread::Delegate {
+class StressTransactionsDelegate : public base::PlatformThread::Delegate {
  public:
   StressTransactionsDelegate(DirectoryManager* dm,
                              const std::string& dirname,
@@ -1588,7 +1575,7 @@ class StressTransactionsDelegate : public PlatformThread::Delegate {
       if (rand_action < 4 && !path_name.empty()) {
         ReadTransaction trans(dir, __FILE__, __LINE__);
         CHECK(1 == CountEntriesWithName(&trans, trans.root_id(), path_name));
-        PlatformThread::Sleep(rand() % 10);
+        base::PlatformThread::Sleep(rand() % 10);
       } else {
         std::string unique_name = StringPrintf("%d.%d", thread_number_,
                                                entry_count++);
@@ -1596,7 +1583,7 @@ class StressTransactionsDelegate : public PlatformThread::Delegate {
         WriteTransaction trans(dir, UNITTEST, __FILE__, __LINE__);
         MutableEntry e(&trans, CREATE, trans.root_id(), path_name);
         CHECK(e.good());
-        PlatformThread::Sleep(rand() % 20);
+        base::PlatformThread::Sleep(rand() % 20);
         e.Put(IS_UNSYNCED, true);
         if (e.Put(ID, TestIdFactory::FromNumber(rand())) &&
             e.Get(ID).ServerKnows() && !e.Get(ID).IsRoot()) {
@@ -1616,18 +1603,18 @@ TEST(SyncableDirectory, StressTransactions) {
   dirman.Open(dirname);
 
   const int kThreadCount = 7;
-  PlatformThreadHandle threads[kThreadCount];
+  base::PlatformThreadHandle threads[kThreadCount];
   scoped_ptr<StressTransactionsDelegate> thread_delegates[kThreadCount];
 
   for (int i = 0; i < kThreadCount; ++i) {
     thread_delegates[i].reset(
         new StressTransactionsDelegate(&dirman, dirname, i));
-    ASSERT_TRUE(
-        PlatformThread::Create(0, thread_delegates[i].get(), &threads[i]));
+    ASSERT_TRUE(base::PlatformThread::Create(
+        0, thread_delegates[i].get(), &threads[i]));
   }
 
   for (int i = 0; i < kThreadCount; ++i) {
-    PlatformThread::Join(threads[i]);
+    base::PlatformThread::Join(threads[i]);
   }
 
   dirman.Close(dirname);

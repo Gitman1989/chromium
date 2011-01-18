@@ -9,19 +9,23 @@
 #include <string>
 #include <vector>
 
-#include "app/table_model.h"
+#include "base/compiler_specific.h"
 #include "chrome/browser/history/history.h"
 #include "chrome/browser/favicon_service.h"
+#include "ui/base/models/table_model.h"
 
 class GURL;
 class Profile;
 class SkBitmap;
+
+namespace ui {
 class TableModelObserver;
+}
 
 // CustomHomePagesTableModel is the model for the TableView showing the list
 // of pages the user wants opened on startup.
 
-class CustomHomePagesTableModel : public TableModel {
+class CustomHomePagesTableModel : public ui::TableModel {
  public:
   explicit CustomHomePagesTableModel(Profile* profile);
   virtual ~CustomHomePagesTableModel();
@@ -43,11 +47,11 @@ class CustomHomePagesTableModel : public TableModel {
   std::vector<GURL> GetURLs();
 
   // TableModel overrides:
-  virtual int RowCount();
-  virtual std::wstring GetText(int row, int column_id);
-  virtual SkBitmap GetIcon(int row);
-  virtual std::wstring GetTooltip(int row);
-  virtual void SetObserver(TableModelObserver* observer);
+  virtual int RowCount() OVERRIDE;
+  virtual string16 GetText(int row, int column_id) OVERRIDE;
+  virtual SkBitmap GetIcon(int row) OVERRIDE;
+  virtual string16 GetTooltip(int row) OVERRIDE;
+  virtual void SetObserver(ui::TableModelObserver* observer) OVERRIDE;
 
  private:
   // Each item in the model is represented as an Entry. Entry stores the URL,
@@ -84,7 +88,7 @@ class CustomHomePagesTableModel : public TableModel {
                                  int* entry_index);
 
   // Returns the URL for a particular row, formatted for display to the user.
-  std::wstring FormattedURL(int row) const;
+  string16 FormattedURL(int row) const;
 
   // Set of entries we're showing.
   std::vector<Entry> entries_;
@@ -95,7 +99,7 @@ class CustomHomePagesTableModel : public TableModel {
   // Profile used to load titles and icons.
   Profile* profile_;
 
-  TableModelObserver* observer_;
+  ui::TableModelObserver* observer_;
 
   // Used in loading titles and favicons.
   CancelableRequestConsumer query_consumer_;

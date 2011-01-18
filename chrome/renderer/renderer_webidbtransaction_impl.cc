@@ -8,9 +8,9 @@
 #include "chrome/renderer/indexed_db_dispatcher.h"
 #include "chrome/renderer/render_thread.h"
 #include "chrome/renderer/renderer_webidbobjectstore_impl.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebIDBObjectStore.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebIDBTransactionCallbacks.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBObjectStore.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBTransactionCallbacks.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebString.h"
 
 using WebKit::WebIDBObjectStore;
 using WebKit::WebIDBTransactionCallbacks;
@@ -22,6 +22,10 @@ RendererWebIDBTransactionImpl::RendererWebIDBTransactionImpl(
 }
 
 RendererWebIDBTransactionImpl::~RendererWebIDBTransactionImpl() {
+  // It's not possible for there to be pending callbacks that address this
+  // object since inside WebKit, they hold a reference to the object wich owns
+  // this object. But, if that ever changed, then we'd need to invalidate
+  // any such pointers.
   RenderThread::current()->Send(new IndexedDBHostMsg_TransactionDestroyed(
       idb_transaction_id_));
 }

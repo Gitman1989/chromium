@@ -53,7 +53,7 @@ var chrome = chrome || {};
         if (validator.errors.length == 0)
           continue;
 
-        var message = "Invalid value for argument " + i + ". ";
+        var message = "Invalid value for argument " + (i + 1) + ". ";
         for (var i = 0, err; err = validator.errors[i]; i++) {
           if (err.path) {
             message += "Property '" + err.path + "': ";
@@ -67,7 +67,7 @@ var chrome = chrome || {};
 
         throw new Error(message);
       } else if (!schemas[i].optional) {
-        throw new Error("Parameter " + i + " is required.");
+        throw new Error("Parameter " + (i + 1) + " is required.");
       }
     }
   };
@@ -343,13 +343,26 @@ var chrome = chrome || {};
     return result;
   }
 
-  function setupOmniboxEvents(extensionId) {
+  function setupOmniboxEvents() {
     chrome.omnibox.onInputChanged.dispatch =
         function(text, requestId) {
       var suggestCallback = function(suggestions) {
         chrome.omnibox.sendSuggestions(requestId, suggestions);
       };
       chrome.Event.prototype.dispatch.apply(this, [text, suggestCallback]);
+    };
+  }
+
+  function setupTtsEvents() {
+    chrome.experimental.tts.onSpeak.dispatch =
+        function(text, options, requestId) {
+      var callback = function(errorMessage) {
+        if (errorMessage)
+          chrome.experimental.tts.speakCompleted(requestId, errorMessage);
+        else
+          chrome.experimental.tts.speakCompleted(requestId);
+      };
+      chrome.Event.prototype.dispatch.apply(this, [text, options, callback]);
     };
   }
 
@@ -783,7 +796,8 @@ var chrome = chrome || {};
     setupToolstripEvents(GetRenderViewId());
     setupPopupEvents(GetRenderViewId());
     setupHiddenContextMenuEvent(extensionId);
-    setupOmniboxEvents(extensionId);
+    setupOmniboxEvents();
+    setupTtsEvents();
   });
 
   if (!chrome.experimental)

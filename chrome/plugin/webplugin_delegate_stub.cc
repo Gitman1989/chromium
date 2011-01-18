@@ -18,8 +18,8 @@
 #include "third_party/npapi/bindings/npapi.h"
 #include "third_party/npapi/bindings/npruntime.h"
 #include "skia/ext/platform_device.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebBindings.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebCursorInfo.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebBindings.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCursorInfo.h"
 #include "webkit/plugins/npapi/webplugin_delegate_impl.h"
 #include "webkit/glue/webcursor.h"
 
@@ -88,7 +88,7 @@ WebPluginDelegateStub::~WebPluginDelegateStub() {
   }
 }
 
-void WebPluginDelegateStub::OnMessageReceived(const IPC::Message& msg) {
+bool WebPluginDelegateStub::OnMessageReceived(const IPC::Message& msg) {
   child_process_logging::SetActiveURL(page_url_);
 
   // A plugin can execute a script to delete itself in any of its NPP methods.
@@ -98,6 +98,7 @@ void WebPluginDelegateStub::OnMessageReceived(const IPC::Message& msg) {
   if (!in_destructor_)
     AddRef();
 
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(WebPluginDelegateStub, msg)
     IPC_MESSAGE_HANDLER(PluginMsg_Init, OnInit)
     IPC_MESSAGE_HANDLER(PluginMsg_WillSendRequest, OnWillSendRequest)
@@ -146,11 +147,14 @@ void WebPluginDelegateStub::OnMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(PluginMsg_SetFakeAcceleratedSurfaceWindowHandle,
                         OnSetFakeAcceleratedSurfaceWindowHandle)
 #endif
-    IPC_MESSAGE_UNHANDLED_ERROR()
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
 
   if (!in_destructor_)
     Release();
+
+  DCHECK(handled);
+  return handled;
 }
 
 bool WebPluginDelegateStub::Send(IPC::Message* msg) {

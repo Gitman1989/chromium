@@ -34,6 +34,8 @@ struct DownloadCreateInfo;
 // One DownloadItem per download. This is the model class that stores all the
 // state for a download. Multiple views, such as a tab's download shelf and the
 // Destination tab's download view, may refer to a given DownloadItem.
+//
+// This is intended to be used only on the UI thread.
 class DownloadItem {
  public:
   enum DownloadState {
@@ -150,6 +152,16 @@ class DownloadItem {
   // total size).
   int PercentComplete() const;
 
+  // Update the fields that may have changed in DownloadCreateInfo as a
+  // result of analyzing the file and figuring out its type, location, etc.
+  // May only be called once.
+  void SetFileCheckResults(const FilePath& path,
+                           bool is_dangerous,
+                           int path_uniquifier,
+                           bool prompt,
+                           bool is_extension_install,
+                           const FilePath& original_name);
+
   // Update the download's path, the actual file is renamed on the download
   // thread.
   void Rename(const FilePath& full_path);
@@ -176,6 +188,7 @@ class DownloadItem {
   FilePath full_path() const { return full_path_; }
   void set_path_uniquifier(int uniquifier) { path_uniquifier_ = uniquifier; }
   GURL url() const { return url_; }
+  GURL original_url() const { return original_url_; }
   GURL referrer_url() const { return referrer_url_; }
   std::string mime_type() const { return mime_type_; }
   std::string original_mime_type() const { return original_mime_type_; }
@@ -244,8 +257,12 @@ class DownloadItem {
   // path should be used as is.
   int path_uniquifier_;
 
-  // The URL from whence we came.
+  // The URL from which we are downloading. This is the final URL after any
+  // redirection by the server for |original_url_|.
   GURL url_;
+
+  // The original URL before any redirection by the server for this URL.
+  GURL original_url_;
 
   // The URL of the page that initiated the download.
   GURL referrer_url_;

@@ -8,9 +8,9 @@
 #include "chrome/common/file_system/file_system_dispatcher.h"
 #include "chrome/common/webmessageportchannel_impl.h"
 #include "chrome/common/worker_messages.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSharedWorker.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebString.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURL.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSharedWorker.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURL.h"
 
 WebSharedWorkerStub::WebSharedWorkerStub(
     const string16& name, int route_id,
@@ -26,13 +26,16 @@ WebSharedWorkerStub::~WebSharedWorkerStub() {
   impl_->clientDestroyed();
 }
 
-void WebSharedWorkerStub::OnMessageReceived(const IPC::Message& message) {
+bool WebSharedWorkerStub::OnMessageReceived(const IPC::Message& message) {
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(WebSharedWorkerStub, message)
     IPC_MESSAGE_HANDLER(WorkerMsg_StartWorkerContext, OnStartWorkerContext)
     IPC_MESSAGE_HANDLER(WorkerMsg_TerminateWorkerContext,
                         OnTerminateWorkerContext)
     IPC_MESSAGE_HANDLER(WorkerMsg_Connect, OnConnect)
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
+  return handled;
 }
 
 void WebSharedWorkerStub::OnChannelError() {

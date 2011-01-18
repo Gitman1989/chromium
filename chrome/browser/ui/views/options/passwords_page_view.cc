@@ -1,8 +1,8 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/options/passwords_page_view.h"
+#include "chrome/browser/ui/views/options/passwords_page_view.h"
 
 #include "app/l10n_util.h"
 #include "base/i18n/rtl.h"
@@ -70,24 +70,23 @@ int PasswordsTableModel::RowCount() {
   return static_cast<int>(saved_signons_.size());
 }
 
-std::wstring PasswordsTableModel::GetText(int row,
-                                          int col_id) {
+string16 PasswordsTableModel::GetText(int row,
+                                      int col_id) {
   switch (col_id) {
     case IDS_PASSWORDS_PAGE_VIEW_SITE_COLUMN: {  // Site.
       // Force URL to have LTR directionality.
       std::wstring url(saved_signons_[row]->display_url.display_url());
-      url = UTF16ToWide(base::i18n::GetDisplayStringInLTRDirectionality(
-          WideToUTF16(url)));
-      return url;
+      return base::i18n::GetDisplayStringInLTRDirectionality(
+          WideToUTF16Hack(url));
     }
     case IDS_PASSWORDS_PAGE_VIEW_USERNAME_COLUMN: {  // Username.
       std::wstring username = GetPasswordFormAt(row)->username_value;
       base::i18n::AdjustStringForLocaleDirection(&username);
-      return username;
+      return WideToUTF16Hack(username);
     }
     default:
       NOTREACHED() << "Invalid column.";
-      return std::wstring();
+      return string16();
   }
 }
 
@@ -100,7 +99,7 @@ int PasswordsTableModel::CompareValues(int row1, int row2,
   return TableModel::CompareValues(row1, row2, column_id);
 }
 
-void PasswordsTableModel::SetObserver(TableModelObserver* observer) {
+void PasswordsTableModel::SetObserver(ui::TableModelObserver* observer) {
   observer_ = observer;
 }
 
@@ -177,14 +176,18 @@ PasswordsPageView::PasswordsPageView(Profile* profile)
     : OptionsPageView(profile),
       ALLOW_THIS_IN_INITIALIZER_LIST(show_button_(
           this,
-          l10n_util::GetString(IDS_PASSWORDS_PAGE_VIEW_SHOW_BUTTON),
-          l10n_util::GetString(IDS_PASSWORDS_PAGE_VIEW_HIDE_BUTTON))),
+          UTF16ToWide(l10n_util::GetStringUTF16(
+              IDS_PASSWORDS_PAGE_VIEW_SHOW_BUTTON)),
+          UTF16ToWide(l10n_util::GetStringUTF16(
+              IDS_PASSWORDS_PAGE_VIEW_HIDE_BUTTON)))),
       ALLOW_THIS_IN_INITIALIZER_LIST(remove_button_(
           this,
-          l10n_util::GetString(IDS_PASSWORDS_PAGE_VIEW_REMOVE_BUTTON))),
+          UTF16ToWide(l10n_util::GetStringUTF16(
+              IDS_PASSWORDS_PAGE_VIEW_REMOVE_BUTTON)))),
       ALLOW_THIS_IN_INITIALIZER_LIST(remove_all_button_(
           this,
-          l10n_util::GetString(IDS_PASSWORDS_PAGE_VIEW_REMOVE_ALL_BUTTON))),
+          UTF16ToWide(l10n_util::GetStringUTF16(
+              IDS_PASSWORDS_PAGE_VIEW_REMOVE_ALL_BUTTON)))),
       table_model_(profile),
       table_view_(NULL),
       current_selected_password_(NULL) {
@@ -212,8 +215,8 @@ void PasswordsPageView::OnSelectionChanged() {
 
   if (selected != current_selected_password_) {
     // Reset the password related views.
-    show_button_.SetLabel(
-        l10n_util::GetString(IDS_PASSWORDS_PAGE_VIEW_SHOW_BUTTON));
+    show_button_.SetLabel(UTF16ToWide(
+        l10n_util::GetStringUTF16(IDS_PASSWORDS_PAGE_VIEW_SHOW_BUTTON)));
     show_button_.SetEnabled(has_selection);
     password_label_.SetText(std::wstring());
 
@@ -228,9 +231,10 @@ void PasswordsPageView::ButtonPressed(
     ConfirmMessageBoxDialog::Run(
         GetWindow()->GetNativeWindow(),
         this,
-        l10n_util::GetString(IDS_PASSWORDS_PAGE_VIEW_TEXT_DELETE_ALL_PASSWORDS),
-        l10n_util::GetString(
-            IDS_PASSWORDS_PAGE_VIEW_CAPTION_DELETE_ALL_PASSWORDS));
+        UTF16ToWide(l10n_util::GetStringUTF16(
+            IDS_PASSWORDS_PAGE_VIEW_TEXT_DELETE_ALL_PASSWORDS)),
+        UTF16ToWide(l10n_util::GetStringUTF16(
+            IDS_PASSWORDS_PAGE_VIEW_CAPTION_DELETE_ALL_PASSWORDS)));
     return;
   }
 
@@ -247,8 +251,8 @@ void PasswordsPageView::ButtonPressed(
     if (password_label_.GetText().length() == 0 &&
         allow_show_passwords_.GetValue()) {
       password_label_.SetText(selected->password_value);
-      show_button_.SetLabel(
-          l10n_util::GetString(IDS_PASSWORDS_PAGE_VIEW_HIDE_BUTTON));
+      show_button_.SetLabel(UTF16ToWide(
+          l10n_util::GetStringUTF16(IDS_PASSWORDS_PAGE_VIEW_HIDE_BUTTON)));
     } else {
       HidePassword();
     }
@@ -329,12 +333,12 @@ void PasswordsPageView::SetupTable() {
 
   // Creates the different columns for the table.
   // The float resize values are the result of much tinkering.
-  std::vector<TableColumn> columns;
-  columns.push_back(TableColumn(IDS_PASSWORDS_PAGE_VIEW_SITE_COLUMN,
-                                       TableColumn::LEFT, -1, 0.55f));
+  std::vector<ui::TableColumn> columns;
+  columns.push_back(ui::TableColumn(IDS_PASSWORDS_PAGE_VIEW_SITE_COLUMN,
+                                    ui::TableColumn::LEFT, -1, 0.55f));
   columns.back().sortable = true;
-  columns.push_back(TableColumn(
-      IDS_PASSWORDS_PAGE_VIEW_USERNAME_COLUMN, TableColumn::LEFT,
+  columns.push_back(ui::TableColumn(
+      IDS_PASSWORDS_PAGE_VIEW_USERNAME_COLUMN, ui::TableColumn::LEFT,
       -1, 0.37f));
   columns.back().sortable = true;
   table_view_ = new views::TableView(&table_model_, columns, views::TEXT_ONLY,
@@ -349,8 +353,8 @@ void PasswordsPageView::SetupTable() {
 
 void PasswordsPageView::HidePassword() {
   password_label_.SetText(L"");
-  show_button_.SetLabel(
-      l10n_util::GetString(IDS_PASSWORDS_PAGE_VIEW_SHOW_BUTTON));
+  show_button_.SetLabel(UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_PASSWORDS_PAGE_VIEW_SHOW_BUTTON)));
 }
 
 void PasswordsPageView::NotifyPrefChanged(const std::string* pref_name) {

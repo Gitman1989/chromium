@@ -10,6 +10,7 @@
 
 #include "base/process_util.h"
 #include "base/ref_counted.h"
+#include "base/string16.h"
 #include "chrome/common/child_process_info.h"
 
 // We collect data about each browser process.  A browser may
@@ -26,18 +27,21 @@ struct ProcessMemoryInformation {
   // The committed bytes.
   base::CommittedKBytes committed;
   // The process version
-  std::wstring version;
+  string16 version;
   // The process product name.
-  std::wstring product_name;
+  string16 product_name;
   // The number of processes which this memory represents.
   int num_processes;
-  // A process is a diagnostics process if it is rendering
-  // about:xxx information.
+  // A process is a diagnostics process if it is rendering about:memory.
+  // Mark this specially so that it can avoid counting it in its own
+  // results.
   bool is_diagnostics;
   // If this is a child process of Chrome, what type (i.e. plugin) it is.
   ChildProcessInfo::ProcessType type;
+  // If this is a renderer process, what type it is.
+  ChildProcessInfo::RendererProcessType renderer_type;
   // A collection of titles used, i.e. for a tab it'll show all the page titles.
-  std::vector<std::wstring> titles;
+  std::vector<string16> titles;
 };
 
 typedef std::vector<ProcessMemoryInformation> ProcessMemoryInformationList;
@@ -49,8 +53,8 @@ struct ProcessData {
   ~ProcessData();
   ProcessData& operator=(const ProcessData& rhs);
 
-  std::wstring name;
-  std::wstring process_name;
+  string16 name;
+  string16 process_name;
   ProcessMemoryInformationList processes;
 };
 

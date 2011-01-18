@@ -30,7 +30,6 @@ class FilePath;
 class GpuChannelHost;
 class IndexedDBDispatcher;
 class ListValue;
-class NullableString16;
 class RendererHistogram;
 class RendererHistogramSnapshots;
 class RendererNetPredictor;
@@ -255,7 +254,7 @@ class RenderThread : public RenderThreadBase,
                             int extension_group);
 
  private:
-  virtual void OnControlMessageReceived(const IPC::Message& msg);
+  virtual bool OnControlMessageReceived(const IPC::Message& msg);
 
   void Init();
 
@@ -316,8 +315,6 @@ class RenderThread : public RenderThreadBase,
   void OnSetPhishingModel(IPC::PlatformFileForTransit model_file);
 
   void OnGetAccessibilityTree();
-
-  void OnSetSpeechInputEnabled(bool enabled);
 
   // Gather usage statistics from the in-memory cache and inform our host.
   // These functions should be call periodically so that the host can make
@@ -388,10 +385,6 @@ class RenderThread : public RenderThreadBase,
 
   bool suspend_webkit_shared_timer_;
   bool notify_webkit_of_modal_loop_;
-
-  // True if this renderer has speech input enabled, set once during thread
-  // initialization.
-  bool is_speech_input_enabled_;
 
   // Timer that periodically calls IdleHandler.
   base::RepeatingTimer<RenderThread> idle_timer_;

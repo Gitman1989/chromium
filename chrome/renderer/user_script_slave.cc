@@ -4,6 +4,8 @@
 
 #include "chrome/renderer/user_script_slave.h"
 
+#include <map>
+
 #include "app/resource_bundle.h"
 #include "base/command_line.h"
 #include "base/logging.h"
@@ -12,16 +14,15 @@
 #include "base/shared_memory.h"
 #include "base/metrics/histogram.h"
 #include "base/string_util.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/renderer/extension_groups.h"
 #include "chrome/renderer/extensions/extension_renderer_info.h"
 #include "chrome/renderer/render_thread.h"
 #include "googleurl/src/gurl.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebVector.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebView.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebVector.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 
 #include "grit/renderer_resources.h"
 

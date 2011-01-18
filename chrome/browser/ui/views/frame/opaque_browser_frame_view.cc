@@ -1,19 +1,20 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/frame/opaque_browser_frame_view.h"
+#include "chrome/browser/ui/views/frame/opaque_browser_frame_view.h"
 
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
 #include "app/theme_provider.h"
 #include "base/compiler_specific.h"
+#include "base/utf_string_conversions.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/themes/browser_theme_provider.h"
-#include "chrome/browser/views/frame/browser_frame.h"
-#include "chrome/browser/views/frame/browser_view.h"
-#include "chrome/browser/views/tabs/tab_strip.h"
-#include "chrome/browser/views/toolbar_view.h"
+#include "chrome/browser/ui/views/frame/browser_frame.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/tabs/tab_strip.h"
+#include "chrome/browser/ui/views/toolbar_view.h"
 #include "gfx/canvas_skia.h"
 #include "gfx/font.h"
 #include "gfx/path.h"
@@ -121,7 +122,7 @@ OpaqueBrowserFrameView::OpaqueBrowserFrameView(BrowserFrame* frame,
         tp->GetBitmapNamed(IDR_MINIMIZE_BUTTON_MASK));
   }
   minimize_button_->SetAccessibleName(
-      l10n_util::GetString(IDS_ACCNAME_MINIMIZE));
+      l10n_util::GetStringUTF16(IDS_ACCNAME_MINIMIZE));
   AddChildView(minimize_button_);
 
   maximize_button_->SetImage(views::CustomButton::BS_NORMAL,
@@ -135,7 +136,7 @@ OpaqueBrowserFrameView::OpaqueBrowserFrameView(BrowserFrame* frame,
         tp->GetBitmapNamed(IDR_MAXIMIZE_BUTTON_MASK));
   }
   maximize_button_->SetAccessibleName(
-      l10n_util::GetString(IDS_ACCNAME_MAXIMIZE));
+      l10n_util::GetStringUTF16(IDS_ACCNAME_MAXIMIZE));
   AddChildView(maximize_button_);
 
   restore_button_->SetImage(views::CustomButton::BS_NORMAL,
@@ -148,7 +149,8 @@ OpaqueBrowserFrameView::OpaqueBrowserFrameView(BrowserFrame* frame,
     restore_button_->SetBackground(color, background,
         tp->GetBitmapNamed(IDR_RESTORE_BUTTON_MASK));
   }
-  restore_button_->SetAccessibleName(l10n_util::GetString(IDS_ACCNAME_RESTORE));
+  restore_button_->SetAccessibleName(
+      l10n_util::GetStringUTF16(IDS_ACCNAME_RESTORE));
   AddChildView(restore_button_);
 
   close_button_->SetImage(views::CustomButton::BS_NORMAL,
@@ -161,7 +163,8 @@ OpaqueBrowserFrameView::OpaqueBrowserFrameView(BrowserFrame* frame,
     close_button_->SetBackground(color, background,
         tp->GetBitmapNamed(IDR_CLOSE_BUTTON_MASK));
   }
-  close_button_->SetAccessibleName(l10n_util::GetString(IDS_ACCNAME_CLOSE));
+  close_button_->SetAccessibleName(
+      l10n_util::GetStringUTF16(IDS_ACCNAME_CLOSE));
   AddChildView(close_button_);
 
   // Initializing the TabIconView is expensive, so only do it if we need to.
@@ -709,7 +712,7 @@ void OpaqueBrowserFrameView::PaintTitleBar(gfx::Canvas* canvas) {
     return;
   }
   if (delegate->ShouldShowWindowTitle()) {
-    canvas->DrawStringInt(delegate->GetWindowTitle(),
+    canvas->DrawStringInt(WideToUTF16Hack(delegate->GetWindowTitle()),
                           BrowserFrame::GetTitleFont(),
         SK_ColorWHITE, MirroredLeftPointForRect(title_bounds_),
         title_bounds_.y(), title_bounds_.width(), title_bounds_.height());

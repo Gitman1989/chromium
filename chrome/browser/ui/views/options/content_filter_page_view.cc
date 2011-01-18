@@ -1,11 +1,12 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/options/content_filter_page_view.h"
+#include "chrome/browser/ui/views/options/content_filter_page_view.h"
 
 #include "app/l10n_util.h"
 #include "base/command_line.h"
+#include "base/utf_string_conversions.h"
 #include "chrome/browser/content_settings/content_settings_details.h"
 #include "chrome/browser/geolocation/geolocation_content_settings_map.h"
 #include "chrome/browser/geolocation/geolocation_exceptions_table_model.h"
@@ -13,8 +14,8 @@
 #include "chrome/browser/notifications/notification_exceptions_table_model.h"
 #include "chrome/browser/plugin_exceptions_table_model.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/views/options/exceptions_view.h"
-#include "chrome/browser/views/options/simple_content_exceptions_view.h"
+#include "chrome/browser/ui/views/options/exceptions_view.h"
+#include "chrome/browser/ui/views/options/simple_content_exceptions_view.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/notification_details.h"
 #include "chrome/common/notification_service.h"
@@ -66,7 +67,7 @@ void ContentFilterPageView::InitControlLayout() {
   COMPILE_ASSERT(arraysize(kTitleIDs) == CONTENT_SETTINGS_NUM_TYPES,
                  Need_a_setting_for_every_content_settings_type);
   views::Label* title_label = new views::Label(
-      l10n_util::GetString(kTitleIDs[content_type_]));
+      UTF16ToWide(l10n_util::GetStringUTF16(kTitleIDs[content_type_])));
   title_label->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
   title_label->SetMultiLine(true);
 
@@ -87,7 +88,8 @@ void ContentFilterPageView::InitControlLayout() {
                  Need_a_setting_for_every_content_settings_type);
   const int radio_button_group = 0;
   allow_radio_ = new views::RadioButton(
-      l10n_util::GetString(kAllowIDs[content_type_]), radio_button_group);
+      UTF16ToWide(l10n_util::GetStringUTF16(kAllowIDs[content_type_])),
+      radio_button_group);
   allow_radio_->set_listener(this);
   allow_radio_->SetMultiLine(true);
   layout->StartRow(0, single_column_set_id);
@@ -114,7 +116,7 @@ void ContentFilterPageView::InitControlLayout() {
     }
     if (askID != 0) {
       ask_radio_ = new views::RadioButton(
-          l10n_util::GetString(askID), radio_button_group);
+          UTF16ToWide(l10n_util::GetStringUTF16(askID)), radio_button_group);
       ask_radio_->set_listener(this);
       ask_radio_->SetMultiLine(true);
       layout->StartRow(0, single_column_set_id);
@@ -135,7 +137,8 @@ void ContentFilterPageView::InitControlLayout() {
   COMPILE_ASSERT(arraysize(kBlockIDs) == CONTENT_SETTINGS_NUM_TYPES,
                  Need_a_setting_for_every_content_settings_type);
   block_radio_ = new views::RadioButton(
-      l10n_util::GetString(kBlockIDs[content_type_]), radio_button_group);
+      UTF16ToWide(l10n_util::GetStringUTF16(kBlockIDs[content_type_])),
+      radio_button_group);
   block_radio_->set_listener(this);
   block_radio_->SetMultiLine(true);
   layout->StartRow(0, single_column_set_id);
@@ -143,7 +146,7 @@ void ContentFilterPageView::InitControlLayout() {
   layout->AddPaddingRow(0, kRelatedControlVerticalSpacing);
 
   exceptions_button_ = new views::NativeButton(this,
-      l10n_util::GetString(IDS_COOKIES_EXCEPTIONS_BUTTON));
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_COOKIES_EXCEPTIONS_BUTTON)));
 
   layout->StartRow(0, single_column_set_id);
   layout->AddView(exceptions_button_, 1, 1, GridLayout::LEADING,

@@ -16,27 +16,27 @@
 #include "net/base/net_errors.h"
 #include "net/http/http_response_headers.h"
 #include "skia/ext/platform_canvas.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebConsoleMessage.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebCookieJar.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebCString.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebCursorInfo.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDevToolsAgent.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebData.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDocument.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebHTTPBody.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebHTTPHeaderVisitor.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebInputEvent.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebKit.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebKitClient.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPluginContainer.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPluginParams.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURL.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLError.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLLoader.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLLoaderClient.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLResponse.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebView.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebConsoleMessage.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCookieJar.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCursorInfo.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDevToolsAgent.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebData.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebHTTPBody.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebHTTPHeaderVisitor.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebKitClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginContainer.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginParams.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURL.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLError.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLLoader.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLLoaderClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLResponse.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "webkit/appcache/web_application_cache_host_impl.h"
 #include "webkit/glue/multipart_response_delegate.h"
 #include "webkit/plugins/npapi/plugin_host.h"
@@ -1178,22 +1178,13 @@ bool WebPluginImpl::InitiateHTTPRequest(unsigned long resource_id,
 
   SetReferrer(&info.request, referrer_flag);
 
-  // Sets the routing id to associate the ResourceRequest with the RenderView.
-  webframe_->dispatchWillSendRequest(info.request);
-
-  // Sets the appcache host id to allow retrieval from the appcache.
-  if (WebApplicationCacheHostImpl* appcache_host =
-          WebApplicationCacheHostImpl::FromFrame(webframe_)) {
-    appcache_host->willStartSubResourceRequest(info.request);
-  }
-
   if (WebDevToolsAgent* devtools_agent = GetDevToolsAgent()) {
     devtools_agent->identifierForInitialRequest(resource_id, webframe_,
                                                 info.request);
     devtools_agent->willSendRequest(resource_id, info.request);
   }
 
-  info.loader.reset(WebKit::webKitClient()->createURLLoader());
+  info.loader.reset(webframe_->createAssociatedURLLoader());
   if (!info.loader.get())
     return false;
   info.loader->loadAsynchronously(info.request, this);

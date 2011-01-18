@@ -754,7 +754,8 @@ class DrMemory(BaseTool):
 
     proc += ["-logdir", self.temp_dir]
     proc += ["-batch", "-quiet"]
-    proc += ["-no_check_leaks", "-no_count_leaks"]
+    proc += ["-callstack_max_frames", "30"]
+    #proc += ["-no_check_leaks", "-no_count_leaks"]
 
     # Dr.Memory requires -- to separate tool flags from the executable name.
     proc += ["--"]

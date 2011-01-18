@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -78,6 +78,8 @@ void SearchProvider::FinalizeInstantQuery(const std::wstring& input_text,
     return;
   }
 
+  default_provider_suggest_text_ = suggest_text;
+
   std::wstring adjusted_input_text(input_text);
   AutocompleteInput::RemoveForcedQueryStringIfNecessary(input_.type(),
                                                         &adjusted_input_text);
@@ -87,6 +89,16 @@ void SearchProvider::FinalizeInstantQuery(const std::wstring& input_text,
   // destination_url for comparison as it varies depending upon the index passed
   // to TemplateURL::ReplaceSearchTerms.
   for (ACMatches::iterator i = matches_.begin(); i != matches_.end();) {
+    // Reset the description/description_class of all searches. We'll set the
+    // description of the new first match in the call to
+    // UpdateFirstSearchMatchDescription() below.
+    if ((i->type == AutocompleteMatch::SEARCH_HISTORY) ||
+        (i->type == AutocompleteMatch::SEARCH_SUGGEST) ||
+        (i->type == AutocompleteMatch::SEARCH_WHAT_YOU_TYPED)) {
+      i->description.clear();
+      i->description_class.clear();
+    }
+
     if (((i->type == AutocompleteMatch::SEARCH_HISTORY) ||
          (i->type == AutocompleteMatch::SEARCH_SUGGEST)) &&
         (i->fill_into_edit == text)) {
@@ -109,6 +121,10 @@ void SearchProvider::FinalizeInstantQuery(const std::wstring& input_text,
                 input_.initial_prevent_inline_autocomplete(), &match_map);
   DCHECK_EQ(1u, match_map.size());
   matches_.push_back(match_map.begin()->second);
+  // Sort the results so that UpdateFirstSearchDescription does the right thing.
+  std::sort(matches_.begin(), matches_.end(), &AutocompleteMatch::MoreRelevant);
+
+  UpdateFirstSearchMatchDescription();
 
   listener_->OnProviderUpdate(true);
 }
@@ -148,9 +164,12 @@ void SearchProvider::Start(const AutocompleteInput& input,
 
   // If we're still running an old query but have since changed the query text
   // or the providers, abort the query.
-  if (!done_ && (!minimal_changes ||
-                 !providers_.equals(default_provider, keyword_provider))) {
-    Stop();
+  if (!minimal_changes ||
+      !providers_.equals(default_provider, keyword_provider)) {
+    if (done_)
+      default_provider_suggest_text_.clear();
+    else
+      Stop();
   }
 
   providers_.Set(default_provider, keyword_provider);
@@ -161,15 +180,12 @@ void SearchProvider::Start(const AutocompleteInput& input,
     if (default_provider) {
       AutocompleteMatch match;
       match.provider = this;
-      match.contents.assign(l10n_util::GetString(IDS_EMPTY_KEYWORD_VALUE));
+      match.contents.assign(UTF16ToWideHack(
+          l10n_util::GetStringUTF16(IDS_EMPTY_KEYWORD_VALUE)));
       match.contents_class.push_back(
           ACMatchClassification(0, ACMatchClassification::NONE));
-      match.description.assign(l10n_util::GetStringF(
-          IDS_AUTOCOMPLETE_SEARCH_DESCRIPTION,
-          default_provider->AdjustedShortNameForLocaleDirection()));
-      match.description_class.push_back(
-          ACMatchClassification(0, ACMatchClassification::DIM));
       matches_.push_back(match);
+      UpdateFirstSearchMatchDescription();
     }
     Stop();
     return;
@@ -207,11 +223,12 @@ void SearchProvider::Run() {
 void SearchProvider::Stop() {
   StopSuggest();
   done_ = true;
+  default_provider_suggest_text_.clear();
 }
 
 void SearchProvider::OnURLFetchComplete(const URLFetcher* source,
                                         const GURL& url,
-                                        const URLRequestStatus& status,
+                                        const net::URLRequestStatus& status,
                                         int response_code,
                                         const ResponseCookies& cookie,
                                         const std::string& data) {
@@ -520,6 +537,13 @@ void SearchProvider::ConvertResultsToAutocompleteMatches() {
                   AutocompleteMatch::SEARCH_WHAT_YOU_TYPED,
                   did_not_accept_default_suggestion, false,
                   input_.initial_prevent_inline_autocomplete(), &map);
+    if (!default_provider_suggest_text_.empty()) {
+      AddMatchToMap(input_.text() + default_provider_suggest_text_,
+                    input_.text(), CalculateRelevanceForWhatYouTyped() + 1,
+                    AutocompleteMatch::SEARCH_SUGGEST,
+                    did_not_accept_default_suggestion, false,
+                    input_.initial_prevent_inline_autocomplete(), &map);
+    }
   }
 
   AddHistoryResultsToMap(keyword_history_results_, true,
@@ -547,6 +571,8 @@ void SearchProvider::ConvertResultsToAutocompleteMatches() {
   if (matches_.size() > max_total_matches)
     matches_.erase(matches_.begin() + max_total_matches, matches_.end());
 
+  UpdateFirstSearchMatchDescription();
+
   UpdateStarredStateOfMatches();
 
   UpdateDone();
@@ -571,11 +597,24 @@ void SearchProvider::AddHistoryResultsToMap(const HistoryResults& results,
                                             bool is_keyword,
                                             int did_not_accept_suggestion,
                                             MatchMap* map) {
+  int last_relevance = 0;
   for (HistoryResults::const_iterator i(results.begin()); i != results.end();
        ++i) {
+    // History returns results sorted for us. We force the relevance to decrease
+    // so that the sort from history is honored. We should never end up with a
+    // match having a relevance greater than the previous, but they might be
+    // equal. If we didn't force the relevance to decrease and we ended up in a
+    // situation where the relevance was equal, then which was shown first would
+    // be random.
+    // This uses >= to handle the case where 3 or more results have the same
+    // relevance.
+    int relevance = CalculateRelevanceForHistory(i->time, is_keyword);
+    if (i != results.begin() && relevance >= last_relevance)
+      relevance = last_relevance - 1;
+    last_relevance = relevance;
     AddMatchToMap(UTF16ToWide(i->term),
                   is_keyword ? keyword_input_text_ : input_.text(),
-                  CalculateRelevanceForHistory(i->time, is_keyword),
+                  relevance,
                   AutocompleteMatch::SEARCH_HISTORY, did_not_accept_suggestion,
                   is_keyword, input_.initial_prevent_inline_autocomplete(),
                   map);
@@ -690,11 +729,11 @@ void SearchProvider::AddMatchToMap(const std::wstring& query_string,
   std::vector<size_t> content_param_offsets;
   const TemplateURL& provider = is_keyword ? providers_.keyword_provider() :
                                              providers_.default_provider();
+  match.contents.assign(query_string);
   // We do intra-string highlighting for suggestions - the suggested segment
   // will be highlighted, e.g. for input_text = "you" the suggestion may be
   // "youtube", so we'll bold the "tube" section: you*tube*.
   if (input_text != query_string) {
-    match.contents.assign(query_string);
     size_t input_position = match.contents.find(input_text);
     if (input_position == std::wstring::npos) {
       // The input text is not a substring of the query string, e.g. input
@@ -725,15 +764,9 @@ void SearchProvider::AddMatchToMap(const std::wstring& query_string,
     }
   } else {
     // Otherwise, we're dealing with the "default search" result which has no
-    // completion, but has the search provider name as the description.
-    match.contents.assign(query_string);
+    // completion.
     match.contents_class.push_back(
         ACMatchClassification(0, ACMatchClassification::NONE));
-    match.description.assign(l10n_util::GetStringF(
-        IDS_AUTOCOMPLETE_SEARCH_DESCRIPTION,
-        provider.AdjustedShortNameForLocaleDirection()));
-    match.description_class.push_back(
-        ACMatchClassification(0, ACMatchClassification::DIM));
   }
 
   // When the user forced a query, we need to make sure all the fill_into_edit
@@ -824,4 +857,30 @@ void SearchProvider::UpdateDone() {
   // when the timer is started) and we're not waiting on instant.
   done_ = ((suggest_results_pending_ == 0) &&
            (instant_finalized_ || !InstantController::IsEnabled(profile_)));
+}
+
+void SearchProvider::UpdateFirstSearchMatchDescription() {
+  if (!providers_.valid_default_provider() || matches_.empty())
+    return;
+
+  for (ACMatches::iterator i = matches_.begin(); i != matches_.end(); ++i) {
+    AutocompleteMatch& match = *i;
+    switch (match.type) {
+      case AutocompleteMatch::SEARCH_WHAT_YOU_TYPED:
+      case AutocompleteMatch::SEARCH_HISTORY:
+      case AutocompleteMatch::SEARCH_SUGGEST:
+        match.description.assign(
+            UTF16ToWideHack(l10n_util::GetStringFUTF16(
+                IDS_AUTOCOMPLETE_SEARCH_DESCRIPTION,
+                WideToUTF16Hack(providers_.default_provider().
+                                AdjustedShortNameForLocaleDirection()))));
+        match.description_class.push_back(
+            ACMatchClassification(0, ACMatchClassification::DIM));
+        // Only the first search match gets a description.
+        return;
+
+      default:
+        break;
+    }
+  }
 }

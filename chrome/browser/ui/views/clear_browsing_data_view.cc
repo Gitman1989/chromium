@@ -1,8 +1,8 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/clear_browsing_data_view.h"
+#include "chrome/browser/ui/views/clear_browsing_data_view.h"
 
 #include "app/l10n_util.h"
 #include "base/string16.h"
@@ -83,51 +83,53 @@ void ClearBrowsingDataView2::Init() {
   throbber_->SetVisible(false);
 
   status_label_ = new views::Label(
-      l10n_util::GetString(IDS_CLEAR_DATA_DELETING));
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_CLEAR_DATA_DELETING)));
   status_label_->SetVisible(false);
 
   // Regular view controls we draw by ourself. First, we add the dialog label.
   delete_all_label_ = new views::Label(
-      l10n_util::GetString(IDS_CLEAR_BROWSING_DATA_LABEL));
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_CLEAR_BROWSING_DATA_LABEL)));
 
   // Add all the check-boxes.
-  del_history_checkbox_ =
-      AddCheckbox(l10n_util::GetString(IDS_DEL_BROWSING_HISTORY_CHKBOX),
+  del_history_checkbox_ = AddCheckbox(
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_DEL_BROWSING_HISTORY_CHKBOX)),
       profile_->GetPrefs()->GetBoolean(prefs::kDeleteBrowsingHistory));
 
-  del_downloads_checkbox_ =
-      AddCheckbox(l10n_util::GetString(IDS_DEL_DOWNLOAD_HISTORY_CHKBOX),
+  del_downloads_checkbox_ = AddCheckbox(
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_DEL_DOWNLOAD_HISTORY_CHKBOX)),
       profile_->GetPrefs()->GetBoolean(prefs::kDeleteDownloadHistory));
 
-  del_cache_checkbox_ =
-      AddCheckbox(l10n_util::GetString(IDS_DEL_CACHE_CHKBOX),
+  del_cache_checkbox_ = AddCheckbox(
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_DEL_CACHE_CHKBOX)),
       profile_->GetPrefs()->GetBoolean(prefs::kDeleteCache));
 
-  del_cookies_checkbox_ =
-      AddCheckbox(l10n_util::GetString(IDS_DEL_COOKIES_CHKBOX),
+  del_cookies_checkbox_ = AddCheckbox(
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_DEL_COOKIES_CHKBOX)),
       profile_->GetPrefs()->GetBoolean(prefs::kDeleteCookies));
 
-  del_passwords_checkbox_ =
-      AddCheckbox(l10n_util::GetString(IDS_DEL_PASSWORDS_CHKBOX),
+  del_passwords_checkbox_ = AddCheckbox(
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_DEL_PASSWORDS_CHKBOX)),
       profile_->GetPrefs()->GetBoolean(prefs::kDeletePasswords));
 
-  del_form_data_checkbox_ =
-      AddCheckbox(l10n_util::GetString(IDS_DEL_FORM_DATA_CHKBOX),
+  del_form_data_checkbox_ = AddCheckbox(
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_DEL_FORM_DATA_CHKBOX)),
       profile_->GetPrefs()->GetBoolean(prefs::kDeleteFormData));
 
   clear_browsing_data_button_ = new views::NativeButton(
-        this, l10n_util::GetString(IDS_CLEAR_BROWSING_DATA_BUTTON));
+      this,
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_CLEAR_BROWSING_DATA_COMMIT)));
 
   // Add a label which appears before the combo box for the time period.
-  time_period_label_ = new views::Label(
-      l10n_util::GetString(IDS_CLEAR_BROWSING_DATA_TIME_LABEL));
+  time_period_label_ = new views::Label(UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_CLEAR_BROWSING_DATA_TIME_LABEL)));
 
   // Add the combo box showing how far back in time we want to delete.
   time_period_combobox_ = new views::Combobox(this);
   time_period_combobox_->SetSelectedItem(profile_->GetPrefs()->GetInteger(
                                          prefs::kDeleteTimePeriod));
   time_period_combobox_->set_listener(this);
-  time_period_combobox_->SetAccessibleName(time_period_label_->GetText());
+  time_period_combobox_->SetAccessibleName(
+      WideToUTF16Hack(time_period_label_->GetText()));
 
   // Create the throbber and related views. The throbber and status link are
   // contained in throbber_view_, which is positioned by DialogClientView right

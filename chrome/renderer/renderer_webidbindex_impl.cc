@@ -8,8 +8,8 @@
 #include "chrome/renderer/render_thread.h"
 #include "chrome/renderer/indexed_db_dispatcher.h"
 #include "chrome/renderer/renderer_webidbtransaction_impl.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebString.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebVector.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebVector.h"
 
 using WebKit::WebExceptionCode;
 using WebKit::WebDOMStringList;
@@ -21,8 +21,10 @@ RendererWebIDBIndexImpl::RendererWebIDBIndexImpl(int32 idb_index_id)
 }
 
 RendererWebIDBIndexImpl::~RendererWebIDBIndexImpl() {
-  // TODO(jorlow): Is it possible for this to be destroyed but still have
-  //               pending callbacks?  If so, fix!
+  // It's not possible for there to be pending callbacks that address this
+  // object since inside WebKit, they hold a reference to the object wich owns
+  // this object. But, if that ever changed, then we'd need to invalidate
+  // any such pointers.
   RenderThread::current()->Send(new IndexedDBHostMsg_IndexDestroyed(
       idb_index_id_));
 }

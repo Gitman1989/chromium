@@ -5,10 +5,10 @@
 #include "views/controls/menu/menu_item_view.h"
 
 #include "app/l10n_util.h"
-#include "app/menus/menu_model.h"
 #include "base/utf_string_conversions.h"
 #include "gfx/canvas.h"
 #include "grit/app_strings.h"
+#include "ui/base/models/menu_model.h"
 #include "views/controls/button/text_button.h"
 #include "views/controls/button/menu_button.h"
 #include "views/controls/menu/menu_config.h"
@@ -17,7 +17,7 @@
 #include "views/controls/menu/submenu_view.h"
 
 #if defined(OS_WIN)
-#include "base/win_util.h"
+#include "base/win/win_util.h"
 #endif
 
 namespace views {
@@ -34,7 +34,8 @@ class EmptyMenuMenuItem : public MenuItemView {
  public:
   explicit EmptyMenuMenuItem(MenuItemView* parent)
       : MenuItemView(parent, 0, NORMAL) {
-    SetTitle(l10n_util::GetString(IDS_APP_MENU_EMPTY_SUBMENU));
+    SetTitle(UTF16ToWide(
+        l10n_util::GetStringUTF16(IDS_APP_MENU_EMPTY_SUBMENU)));
     // Set this so that we're not identified as a normal menu item.
     SetID(kEmptyMenuItemViewID);
     SetEnabled(false);
@@ -97,7 +98,7 @@ MenuItemView::~MenuItemView() {
 }
 
 bool MenuItemView::GetTooltipText(const gfx::Point& p, std::wstring* tooltip) {
-  *tooltip = tooltip_;
+  *tooltip = UTF16ToWideHack(tooltip_);
   return !tooltip_.empty();
 }
 
@@ -125,13 +126,14 @@ AccessibilityTypes::State MenuItemView::GetAccessibleState() {
 }
 
 // static
-std::wstring MenuItemView::GetAccessibleNameForMenuItem(
-      const std::wstring& item_text, const std::wstring& accelerator_text) {
-  std::wstring accessible_name = item_text;
+string16 MenuItemView::GetAccessibleNameForMenuItem(
+      const string16& item_text, const string16& accelerator_text) {
+  string16 accessible_name = item_text;
 
   // Filter out the "&" for accessibility clients.
   size_t index = 0;
-  while ((index = accessible_name.find(L"&", index)) != std::wstring::npos &&
+  const char16 amp = '&';
+  while ((index = accessible_name.find(amp, index)) != string16::npos &&
          index + 1 < accessible_name.length()) {
     accessible_name.replace(index, accessible_name.length() - index,
                             accessible_name.substr(index + 1));
@@ -142,9 +144,8 @@ std::wstring MenuItemView::GetAccessibleNameForMenuItem(
   }
 
   // Append accelerator text.
-  menus::Accelerator menu_accelerator;
   if (!accelerator_text.empty()) {
-    accessible_name.append(L" ");
+    accessible_name.push_back(' ');
     accessible_name.append(accelerator_text);
   }
 
@@ -162,7 +163,7 @@ void MenuItemView::RunMenuAt(gfx::NativeWindow parent,
   // We don't currently need this on gtk as showing the menu gives focus to the
   // button first.
   if (!show_mnemonics)
-    show_mnemonics = win_util::IsAltPressed();
+    show_mnemonics = base::win::IsAltPressed();
 #endif
   PrepareForRun(has_mnemonics, show_mnemonics);
   int mouse_event_flags;
@@ -238,31 +239,31 @@ void MenuItemView::Cancel() {
   }
 }
 
-MenuItemView* MenuItemView::AppendMenuItemFromModel(menus::MenuModel* model,
+MenuItemView* MenuItemView::AppendMenuItemFromModel(ui::MenuModel* model,
                                                     int index,
                                                     int id) {
   SkBitmap icon;
   std::wstring label;
   MenuItemView::Type type;
-  menus::MenuModel::ItemType menu_type = model->GetTypeAt(index);
+  ui::MenuModel::ItemType menu_type = model->GetTypeAt(index);
   switch (menu_type) {
-    case menus::MenuModel::TYPE_COMMAND:
+    case ui::MenuModel::TYPE_COMMAND:
       model->GetIconAt(index, &icon);
       type = MenuItemView::NORMAL;
       label = UTF16ToWide(model->GetLabelAt(index));
       break;
-    case menus::MenuModel::TYPE_CHECK:
+    case ui::MenuModel::TYPE_CHECK:
       type = MenuItemView::CHECKBOX;
       label = UTF16ToWide(model->GetLabelAt(index));
       break;
-    case menus::MenuModel::TYPE_RADIO:
+    case ui::MenuModel::TYPE_RADIO:
       type = MenuItemView::RADIO;
       label = UTF16ToWide(model->GetLabelAt(index));
       break;
-    case menus::MenuModel::TYPE_SEPARATOR:
+    case ui::MenuModel::TYPE_SEPARATOR:
       type = MenuItemView::SEPARATOR;
       break;
-    case menus::MenuModel::TYPE_SUBMENU:
+    case ui::MenuModel::TYPE_SUBMENU:
       type = MenuItemView::SUBMENU;
       label = UTF16ToWide(model->GetLabelAt(index));
       break;
@@ -304,8 +305,8 @@ SubmenuView* MenuItemView::CreateSubmenu() {
 }
 
 void MenuItemView::SetTitle(const std::wstring& title) {
-  title_ = title;
-  SetAccessibleName(GetAccessibleNameForMenuItem(title, GetAcceleratorText()));
+  title_ = WideToUTF16Hack(title);
+  SetAccessibleName(GetAccessibleNameForMenuItem(title_, GetAcceleratorText()));
 }
 
 void MenuItemView::SetSelected(bool selected) {
@@ -316,7 +317,7 @@ void MenuItemView::SetSelected(bool selected) {
 void MenuItemView::SetTooltip(const std::wstring& tooltip, int item_id) {
   MenuItemView* item = GetMenuItemByID(item_id);
   DCHECK(item);
-  item->tooltip_ = tooltip;
+  item->tooltip_ = WideToUTF16Hack(tooltip);
 }
 
 void MenuItemView::SetIcon(const SkBitmap& icon, int item_id) {
@@ -428,7 +429,7 @@ void MenuItemView::Layout() {
 }
 
 int MenuItemView::GetAcceleratorTextWidth() {
-  std::wstring text = GetAcceleratorText();
+  string16 text = GetAcceleratorText();
   return text.empty() ? 0 : MenuConfig::instance().font.GetStringWidth(text);
 }
 
@@ -592,7 +593,7 @@ void MenuItemView::AdjustBoundsForRTLUI(gfx::Rect* rect) const {
 }
 
 void MenuItemView::PaintAccelerator(gfx::Canvas* canvas) {
-  std::wstring accel_text = GetAcceleratorText();
+  string16 accel_text = GetAcceleratorText();
   if (accel_text.empty())
     return;
 
@@ -611,9 +612,9 @@ void MenuItemView::PaintAccelerator(gfx::Canvas* canvas) {
   else
     flags |= gfx::Canvas::TEXT_ALIGN_RIGHT;
   canvas->DrawStringInt(
-      accel_text, font, TextButton::kDisabledColor, accel_bounds.x(),
-      accel_bounds.y(), accel_bounds.width(), accel_bounds.height(),
-      flags);
+      accel_text, font, TextButton::kDisabledColor,
+      accel_bounds.x(), accel_bounds.y(), accel_bounds.width(),
+      accel_bounds.height(), flags);
 }
 
 void MenuItemView::DestroyAllMenuHosts() {
@@ -655,11 +656,11 @@ int MenuItemView::GetChildPreferredWidth() {
   return width;
 }
 
-std::wstring MenuItemView::GetAcceleratorText() {
+string16 MenuItemView::GetAcceleratorText() {
   Accelerator accelerator;
   return (GetDelegate() &&
           GetDelegate()->GetAccelerator(GetCommand(), &accelerator)) ?
-      accelerator.GetShortcutText() : std::wstring();
+      accelerator.GetShortcutText() : string16();
 }
 
 }  // namespace views

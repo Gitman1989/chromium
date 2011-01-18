@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,15 +13,15 @@
 #include <atlmisc.h>
 #include <tom.h>  // For ITextDocument, a COM interface to CRichEditCtrl.
 
-#include "app/menus/simple_menu_model.h"
 #include "base/scoped_comptr_win.h"
 #include "base/scoped_ptr.h"
 #include "chrome/browser/autocomplete/autocomplete.h"
 #include "chrome/browser/autocomplete/autocomplete_edit_view.h"
 #include "chrome/browser/ui/toolbar/toolbar_model.h"
-#include "chrome/browser/views/autocomplete/autocomplete_popup_contents_view.h"
+#include "chrome/browser/ui/views/autocomplete/autocomplete_popup_contents_view.h"
 #include "chrome/common/page_transition_types.h"
 #include "gfx/font.h"
+#include "ui/base/models/simple_menu_model.h"
 #include "views/controls/menu/menu_2.h"
 #include "webkit/glue/window_open_disposition.h"
 
@@ -45,7 +45,7 @@ class AutocompleteEditViewWin
                          CWinTraits<WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL |
                                     ES_NOHIDESEL> >,
       public CRichEditCommands<AutocompleteEditViewWin>,
-      public menus::SimpleMenuModel::Delegate,
+      public ui::SimpleMenuModel::Delegate,
       public AutocompleteEditView {
  public:
   struct State {
@@ -73,10 +73,6 @@ class AutocompleteEditViewWin
   ~AutocompleteEditViewWin();
 
   views::View* parent_view() const { return parent_view_; }
-
-  // Returns the width in pixels needed to display the current text. The
-  // returned value includes margins.
-  int TextWidth();
 
   // Returns the width in pixels needed to display the text from one character
   // before the caret to the end of the string. See comments in
@@ -137,6 +133,14 @@ class AutocompleteEditViewWin
   virtual bool OnAfterPossibleChange();
   virtual gfx::NativeView GetNativeView() const;
   virtual CommandUpdater* GetCommandUpdater();
+  virtual void SetInstantSuggestion(const string16& suggestion);
+  virtual int TextWidth() const;
+  virtual bool IsImeComposing() const;
+
+  virtual views::View* AddToView(views::View* parent);
+  virtual bool CommitInstantSuggestion(const std::wstring& typed_text,
+                                       const std::wstring& suggested_text);
+
   int GetPopupMaxYCoordinate();
 
   // Exposes custom IAccessible implementation to the overall MSAA hierarchy.
@@ -177,7 +181,6 @@ class AutocompleteEditViewWin
     MSG_WM_CUT(OnCut)
     MESSAGE_HANDLER_EX(WM_GETOBJECT, OnGetObject)
     MESSAGE_HANDLER_EX(WM_IME_COMPOSITION, OnImeComposition)
-    MESSAGE_HANDLER_EX(WM_IME_NOTIFY, OnImeNotify)
     MSG_WM_KEYDOWN(OnKeyDown)
     MSG_WM_KEYUP(OnKeyUp)
     MSG_WM_KILLFOCUS(OnKillFocus)
@@ -204,17 +207,14 @@ class AutocompleteEditViewWin
     DEFAULT_REFLECTION_HANDLER()  // avoids black margin area
   END_MSG_MAP()
 
-  // menus::SimpleMenuModel::Delegate
+  // ui::SimpleMenuModel::Delegate
   virtual bool IsCommandIdChecked(int command_id) const;
   virtual bool IsCommandIdEnabled(int command_id) const;
   virtual bool GetAcceleratorForCommandId(int command_id,
-                                          menus::Accelerator* accelerator);
+                                          ui::Accelerator* accelerator);
   virtual bool IsItemForCommandIdDynamic(int command_id) const;
   virtual std::wstring GetLabelForCommandId(int command_id) const;
   virtual void ExecuteCommand(int command_id);
-
-  // Returns true if the user is composing something in an IME.
-  bool IsImeComposing() const;
 
  private:
   enum MouseButton {
@@ -273,7 +273,6 @@ class AutocompleteEditViewWin
   void OnCut();
   LRESULT OnGetObject(UINT uMsg, WPARAM wparam, LPARAM lparam);
   LRESULT OnImeComposition(UINT message, WPARAM wparam, LPARAM lparam);
-  LRESULT OnImeNotify(UINT message, WPARAM wparam, LPARAM lparam);
   void OnKeyDown(TCHAR key, UINT repeat_count, UINT flags);
   void OnKeyUp(TCHAR key, UINT repeat_count, UINT flags);
   void OnKillFocus(HWND focus_wnd);
@@ -401,10 +400,15 @@ class AutocompleteEditViewWin
   void TrackMousePosition(MouseButton button, const CPoint& point);
 
   // Returns the sum of the left and right margins.
-  int GetHorizontalMargin();
+  int GetHorizontalMargin() const;
 
   // Returns the width in pixels needed to display |text|.
-  int WidthNeededToDisplay(const std::wstring& text);
+  int WidthNeededToDisplay(const std::wstring& text) const;
+
+  // Real implementation of OnAfterPossibleChange() method.
+  // If |force_text_changed| is true, then the text_changed code will always be
+  // triggerred no matter if the text is actually changed or not.
+  bool OnAfterPossibleChangeInternal(bool force_text_changed);
 
   scoped_ptr<AutocompleteEditModel> model_;
 
@@ -483,7 +487,7 @@ class AutocompleteEditViewWin
   bool delete_at_end_pressed_;
 
   // The context menu for the edit.
-  scoped_ptr<menus::SimpleMenuModel> context_menu_contents_;
+  scoped_ptr<ui::SimpleMenuModel> context_menu_contents_;
   scoped_ptr<views::Menu2> context_menu_;
 
   // Font we're using.  We keep a reference to make sure the font supplied to

@@ -23,8 +23,10 @@ enum ConfigurationPolicyType {
   kPolicyDefaultSearchProviderSearchURL,
   kPolicyDefaultSearchProviderSuggestURL,
   kPolicyDefaultSearchProviderIconURL,
+  kPolicyDefaultSearchProviderInstantURL,
   kPolicyDefaultSearchProviderEncodings,
   kPolicyDisableSpdy,
+  kPolicyProxyMode,
   kPolicyProxyServerMode,
   kPolicyProxyServer,
   kPolicyProxyPacUrl,
@@ -69,10 +71,24 @@ enum ConfigurationPolicyType {
   kPolicyDisable3DAPIs
 };
 
-static const int kPolicyNoProxyServerMode = 0;
-static const int kPolicyAutoDetectProxyMode = 1;
-static const int kPolicyManuallyConfiguredProxyMode = 2;
-static const int kPolicyUseSystemProxyMode = 3;
+
+// Constants for the "Proxy Server Mode" defined in the policies.
+// Note that these diverge from internal presentation defined in
+// ProxyPrefs::ProxyMode for legacy reasons. The following four
+// PolicyProxyModeType types were not very precise and had overlapping use
+// cases.
+enum PolicyProxyModeType {
+  // Disable Proxy, connect directly.
+  kPolicyNoProxyServerMode = 0,
+  // Auto detect proxy or use specific PAC script if given.
+  kPolicyAutoDetectProxyServerMode = 1,
+  // Use manually configured proxy servers (fixed servers).
+  kPolicyManuallyConfiguredProxyServerMode = 2,
+  // Use system proxy server.
+  kPolicyUseSystemProxyServerMode = 3,
+
+  MODE_COUNT
+};
 
 // An abstract super class for policy stores that provides a method that can be
 // called by a |ConfigurationPolicyProvider| to specify a policy.

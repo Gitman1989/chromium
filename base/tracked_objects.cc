@@ -10,7 +10,7 @@
 #include "base/message_loop.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
-#include "base/thread_restrictions.h"
+#include "base/threading/thread_restrictions.h"
 
 using base::TimeDelta;
 
@@ -18,7 +18,7 @@ namespace tracked_objects {
 
 // A TLS slot to the TrackRegistry for the current thread.
 // static
-TLSSlot ThreadData::tls_index_(base::LINKER_INITIALIZED);
+base::ThreadLocalStorage::Slot ThreadData::tls_index_(base::LINKER_INITIALIZED);
 
 // A global state variable to prevent repeated initialization during tests.
 // static
@@ -743,11 +743,6 @@ void Comparator::Clear() {
   selector_ = NIL;
 }
 
-void Comparator::Sort(DataCollector::Collection* collection) const {
-  std::sort(collection->begin(), collection->end(), *this);
-}
-
-
 bool Comparator::operator()(const Snapshot& left,
                             const Snapshot& right) const {
   switch (selector_) {
@@ -814,6 +809,10 @@ bool Comparator::operator()(const Snapshot& left,
   if (tiebreaker_)
     return tiebreaker_->operator()(left, right);
   return false;
+}
+
+void Comparator::Sort(DataCollector::Collection* collection) const {
+  std::sort(collection->begin(), collection->end(), *this);
 }
 
 bool Comparator::Equivalent(const Snapshot& left,

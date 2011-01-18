@@ -19,56 +19,56 @@
 
 namespace views {
 
-std::wstring Accelerator::GetShortcutText() const {
+string16 Accelerator::GetShortcutText() const {
   int string_id = 0;
   switch(key_code_) {
-    case app::VKEY_TAB:
+    case ui::VKEY_TAB:
       string_id = IDS_APP_TAB_KEY;
       break;
-    case app::VKEY_RETURN:
+    case ui::VKEY_RETURN:
       string_id = IDS_APP_ENTER_KEY;
       break;
-    case app::VKEY_ESCAPE:
+    case ui::VKEY_ESCAPE:
       string_id = IDS_APP_ESC_KEY;
       break;
-    case app::VKEY_PRIOR:
+    case ui::VKEY_PRIOR:
       string_id = IDS_APP_PAGEUP_KEY;
       break;
-    case app::VKEY_NEXT:
+    case ui::VKEY_NEXT:
       string_id = IDS_APP_PAGEDOWN_KEY;
       break;
-    case app::VKEY_END:
+    case ui::VKEY_END:
       string_id = IDS_APP_END_KEY;
       break;
-    case app::VKEY_HOME:
+    case ui::VKEY_HOME:
       string_id = IDS_APP_HOME_KEY;
       break;
-    case app::VKEY_INSERT:
+    case ui::VKEY_INSERT:
       string_id = IDS_APP_INSERT_KEY;
       break;
-    case app::VKEY_DELETE:
+    case ui::VKEY_DELETE:
       string_id = IDS_APP_DELETE_KEY;
       break;
-    case app::VKEY_LEFT:
+    case ui::VKEY_LEFT:
       string_id = IDS_APP_LEFT_ARROW_KEY;
       break;
-    case app::VKEY_RIGHT:
+    case ui::VKEY_RIGHT:
       string_id = IDS_APP_RIGHT_ARROW_KEY;
       break;
-    case app::VKEY_BACK:
+    case ui::VKEY_BACK:
       string_id = IDS_APP_BACKSPACE_KEY;
       break;
-    case app::VKEY_F1:
+    case ui::VKEY_F1:
       string_id = IDS_APP_F1_KEY;
       break;
-    case app::VKEY_F11:
+    case ui::VKEY_F11:
       string_id = IDS_APP_F11_KEY;
       break;
     default:
       break;
   }
 
-  std::wstring shortcut;
+  string16 shortcut;
   if (!string_id) {
 #if defined(OS_WIN)
     // Our fallback is to try translate the key code to a regular character
@@ -86,7 +86,7 @@ std::wstring Accelerator::GetShortcutText() const {
 #elif defined(OS_LINUX)
     const gchar* name = NULL;
     switch (key_code_) {
-      case app::VKEY_OEM_2:
+      case ui::VKEY_OEM_2:
         name = static_cast<const gchar*>("/");
         break;
       default:
@@ -95,20 +95,20 @@ std::wstring Accelerator::GetShortcutText() const {
     }
     if (name) {
       if (name[0] != 0 && name[1] == 0)
-        shortcut += static_cast<wchar_t>(g_ascii_toupper(name[0]));
+        shortcut += static_cast<string16::value_type>(g_ascii_toupper(name[0]));
       else
-        shortcut += UTF8ToWide(name);
+        shortcut += UTF8ToUTF16(name);
     }
 #endif
   } else {
-    shortcut = l10n_util::GetString(string_id);
+    shortcut = l10n_util::GetStringUTF16(string_id);
   }
 
   // Checking whether the character used for the accelerator is alphanumeric.
   // If it is not, then we need to adjust the string later on if the locale is
   // right-to-left. See below for more information of why such adjustment is
   // required.
-  std::wstring shortcut_rtl;
+  string16 shortcut_rtl;
   bool adjust_shortcut_for_rtl = false;
   if (base::i18n::IsRTL() && shortcut.length() == 1 &&
       !IsAsciiAlpha(shortcut.at(0)) && !IsAsciiDigit(shortcut.at(0))) {
@@ -117,15 +117,15 @@ std::wstring Accelerator::GetShortcutText() const {
   }
 
   if (IsShiftDown())
-    shortcut = l10n_util::GetStringF(IDS_APP_SHIFT_MODIFIER, shortcut);
+    shortcut = l10n_util::GetStringFUTF16(IDS_APP_SHIFT_MODIFIER, shortcut);
 
   // Note that we use 'else-if' in order to avoid using Ctrl+Alt as a shortcut.
   // See http://blogs.msdn.com/oldnewthing/archive/2004/03/29/101121.aspx for
   // more information.
   if (IsCtrlDown())
-    shortcut = l10n_util::GetStringF(IDS_APP_CONTROL_MODIFIER, shortcut);
+    shortcut = l10n_util::GetStringFUTF16(IDS_APP_CONTROL_MODIFIER, shortcut);
   else if (IsAltDown())
-    shortcut = l10n_util::GetStringF(IDS_APP_ALT_MODIFIER, shortcut);
+    shortcut = l10n_util::GetStringFUTF16(IDS_APP_ALT_MODIFIER, shortcut);
 
   // For some reason, menus in Windows ignore standard Unicode directionality
   // marks (such as LRE, PDF, etc.). On RTL locales, we use RTL menus and
@@ -150,7 +150,7 @@ std::wstring Accelerator::GetShortcutText() const {
   if (adjust_shortcut_for_rtl) {
     int key_length = static_cast<int>(shortcut_rtl.length());
     DCHECK_GT(key_length, 0);
-    shortcut_rtl.append(L"+");
+    shortcut_rtl.append(ASCIIToUTF16("+"));
 
     // Subtracting the size of the shortcut key and 1 for the '+' sign.
     shortcut_rtl.append(shortcut, 0, shortcut.length() - key_length - 1);

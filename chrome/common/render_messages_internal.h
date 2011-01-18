@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -24,9 +24,9 @@
 #include "chrome/common/window_container_type.h"
 #include "ipc/ipc_message_macros.h"
 #include "media/audio/audio_buffers_state.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFindOptions.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebMediaPlayerAction.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebScreenInfo.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFindOptions.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebMediaPlayerAction.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebScreenInfo.h"
 #include "webkit/glue/context_menu.h"
 #include "webkit/glue/form_data.h"
 #include "webkit/glue/password_form_dom_manager.h"
@@ -51,6 +51,7 @@ typedef std::map<std::string, std::string> SubstitutionMap;
 
 class Value;
 class GPUInfo;
+struct PP_Flash_NetAddress;
 class SkBitmap;
 struct ThumbnailScore;
 class WebCursor;
@@ -93,6 +94,10 @@ IPC_MESSAGE_CONTROL1(ViewMsg_SetNextPageID,
 IPC_MESSAGE_ROUTED1(ViewMsg_SetCSSColors,
                     std::vector<CSSColors::CSSColorMapping>)
 
+// Asks the browser for a unique routing ID.
+IPC_SYNC_MESSAGE_CONTROL0_1(ViewHostMsg_GenerateRoutingID,
+                            int /* routing_id */)
+
 // Tells the renderer to create a new view.
 // This message is slightly different, the view it takes (via
 // ViewMsg_New_Params) is the view to create, the message itself is sent as a
@@ -124,6 +129,8 @@ IPC_MESSAGE_ROUTED1(ViewMsg_SetRendererPrefs,
 IPC_MESSAGE_ROUTED2(ViewMsg_MediaPlayerActionAt,
                     gfx::Point, /* location */
                     WebKit::WebMediaPlayerAction)
+
+IPC_MESSAGE_ROUTED0(ViewMsg_PrintNodeUnderContextMenu)
 
 // Tells the render view to close.
 IPC_MESSAGE_ROUTED0(ViewMsg_Close)
@@ -353,7 +360,7 @@ IPC_MESSAGE_ROUTED2(ViewMsg_Resource_DataDownloaded,
 // Sent when the request has been completed.
 IPC_MESSAGE_ROUTED4(ViewMsg_Resource_RequestComplete,
                     int /* request_id */,
-                    URLRequestStatus /* status */,
+                    net::URLRequestStatus /* status */,
                     std::string /* security info */,
                     base::Time /* completion_time */)
 
@@ -530,7 +537,8 @@ IPC_MESSAGE_ROUTED4(
     int /* selection_end */)
 
 // This message confirms an ongoing composition.
-IPC_MESSAGE_ROUTED0(ViewMsg_ImeConfirmComposition)
+IPC_MESSAGE_ROUTED1(ViewMsg_ImeConfirmComposition,
+                    string16 /* text */)
 
 // This passes a set of webkit preferences down to the renderer.
 IPC_MESSAGE_ROUTED1(ViewMsg_UpdateWebPreferences, WebPreferences)
@@ -820,19 +828,21 @@ IPC_MESSAGE_ROUTED0(ViewMsg_Move_ACK)
 IPC_MESSAGE_ROUTED1(ViewMsg_EnablePreferredSizeChangedMode, int /*flags*/)
 
 IPC_MESSAGE_ROUTED4(ViewMsg_SearchBoxChange,
-                    string16 /*value*/,
-                    bool /*verbatim*/,
-                    int /*selection_start*/,
-                    int /*selection_end*/)
+                    string16 /* value */,
+                    bool /* verbatim */,
+                    int /* selection_start */,
+                    int /* selection_end */)
 IPC_MESSAGE_ROUTED2(ViewMsg_SearchBoxSubmit,
-                    string16 /*value*/,
-                    bool /*verbatim*/)
+                    string16 /* value */,
+                    bool /* verbatim */)
 IPC_MESSAGE_ROUTED0(ViewMsg_SearchBoxCancel)
 IPC_MESSAGE_ROUTED1(ViewMsg_SearchBoxResize,
-                    gfx::Rect /*search_box_bounds*/)
-IPC_MESSAGE_ROUTED2(ViewMsg_DetermineIfPageSupportsInstant,
-                    string16 /*value*/,
-                    bool /* verbatim */)
+                    gfx::Rect /* search_box_bounds */)
+IPC_MESSAGE_ROUTED4(ViewMsg_DetermineIfPageSupportsInstant,
+                    string16 /* value*/,
+                    bool /* verbatim */,
+                    int /* selection_start */,
+                    int /* selection_end */)
 
 // Used to tell the renderer not to add scrollbars with height and
 // width below a threshold.
@@ -1070,9 +1080,16 @@ IPC_MESSAGE_CONTROL1(ViewMsg_SetPhishingModel,
 IPC_MESSAGE_ROUTED1(ViewMsg_SelectPopupMenuItem,
                     int /* selected index, -1 means no selection */)
 
-// Indicate whether speech input API is enabled or not.
-IPC_MESSAGE_CONTROL1(ViewMsg_SpeechInput_SetFeatureEnabled,
-                     bool /* enabled */)
+// The response to ViewHostMsg_PepperConnectTcp(Address).
+IPC_MESSAGE_ROUTED4(ViewMsg_PepperConnectTcpACK,
+                    int /* request_id */,
+                    IPC::PlatformFileForTransit /* socket */,
+                    PP_Flash_NetAddress /* local_addr */,
+                    PP_Flash_NetAddress /* remote_addr */)
+
+// Sent in response to a ViewHostMsg_ContextMenu to let the renderer know that
+// the menu has been closed.
+IPC_MESSAGE_ROUTED0(ViewMsg_ContextMenuClosed)
 
 //-----------------------------------------------------------------------------
 // TabContents messages
@@ -1585,41 +1602,41 @@ IPC_SYNC_MESSAGE_ROUTED1_0(ViewHostMsg_DestroyPluginContainer,
 
 // This message is used when the object list does not contain a bitmap.
 IPC_MESSAGE_CONTROL1(ViewHostMsg_ClipboardWriteObjectsAsync,
-    Clipboard::ObjectMap /* objects */)
+    ui::Clipboard::ObjectMap /* objects */)
 // This message is used when the object list contains a bitmap.
 // It is synchronized so that the renderer knows when it is safe to
 // free the shared memory used to transfer the bitmap.
 IPC_SYNC_MESSAGE_CONTROL2_0(ViewHostMsg_ClipboardWriteObjectsSync,
-    Clipboard::ObjectMap /* objects */,
+    ui::Clipboard::ObjectMap /* objects */,
     base::SharedMemoryHandle /* bitmap handle */)
 IPC_SYNC_MESSAGE_CONTROL2_1(ViewHostMsg_ClipboardIsFormatAvailable,
                             std::string /* format */,
-                            Clipboard::Buffer /* buffer */,
+                            ui::Clipboard::Buffer /* buffer */,
                             bool /* result */)
 IPC_SYNC_MESSAGE_CONTROL1_1(ViewHostMsg_ClipboardReadText,
-                            Clipboard::Buffer /* buffer */,
+                            ui::Clipboard::Buffer /* buffer */,
                             string16 /* result */)
 IPC_SYNC_MESSAGE_CONTROL1_1(ViewHostMsg_ClipboardReadAsciiText,
-                            Clipboard::Buffer  /* buffer */,
+                            ui::Clipboard::Buffer  /* buffer */,
                             std::string /* result */)
 IPC_SYNC_MESSAGE_CONTROL1_2(ViewHostMsg_ClipboardReadHTML,
-                            Clipboard::Buffer  /* buffer */,
+                            ui::Clipboard::Buffer  /* buffer */,
                             string16 /* markup */,
                             GURL /* url */)
 
 IPC_SYNC_MESSAGE_CONTROL1_3(ViewHostMsg_ClipboardReadAvailableTypes,
-                            Clipboard::Buffer /* buffer */,
+                            ui::Clipboard::Buffer /* buffer */,
                             bool /* result */,
                             std::vector<string16> /* types */,
                             bool /* contains filenames */)
 IPC_SYNC_MESSAGE_CONTROL2_3(ViewHostMsg_ClipboardReadData,
-                            Clipboard::Buffer /* buffer */,
+                            ui::Clipboard::Buffer /* buffer */,
                             string16 /* type */,
                             bool /* succeeded */,
                             string16 /* data */,
                             string16 /* metadata */)
 IPC_SYNC_MESSAGE_CONTROL1_2(ViewHostMsg_ClipboardReadFilenames,
-                            Clipboard::Buffer /* buffer */,
+                            ui::Clipboard::Buffer /* buffer */,
                             bool /* result */,
                             std::vector<string16> /* filenames */)
 
@@ -2401,17 +2418,6 @@ IPC_SYNC_MESSAGE_CONTROL1_1(
 //---------------------------------------------------------------------------
 // Geolocation services messages
 
-// A GeolocationServiceBridgeImpl in the renderer process has been created.
-// This is used to lazily initialize the host dispatchers and related
-// Geolocation infrastructure in the browser process.
-IPC_MESSAGE_CONTROL1(ViewHostMsg_Geolocation_RegisterDispatcher,
-                     int /* render_view_id */)
-
-// A GeolocationServiceBridgeImpl has been destroyed.
-// This is used to let the Geolocation infrastructure do its cleanup.
-IPC_MESSAGE_CONTROL1(ViewHostMsg_Geolocation_UnregisterDispatcher,
-                     int /* render_view_id */)
-
 // The |render_view_id| and |bridge_id| representing |host| is requesting
 // permission to access geolocation position.
 // This will be replied by ViewMsg_Geolocation_PermissionSet.
@@ -2427,38 +2433,20 @@ IPC_MESSAGE_CONTROL3(ViewHostMsg_Geolocation_CancelPermissionRequest,
                      int /* bridge_id */,
                      GURL /* GURL of the frame */)
 
-// The |render_view_id| and |bridge_id| requests Geolocation service to start
-// updating.
+// The |render_view_id| requests Geolocation service to start updating.
 // This is an asynchronous call, and the browser process may eventually reply
 // with the updated geoposition, or an error (access denied, location
 // unavailable, etc.)
-IPC_MESSAGE_CONTROL4(ViewHostMsg_Geolocation_StartUpdating,
+IPC_MESSAGE_CONTROL3(ViewHostMsg_Geolocation_StartUpdating,
                      int /* render_view_id */,
-                     int /* bridge_id */,
                      GURL /* GURL of the frame requesting geolocation */,
                      bool /* enable_high_accuracy */)
 
-// The |render_view_id| and |bridge_id| requests Geolocation service to stop
-// updating.
+// The |render_view_id| requests Geolocation service to stop updating.
 // Note that the geolocation service may continue to fetch geolocation data
 // for other origins.
-IPC_MESSAGE_CONTROL2(ViewHostMsg_Geolocation_StopUpdating,
-                     int /* render_view_id */,
-                     int /* bridge_id */)
-
-// The |render_view_id| and |bridge_id| requests Geolocation service to
-// suspend.
-// Note that the geolocation service may continue to fetch geolocation data
-// for other origins.
-IPC_MESSAGE_CONTROL2(ViewHostMsg_Geolocation_Suspend,
-                     int /* render_view_id */,
-                     int /* bridge_id */)
-
-// The |render_view_id| and |bridge_id| requests Geolocation service to
-// resume.
-IPC_MESSAGE_CONTROL2(ViewHostMsg_Geolocation_Resume,
-                     int /* render_view_id */,
-                     int /* bridge_id */)
+IPC_MESSAGE_CONTROL1(ViewHostMsg_Geolocation_StopUpdating,
+                     int /* render_view_id */)
 
 // Updates the minimum/maximum allowed zoom percent for this tab from the
 // default values.  If |remember| is true, then the zoom setting is applied to
@@ -2613,10 +2601,9 @@ IPC_MESSAGE_ROUTED2(ViewHostMsg_InstantSupportDetermined,
 // Client-Side Phishing Detector ---------------------------------------------
 // Inform the browser that the current URL is phishing according to the
 // client-side phishing detector.
-IPC_MESSAGE_ROUTED3(ViewHostMsg_DetectedPhishingSite,
+IPC_MESSAGE_ROUTED2(ViewHostMsg_DetectedPhishingSite,
                     GURL /* phishing_url */,
-                    double /* phishing_score */,
-                    SkBitmap /* thumbnail */)
+                    double /* phishing_score */)
 
 // Response from ViewMsg_ScriptEvalRequest. The ID is the parameter supplied
 // to ViewMsg_ScriptEvalRequest. The result has the value returned by the
@@ -2629,3 +2616,24 @@ IPC_MESSAGE_ROUTED2(ViewHostMsg_ScriptEvalResponse,
 // Updates the content restrictions, i.e. to disable print/copy.
 IPC_MESSAGE_ROUTED1(ViewHostMsg_UpdateContentRestrictions,
                     int /* restrictions */)
+
+// Pepper-related messages -----------------------------------------------------
+
+IPC_MESSAGE_CONTROL4(ViewHostMsg_PepperConnectTcp,
+                     int /* routing_id */,
+                     int /* request_id */,
+                     std::string /* host */,
+                     uint16 /* port */)
+
+IPC_MESSAGE_CONTROL3(ViewHostMsg_PepperConnectTcpAddress,
+                     int /* routing_id */,
+                     int /* request_id */,
+                     PP_Flash_NetAddress /* addr */)
+
+// JavaScript related messages -----------------------------------------------
+
+// Notify the JavaScript engine in the render to change its parameters
+// while performing stress testing.
+IPC_MESSAGE_ROUTED2(ViewMsg_JavaScriptStressTestControl,
+                    int /* cmd */,
+                    int /* param */)

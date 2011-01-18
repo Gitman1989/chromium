@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,9 +8,7 @@
 #include "base/base_paths.h"
 #include "base/base_switches.h"
 #include "base/command_line.h"
-#include "base/debug_on_start.h"
-#include "base/debug_util.h"
-#include "base/debug/debugger.h"
+#include "base/debug/debug_on_start_win.h"
 #include "base/debug/debugger.h"
 #include "base/file_path.h"
 #include "base/i18n/icu_util.h"
@@ -177,10 +175,12 @@ void TestSuite::Initialize() {
   FilePath exe;
   PathService::Get(base::FILE_EXE, &exe);
   FilePath log_filename = exe.ReplaceExtension(FILE_PATH_LITERAL("log"));
-  logging::InitLogging(log_filename.value().c_str(),
-                       logging::LOG_TO_BOTH_FILE_AND_SYSTEM_DEBUG_LOG,
-                       logging::LOCK_LOG_FILE,
-                       logging::DELETE_OLD_LOG_FILE);
+  logging::InitLogging(
+      log_filename.value().c_str(),
+      logging::LOG_TO_BOTH_FILE_AND_SYSTEM_DEBUG_LOG,
+      logging::LOCK_LOG_FILE,
+      logging::DELETE_OLD_LOG_FILE,
+      logging::DISABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
   // We want process and thread IDs because we may have multiple processes.
   // Note: temporarily enabled timestamps in an effort to catch bug 6361.
   logging::SetLogItems(true, true, true, true);
@@ -196,7 +196,7 @@ void TestSuite::Initialize() {
   if (!base::debug::BeingDebugged() &&
       !CommandLine::ForCurrentProcess()->HasSwitch("show-error-dialogs")) {
     SuppressErrorDialogs();
-    DebugUtil::SuppressDialogs();
+    base::debug::SetSuppressDebugUI(true);
     logging::SetLogAssertHandler(UnitTestAssertHandler);
   }
 

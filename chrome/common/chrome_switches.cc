@@ -87,6 +87,11 @@ const char kAuthServerWhitelist[] = "auth-server-whitelist";
 // automation-related messages on IPC channel with the given ID.
 const char kAutomationClientChannelID[]     = "automation-channel";
 
+// When the option to block third-party cookies from being set is enabled,
+// also block third-party cookies from being read.
+const char kBlockReadingThirdPartyCookies[] =
+    "block-reading-third-party-cookies";
+
 // Causes the browser process to throw an assertion on startup.
 const char kBrowserAssertTest[]             = "assert-test";
 
@@ -146,6 +151,9 @@ const char kDisable3DAPIs[]                 = "disable-3d-apis";
 const char kDisableAcceleratedCompositing[] =
     "disable-accelerated-compositing";
 
+// Disables GPU accelerated video display.
+const char kDisableAcceleratedVideo[]       = "disable-accelerated-video";
+
 // Disables the alternate window station for the renderer.
 const char kDisableAltWinstation[]          = "disable-winsta";
 
@@ -167,8 +175,7 @@ const char kDisableAuthNegotiateCnameLookup[] =
     "disable-auth-negotiate-cname-lookup";
 
 // Disable background mode (background apps will not keep chrome running in the
-// background). This has priority over the kEnableBackgroundMode flag which is
-// settable via about:labs.
+// background).
 const char kDisableBackgroundMode[] = "disable-background-mode";
 
 // Disable several subsystems which run network requests in the background.
@@ -179,6 +186,11 @@ const char kDisableBackgroundNetworking[] = "disable-background-networking";
 // Disable limits on the number of backing stores. Can prevent blinking for
 // users with many windows/tabs and lots of memory.
 const char kDisableBackingStoreLimit[]      = "disable-backing-store-limit";
+
+// Disables blocked content warning animation. Currently shows animation for
+// blocked pop-ups only.
+const char kDisableBlockContentAnimation[]  =
+    "disable-blocked-content-animation";
 
 // Disables establishing a backup TCP connection if a specified timeout is
 // exceeded.
@@ -203,6 +215,12 @@ const char kDisableDevTools[]               = "disable-dev-tools";
 
 // Disables device orientation events.
 const char kDisableDeviceOrientation[]      = "disable-device-orientation";
+
+// By default, if the URL request throttler finds that a server is overloaded or
+// encounters an error, it rejects requests to the server for a period of time,
+// which is determined by an exponential back-off algorithm. This switch
+// disables such behavior.
+const char kDisableEnforcedThrottling[]     = "disable-enforced-throttling";
 
 // Disable experimental WebGL support.
 const char kDisableExperimentalWebGL[]      = "disable-webgl";
@@ -330,15 +348,17 @@ const char kDisableSyncBookmarks[]          = "disable-sync-bookmarks";
 // Disable syncing of extensions.
 const char kDisableSyncExtensions[]         = "disable-sync-extensions";
 
+// Disable syncing browser passwords.
+const char kDisableSyncPasswords[]          = "disable-sync-passwords";
+
 // Disable syncing of preferences.
 const char kDisableSyncPreferences[]        = "disable-sync-preferences";
 
 // Disable syncing of themes.
 const char kDisableSyncThemes[]             = "disable-sync-themes";
 
-// Enable the new autofill type.
-const char kEnableSyncNewAutofill[]     =
-    "enable-sync-new-autofill-data-type";
+// Disable tabbed options, i.e., DOMUI version of options window.
+const char kDisableTabbedOptions[]           = "disable-tabbed-options";
 
 // TabCloseableStateWatcher disallows closing of tabs and browsers under certain
 // situations on ChromeOS.  Some tests expect tabs or browsers to close, so we
@@ -393,8 +413,11 @@ extern const char kLogNetLog[]              = "log-net-log";
 // Enable gpu-accelerated 2d canvas.
 const char kEnableAccelerated2dCanvas[]     = "enable-accelerated-2d-canvas";
 
-// Enables the hardware acceleration of 3D CSS, Video and animation.
+// Enables the hardware acceleration of 3D CSS and animation.
 const char kEnableAcceleratedLayers[]       = "enable-accelerated-layers";
+
+// Enables the hardware acceleration of plugins.
+const char kEnableAcceleratedPlugins[]       = "enable-accelerated-plugins";
 
 // Enables WebKit accessibility within the renderer process.
 const char kEnableAccessibility[]           = "enable-accessibility";
@@ -407,17 +430,8 @@ const char kEnableAeroPeekTabs[]            = "enable-aero-peek-tabs";
 // for more background.
 const char kEnableAuthNegotiatePort[]       = "enable-auth-negotiate-port";
 
-// Enable background mode (background apps will keep chrome running in the
-// background and allow chrome to launch on startup). Has no effect on Windows
-// because background mode is enabled there by default.
-const char kEnableBackgroundMode[] = "enable-background-mode";
-
 // Enables the benchmarking extensions.
 const char kEnableBenchmarking[]            = "enable-benchmarking";
-
-// Enables blocked content warning animation. Currently shows animation for
-// blocked pop-ups only.
-const char kEnableBlockContentAnimation[] = "enable-blocked-content-animation";
 
 // In the browser process this switch is used to enable or disable the
 // client-side phishing detection.  In the renderer this switch is only enabled
@@ -544,9 +558,6 @@ const char kEnableSearchProviderApiV2[]     = "enable-search-provider-api-v2";
 // Enables 0-RTT HTTPS handshakes.
 const char kEnableSnapStart[]               = "enable-snap-start";
 
-// Enables speech input.
-const char kEnableSpeechInput[]             = "enable-speech-input";
-
 // Enables StatsTable, logging statistics to a global named shared memory table.
 const char kEnableStatsTable[]              = "enable-stats-table";
 
@@ -556,17 +567,11 @@ const char kEnableSync[]                    = "enable-sync";
 // Enable syncing browser autofill.
 const char kEnableSyncAutofill[]            = "enable-sync-autofill";
 
-// Enable syncing browser passwords.
-const char kEnableSyncPasswords[]           = "enable-sync-passwords";
-
 // Enable syncing browser sessions.
 const char kEnableSyncSessions[]            = "enable-sync-sessions";
 
 // Enable syncing browser typed urls.
 const char kEnableSyncTypedUrls[]           = "enable-sync-typed-urls";
-
-// Enable tabbed options, ie: dom-ui version of options window.
-const char kEnableTabbedOptions[]           = "enable-tabbed-options";
 
 // Enable use of experimental TCP sockets API for sending data in the
 // SYN packet.
@@ -744,6 +749,11 @@ const char kInProcessWebGL[]                = "in-process-webgl";
 // Causes the browser to launch directly in incognito mode.
 const char kIncognito[]                     = "incognito";
 
+// Whether the search provider suggestion should be autocompleted immediately
+// when instant is enabled.
+const char kInstantAutocompleteImmediately[]  =
+    "instant-autocomplete-immediately";
+
 // URL to use for instant. If specified this overrides the url from the
 // TemplateURL.
 const char kInstantURL[]                    = "instant-url";
@@ -801,6 +811,9 @@ const char kMessageLoopHistogrammer[]       = "message-loop-histogrammer";
 // and performance tests.
 const char kMetricsRecordingOnly[]          = "metrics-recording-only";
 
+// The minimum version of Flash that implements the NPP_ClearSiteData API.
+const char kMinClearSiteDataFlashVersion[]  = "min-clearsitedata-flash-version";
+
 // Sets the default IP address (interface) for the stub (normally 127.0.0.1).
 const char kNaClDebugIP[]                   = "nacl-debug-ip";
 
@@ -816,6 +829,9 @@ const char kNaClLoaderProcess[]             = "nacl-loader";
 
 // Causes the Native Client process to display a dialog on launch.
 const char kNaClStartupDialog[]             = "nacl-startup-dialog";
+
+// Enables the new security model for "chrome" URLs.
+const char kNewChromeUISecurityModel[]      = "new-chrome-ui-security-model";
 
 // Disables the default browser check. Useful for UI/browser tests where we
 // want to avoid having the default browser info-bar displayed.
@@ -981,6 +997,9 @@ const char kRecordMode[]                    = "record-mode";
 
 // Register pepper plugins that should be loaded into the renderer.
 const char kRegisterPepperPlugins[]         = "register-pepper-plugins";
+
+// Reload pages that have been killed when they are next focused by the user.
+const char kReloadKilledTabs[]              = "reload-killed-tabs";
 
 // Enable remote debug over HTTP on the specified port.
 const char kRemoteDebuggingPort[]           = "remote-debugging-port";
@@ -1214,9 +1233,6 @@ const char kZygoteProcess[]                 = "zygote";
 // Enable the redirection of viewable document requests to the Google
 // Document Viewer.
 const char kEnableGView[]                   = "enable-gview";
-
-// Should we show the image based login?
-const char kEnableLoginImages[]             = "enable-login-images";
 
 // Enable Chrome-as-a-login-manager behavior.
 const char kLoginManager[]                  = "login-manager";

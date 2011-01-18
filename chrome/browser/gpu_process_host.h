@@ -9,8 +9,8 @@
 #include <queue>
 
 #include "base/basictypes.h"
-#include "base/non_thread_safe.h"
 #include "base/ref_counted.h"
+#include "base/threading/non_thread_safe.h"
 #include "chrome/browser/browser_child_process_host.h"
 #include "gfx/native_widget_types.h"
 
@@ -29,7 +29,8 @@ struct ChannelHandle;
 class Message;
 }
 
-class GpuProcessHost : public BrowserChildProcessHost, public NonThreadSafe {
+class GpuProcessHost : public BrowserChildProcessHost,
+                       public base::NonThreadSafe {
  public:
   // Getter for the singleton. This will return NULL on failure.
   static GpuProcessHost* Get();
@@ -37,7 +38,7 @@ class GpuProcessHost : public BrowserChildProcessHost, public NonThreadSafe {
   virtual bool Send(IPC::Message* msg);
 
   // IPC::Channel::Listener implementation.
-  virtual void OnMessageReceived(const IPC::Message& message);
+  virtual bool OnMessageReceived(const IPC::Message& message);
 
   // Tells the GPU process to create a new channel for communication with a
   // renderer. Will asynchronously send message to object with given routing id
@@ -77,7 +78,7 @@ class GpuProcessHost : public BrowserChildProcessHost, public NonThreadSafe {
   bool EnsureInitialized();
   bool Init();
 
-  void OnControlMessageReceived(const IPC::Message& message);
+  bool OnControlMessageReceived(const IPC::Message& message);
 
   // Message handlers.
   void OnChannelEstablished(const IPC::ChannelHandle& channel_handle,
@@ -106,6 +107,11 @@ class GpuProcessHost : public BrowserChildProcessHost, public NonThreadSafe {
   void SendSynchronizationReply(IPC::Message* reply,
                                 RenderMessageFilter* filter);
 
+  // Sends outstanding replies to renderer processes. This is only called
+  // in error situations like the GPU process crashing -- but is necessary
+  // to prevent the renderer process from hanging.
+  void SendOutstandingReplies();
+
   virtual bool CanShutdown();
   virtual void OnChildDied();
   virtual void OnProcessCrashed(int exit_code);
@@ -117,6 +123,8 @@ class GpuProcessHost : public BrowserChildProcessHost, public NonThreadSafe {
 
   bool initialized_;
   bool initialized_successfully_;
+
+  bool blacklist_result_recorded_;
 
   scoped_ptr<GpuBlacklist> gpu_blacklist_;
 

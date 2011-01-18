@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,6 +15,7 @@
 #include "base/file_path.h"
 #include "chrome/common/automation_constants.h"
 #include "chrome/common/page_zoom.h"
+#include "ipc/ipc_channel.h"
 
 enum FindInPageDirection { BACK = 0, FWD = 1 };
 enum FindInPageCase { IGNORE_CASE = 0, CASE_SENSITIVE = 1 };
@@ -28,19 +29,19 @@ enum AutomationPageFontSize {
   LARGEST_FONT = 36
 };
 
-class URLRequestStatus;
-namespace IPC {
-  struct ExternalTabSettings;
-  struct NavigationInfo;
-  struct AutomationURLRequest;
-  struct AttachExternalTabParams;
-  struct MiniContextMenuParams;
-};
-
-class GURL;
-class ChromeProxyFactory;
 class ChromeProxyDelegate;
+class ChromeProxyFactory;
+class GURL;
+struct AttachExternalTabParams;
+struct AutomationURLRequest;
+struct ExternalTabSettings;
+struct MiniContextMenuParams;
+struct NavigationInfo;
 struct ProxyParams;
+
+namespace net {
+class URLRequestStatus;
+}  // namespace net
 
 // Some callers of synchronous messages wants a context to be passed back
 // in order to identify the call they made. Presumably one can make
@@ -89,7 +90,7 @@ class ChromeProxy {
 
   // Tab management.
   virtual void CreateTab(ChromeProxyDelegate* delegate,
-                         const IPC::ExternalTabSettings& settings) = 0;
+                         const ExternalTabSettings& settings) = 0;
   virtual void ConnectTab(ChromeProxyDelegate* delegate, HWND hwnd,
                           uint64 cookie) = 0;
   virtual void BlockTab(uint64 cookie) = 0;
@@ -142,7 +143,7 @@ class ChromeProxy {
 // instance of Chromium.
 // Allow only one delegate per tab, i.e. delegate can handle only a single tab.
 // Note: all of the methods are invoked always in a background IPC thread.
-class ChromeProxyDelegate {
+class ChromeProxyDelegate : public IPC::Channel::Listener {
  public:
   enum DisconnectReason {
     CHROME_EXE_LAUNCH_FAILED,
@@ -169,39 +170,6 @@ class ChromeProxyDelegate {
   virtual void Completed_GetEnabledExtensions(bool success,
       const std::vector<FilePath>* extensions) = 0;
 
-  // Network requests from Chrome.
-  virtual void Network_Start(int request_id,
-      const IPC::AutomationURLRequest& request_info) = 0;
-  virtual void Network_Read(int request_id, int bytes_to_read) = 0;
-  virtual void Network_End(int request_id, const URLRequestStatus& status) = 0;
-  virtual void Network_DownloadInHost(int request_id) = 0;
-  virtual void GetCookies(const GURL& url, int cookie_id) = 0;
-  virtual void SetCookie(const GURL& url, const std::string& cookie) = 0;
-
-  // Navigation progress notifications.
-  virtual void NavigationStateChanged(int flags,
-                                      const IPC::NavigationInfo& nav_info) = 0;
-  virtual void UpdateTargetUrl(const std::wstring& url) = 0;
-  virtual void NavigationFailed(int error_code, const GURL& gurl) = 0;
-  virtual void DidNavigate(const IPC::NavigationInfo& navigation_info) = 0;
-  virtual void TabLoaded(const GURL& url) = 0;
-
-  // Navigation and messaging.
-  virtual void OpenURL(const GURL& url_to_open, const GURL& referrer,
-                       int open_disposition) = 0;
-  virtual void GoToHistoryOffset(int offset) = 0;
-  virtual void MessageToHost(const std::string& message,
-                             const std::string& origin,
-                             const std::string& target) = 0;
-  // Misc. UI.
-  virtual void HandleAccelerator(const MSG& accel_message) = 0;
-  virtual void HandleContextMenu(HANDLE menu_handle, int align_flags,
-                                 const IPC::MiniContextMenuParams& params) = 0;
-  virtual void TabbedOut(bool reverse) = 0;
-
-  // Tab related.
-  virtual void TabClosed() = 0;
-  virtual void AttachTab(const IPC::AttachExternalTabParams& attach_params) = 0;
  protected:
   ~ChromeProxyDelegate() {}
 };

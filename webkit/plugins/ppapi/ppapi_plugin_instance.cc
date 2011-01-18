@@ -28,33 +28,34 @@
 #include "printing/units.h"
 #include "skia/ext/vector_platform_device.h"
 #include "skia/ext/platform_canvas.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebBindings.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebCursorInfo.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDocument.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebElement.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebInputEvent.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPluginContainer.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebRect.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebString.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLRequest.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebView.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebBindings.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCursorInfo.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebElement.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginContainer.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebRect.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLRequest.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "webkit/plugins/ppapi/common.h"
 #include "webkit/plugins/ppapi/event_conversion.h"
 #include "webkit/plugins/ppapi/fullscreen_container.h"
 #include "webkit/plugins/ppapi/plugin_delegate.h"
 #include "webkit/plugins/ppapi/plugin_module.h"
+#include "webkit/plugins/ppapi/plugin_object.h"
 #include "webkit/plugins/ppapi/ppb_buffer_impl.h"
 #include "webkit/plugins/ppapi/ppb_graphics_2d_impl.h"
-#include "webkit/plugins/ppapi/ppb_graphics_3d_impl.h"
 #include "webkit/plugins/ppapi/ppb_image_data_impl.h"
+#include "webkit/plugins/ppapi/ppb_surface_3d_impl.h"
 #include "webkit/plugins/ppapi/ppb_url_loader_impl.h"
 #include "webkit/plugins/ppapi/ppp_pdf.h"
 #include "webkit/plugins/ppapi/string.h"
 #include "webkit/plugins/ppapi/var.h"
 
 #if defined(OS_MACOSX)
-#include "base/mac_util.h"
+#include "base/mac/mac_util.h"
 #include "base/mac/scoped_cftyperef.h"
 #endif
 
@@ -304,10 +305,9 @@ PluginInstance::PluginInstance(PluginDelegate* delegate,
       plugin_pdf_interface_(NULL),
       plugin_selection_interface_(NULL),
       plugin_zoom_interface_(NULL),
-#if defined (OS_LINUX)
-      num_pages_(0),
-      pdf_output_done_(false),
-#endif  // defined (OS_LINUX)
+#if defined(OS_LINUX)
+      canvas_(NULL),
+#endif  // defined(OS_LINUX)
       plugin_print_interface_(NULL),
       plugin_graphics_3d_interface_(NULL),
       always_on_top_(false),
@@ -321,12 +321,24 @@ PluginInstance::PluginInstance(PluginDelegate* delegate,
 }
 
 PluginInstance::~PluginInstance() {
-  FOR_EACH_OBSERVER(Observer, observers_, InstanceDestroyed(this));
+  // Free all the plugin objects. This will automatically clear the back-
+  // pointer from the NPObject so WebKit can't call into the plugin any more.
+  //
+  // Swap out the set so we can delete from it (the objects will try to
+  // unregister themselves inside the delete call).
+  PluginObjectSet plugin_object_copy;
+  live_plugin_objects_.swap(plugin_object_copy);
+  for (PluginObjectSet::iterator i = live_plugin_objects_.begin();
+       i != live_plugin_objects_.end(); ++i)
+    delete *i;
 
   delegate_->InstanceDeleted(this);
   module_->InstanceDeleted(this);
 
   ResourceTracker::Get()->InstanceDeleted(pp_instance_);
+#if defined(OS_LINUX)
+  ranges_.clear();
+#endif  // defined(OS_LINUX)
 }
 
 // static
@@ -347,14 +359,6 @@ const PPB_Fullscreen_Dev* PluginInstance::GetFullscreenInterface() {
 // static
 const PPB_Zoom_Dev* PluginInstance::GetZoomInterface() {
   return &ppb_zoom;
-}
-
-void PluginInstance::AddObserver(Observer* observer) {
-  observers_.AddObserver(observer);
-}
-
-void PluginInstance::RemoveObserver(Observer* observer) {
-  observers_.RemoveObserver(observer);
 }
 
 void PluginInstance::Paint(WebCanvas* canvas,
@@ -402,7 +406,10 @@ unsigned PluginInstance::GetBackingTextureId() {
 }
 
 void PluginInstance::CommitBackingTexture() {
-  container_->commitBackingTexture();
+  if (fullscreen_container_)
+    fullscreen_container_->Invalidate();
+  else
+    container_->commitBackingTexture();
 }
 
 PP_Var PluginInstance::GetWindowObject() {
@@ -413,13 +420,13 @@ PP_Var PluginInstance::GetWindowObject() {
   if (!frame)
     return PP_MakeUndefined();
 
-  return ObjectVar::NPObjectToPPVar(module(), frame->windowObject());
+  return ObjectVar::NPObjectToPPVar(this, frame->windowObject());
 }
 
 PP_Var PluginInstance::GetOwnerElementObject() {
   if (!container_)
     return PP_MakeUndefined();
-  return ObjectVar::NPObjectToPPVar(module(),
+  return ObjectVar::NPObjectToPPVar(this,
                                     container_->scriptableObjectForElement());
 }
 
@@ -430,8 +437,7 @@ bool PluginInstance::BindGraphics(PP_Resource graphics_id) {
       if (bound_graphics_2d()) {
         bound_graphics_2d()->BindToInstance(NULL);
       } else if (bound_graphics_.get()) {
-        bound_graphics_3d()->SetSwapBuffersCallback(NULL);
-        bound_graphics_3d()->BindToInstance(NULL);
+        bound_graphics_3d()->BindToInstance(false);
       }
       InvalidateRect(gfx::Rect());
     }
@@ -441,8 +447,8 @@ bool PluginInstance::BindGraphics(PP_Resource graphics_id) {
 
   scoped_refptr<PPB_Graphics2D_Impl> graphics_2d =
       Resource::GetAs<PPB_Graphics2D_Impl>(graphics_id);
-  scoped_refptr<PPB_Graphics3D_Impl> graphics_3d =
-      Resource::GetAs<PPB_Graphics3D_Impl>(graphics_id);
+  scoped_refptr<PPB_Surface3D_Impl> graphics_3d =
+      Resource::GetAs<PPB_Surface3D_Impl>(graphics_id);
 
   if (graphics_2d) {
     if (!graphics_2d->BindToInstance(this))
@@ -470,12 +476,14 @@ bool PluginInstance::BindGraphics(PP_Resource graphics_id) {
     bound_graphics_ = graphics_2d;
     // BindToInstance will have invalidated the plugin if necessary.
   } else if (graphics_3d) {
-    if (!graphics_3d->BindToInstance(this))
+    // Make sure graphics can only be bound to the instance it is
+    // associated with.
+    if (graphics_3d->instance() != this)
+      return false;
+    if (!graphics_3d->BindToInstance(true))
       return false;
 
     bound_graphics_ = graphics_3d;
-    bound_graphics_3d()->SetSwapBuffersCallback(
-        NewCallback(this, &PluginInstance::CommitBackingTexture));
   }
 
   return true;
@@ -519,7 +527,7 @@ PP_Var PluginInstance::ExecuteScript(PP_Var script, PP_Var* exception) {
     return PP_MakeUndefined();
   }
 
-  PP_Var ret = Var::NPVariantToPPVar(module_, &result);
+  PP_Var ret = Var::NPVariantToPPVar(this, &result);
   WebBindings::releaseVariantValue(&result);
   return ret;
 }
@@ -585,15 +593,6 @@ PP_Var PluginInstance::GetInstanceObject() {
 
 void PluginInstance::ViewChanged(const gfx::Rect& position,
                                  const gfx::Rect& clip) {
-  if (position.size() != position_.size() && bound_graphics_3d()) {
-    // TODO(apatrick): This is a hack to force the back buffer to resize.
-    // It is obviously wrong to call SwapBuffers when a partial frame has
-    // potentially been rendered. Plan is to embed resize commands in the
-    // command buffer just before ViewChanged is called.
-    bound_graphics_3d()->ResizeBackingTexture(position.size());
-    bound_graphics_3d()->SwapBuffers();
-  }
-
   position_ = position;
 
   if (clip.IsEmpty()) {
@@ -639,11 +638,15 @@ void PluginInstance::SetContentAreaFocus(bool has_focus) {
 void PluginInstance::ViewInitiatedPaint() {
   if (bound_graphics_2d())
     bound_graphics_2d()->ViewInitiatedPaint();
+  if (bound_graphics_3d())
+    bound_graphics_3d()->ViewInitiatedPaint();
 }
 
 void PluginInstance::ViewFlushedPaint() {
   if (bound_graphics_2d())
     bound_graphics_2d()->ViewFlushedPaint();
+  if (bound_graphics_3d())
+    bound_graphics_3d()->ViewFlushedPaint();
 }
 
 bool PluginInstance::GetBitmapForOptimizedPluginPaint(
@@ -838,34 +841,31 @@ int PluginInstance::PrintBegin(const gfx::Rect& printable_area,
   if (!num_pages)
     return 0;
   current_print_settings_ = print_settings;
-#if defined (OS_LINUX)
-  num_pages_ = num_pages;
-  pdf_output_done_ = false;
-#endif  // (OS_LINUX)
+#if defined(OS_LINUX)
+  canvas_ = NULL;
+  ranges_.clear();
+#endif  // defined(OS_LINUX)
   return num_pages;
 }
 
 bool PluginInstance::PrintPage(int page_number, WebKit::WebCanvas* canvas) {
   DCHECK(plugin_print_interface_);
   PP_PrintPageNumberRange_Dev page_range;
-#if defined(OS_LINUX)
-  if (current_print_settings_.format == PP_PRINTOUTPUTFORMAT_PDF) {
-    // On Linux we will try and output all pages as PDF in the first call to
-    // PrintPage. This is a temporary hack.
-    // TODO(sanjeevr): Remove this hack and fix this by changing the print
-    // interfaces for WebFrame and WebPlugin.
-    if (page_number != 0)
-      return pdf_output_done_;
-    page_range.first_page_number = 0;
-    page_range.last_page_number = num_pages_ - 1;
-  }
-#else  // defined(OS_LINUX)
   page_range.first_page_number = page_range.last_page_number = page_number;
+#if defined(OS_LINUX)
+  ranges_.push_back(page_range);
+  canvas_ = canvas;
+  return true;
+#else
+  return PrintPageHelper(&page_range, 1, canvas);
 #endif  // defined(OS_LINUX)
+}
 
-  PP_Resource print_output =
-      plugin_print_interface_->PrintPages(pp_instance(), &page_range, 1);
-
+bool PluginInstance::PrintPageHelper(PP_PrintPageNumberRange_Dev* page_ranges,
+                                     int num_ranges,
+                                     WebKit::WebCanvas* canvas) {
+  PP_Resource print_output = plugin_print_interface_->PrintPages(
+      pp_instance(), page_ranges, num_ranges);
   if (!print_output)
     return false;
 
@@ -883,16 +883,22 @@ bool PluginInstance::PrintPage(int page_number, WebKit::WebCanvas* canvas) {
 }
 
 void PluginInstance::PrintEnd() {
+#if defined(OS_LINUX)
+  // This hack is here because all pages need to be written to PDF at once.
+  if (!ranges_.empty())
+    PrintPageHelper(&(ranges_.front()), ranges_.size(), canvas_);
+  canvas_ = NULL;
+  ranges_.clear();
+#endif  // defined(OS_LINUX)
+
   DCHECK(plugin_print_interface_);
   if (plugin_print_interface_)
     plugin_print_interface_->End(pp_instance());
+
   memset(&current_print_settings_, 0, sizeof(current_print_settings_));
 #if defined(OS_MACOSX)
   last_printed_page_ = NULL;
-#elif defined(OS_LINUX)
-  num_pages_ = 0;
-  pdf_output_done_ = false;
-#endif  // defined(OS_LINUX)
+#endif  // defined(OS_MACOSX)
 }
 
 bool PluginInstance::IsFullscreen() {
@@ -940,6 +946,13 @@ bool PluginInstance::NavigateToURL(const char* url, const char* target) {
   return true;
 }
 
+PluginDelegate::PlatformContext3D* PluginInstance::CreateContext3D() {
+  if (fullscreen_container_)
+    return fullscreen_container_->CreateContext3D();
+  else
+    return delegate_->CreateContext3D();
+}
+
 bool PluginInstance::PrintPDFOutput(PP_Resource print_output,
                                     WebKit::WebCanvas* canvas) {
   scoped_refptr<PPB_Buffer_Impl> buffer(
@@ -968,11 +981,8 @@ bool PluginInstance::PrintPDFOutput(PP_Resource print_output,
   printing::NativeMetafile* metafile =
       printing::NativeMetafile::FromCairoContext(context);
   DCHECK(metafile);
-  if (metafile) {
+  if (metafile)
     ret = metafile->SetRawData(buffer->mapped_buffer(), buffer->size());
-    if (ret)
-      pdf_output_done_ = true;
-  }
   canvas->endPlatformPaint();
 #elif defined(OS_MACOSX)
   printing::NativeMetafile metafile;
@@ -1147,7 +1157,7 @@ void PluginInstance::DrawSkBitmapToCanvas(
       CGImageCreate(
           bitmap.width(), bitmap.height(),
           8, 32, bitmap.rowBytes(),
-          mac_util::GetSystemColorSpace(),
+          base::mac::GetSystemColorSpace(),
           kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host,
           data_provider, NULL, false, kCGRenderingIntentDefault));
 
@@ -1174,13 +1184,52 @@ PPB_Graphics2D_Impl* PluginInstance::bound_graphics_2d() const {
   return bound_graphics_->Cast<PPB_Graphics2D_Impl>();
 }
 
-PPB_Graphics3D_Impl* PluginInstance::bound_graphics_3d() const {
+PPB_Surface3D_Impl* PluginInstance::bound_graphics_3d() const {
   if (bound_graphics_.get() == NULL)
     return NULL;
 
-  return bound_graphics_->Cast<PPB_Graphics3D_Impl>();
+  return bound_graphics_->Cast<PPB_Surface3D_Impl>();
+}
+
+void PluginInstance::AddPluginObject(PluginObject* plugin_object) {
+  DCHECK(live_plugin_objects_.find(plugin_object) ==
+         live_plugin_objects_.end());
+  live_plugin_objects_.insert(plugin_object);
+}
+
+void PluginInstance::RemovePluginObject(PluginObject* plugin_object) {
+  // Don't actually verify that the object is in the set since during module
+  // deletion we'll be in the process of freeing them.
+  live_plugin_objects_.erase(plugin_object);
+}
+
+void PluginInstance::AddNPObjectVar(ObjectVar* object_var) {
+  DCHECK(np_object_to_object_var_.find(object_var->np_object()) ==
+         np_object_to_object_var_.end()) << "ObjectVar already in map";
+  np_object_to_object_var_[object_var->np_object()] = object_var;
+}
+
+void PluginInstance::RemoveNPObjectVar(ObjectVar* object_var) {
+  NPObjectToObjectVarMap::iterator found =
+      np_object_to_object_var_.find(object_var->np_object());
+  if (found == np_object_to_object_var_.end()) {
+    NOTREACHED() << "ObjectVar not registered.";
+    return;
+  }
+  if (found->second != object_var) {
+    NOTREACHED() << "ObjectVar doesn't match.";
+    return;
+  }
+  np_object_to_object_var_.erase(found);
+}
+
+ObjectVar* PluginInstance::ObjectVarForNPObject(NPObject* np_object) const {
+  NPObjectToObjectVarMap::const_iterator found =
+      np_object_to_object_var_.find(np_object);
+  if (found == np_object_to_object_var_.end())
+    return NULL;
+  return found->second;
 }
 
 }  // namespace ppapi
 }  // namespace webkit
-

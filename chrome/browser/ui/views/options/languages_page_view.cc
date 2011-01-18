@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,7 @@
 #include <vsstyle.h>
 #include <vssym32.h>
 
-#include "chrome/browser/views/options/languages_page_view.h"
+#include "chrome/browser/ui/views/options/languages_page_view.h"
 
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
@@ -21,7 +21,7 @@
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/shell_dialogs.h"
-#include "chrome/browser/views/restart_message_box.h"
+#include "chrome/browser/ui/views/restart_message_box.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/spellcheck_common.h"
@@ -115,7 +115,8 @@ AddLanguageWindowView::AddLanguageWindowView(
 }
 
 std::wstring AddLanguageWindowView::GetWindowTitle() const {
-  return l10n_util::GetString(IDS_FONT_LANGUAGE_SETTING_LANGUAGES_TAB_TITLE);
+  return UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_FONT_LANGUAGE_SETTING_LANGUAGES_TAB_TITLE));
 }
 
 bool AddLanguageWindowView::Accept() {
@@ -240,16 +241,24 @@ void LanguagesPageView::OnAddLanguage(const std::string& new_language) {
 
 void LanguagesPageView::InitControlLayout() {
   // Define the buttons.
-  add_button_ = new views::NativeButton(this, l10n_util::GetString(
-      IDS_FONT_LANGUAGE_SETTING_LANGUAGES_SELECTOR_ADD_BUTTON_LABEL));
-  remove_button_ = new views::NativeButton(this, l10n_util::GetString(
-      IDS_FONT_LANGUAGE_SETTING_LANGUAGES_SELECTOR_REMOVE_BUTTON_LABEL));
+  add_button_ = new views::NativeButton(
+      this,
+      UTF16ToWide(l10n_util::GetStringUTF16(
+          IDS_FONT_LANGUAGE_SETTING_LANGUAGES_SELECTOR_ADD_BUTTON_LABEL)));
+  remove_button_ = new views::NativeButton(
+      this,
+      UTF16ToWide(l10n_util::GetStringUTF16(
+          IDS_FONT_LANGUAGE_SETTING_LANGUAGES_SELECTOR_REMOVE_BUTTON_LABEL)));
   remove_button_->SetEnabled(false);
-  move_up_button_ = new views::NativeButton(this, l10n_util::GetString(
-      IDS_FONT_LANGUAGE_SETTING_LANGUAGES_SELECTOR_MOVEUP_BUTTON_LABEL));
+  move_up_button_ = new views::NativeButton(
+      this,
+      UTF16ToWide(l10n_util::GetStringUTF16(
+          IDS_FONT_LANGUAGE_SETTING_LANGUAGES_SELECTOR_MOVEUP_BUTTON_LABEL)));
   move_up_button_->SetEnabled(false);
-  move_down_button_ = new views::NativeButton(this, l10n_util::GetString(
-      IDS_FONT_LANGUAGE_SETTING_LANGUAGES_SELECTOR_MOVEDOWN_BUTTON_LABEL));
+  move_down_button_ = new views::NativeButton(
+      this,
+      UTF16ToWide(l10n_util::GetStringUTF16(
+          IDS_FONT_LANGUAGE_SETTING_LANGUAGES_SELECTOR_MOVEDOWN_BUTTON_LABEL)));
   move_down_button_->SetEnabled(false);
 
   languages_contents_ = new views::View;
@@ -266,8 +275,8 @@ void LanguagesPageView::InitControlLayout() {
   column_set->AddColumn(GridLayout::FILL, GridLayout::CENTER, 1,
                       GridLayout::USE_PREF, 0, 0);
   languages_instructions_ = new views::Label(
-      l10n_util::GetString(
-          IDS_FONT_LANGUAGE_SETTING_LANGUAGES_INSTRUCTIONS));
+      UTF16ToWide(l10n_util::GetStringUTF16(
+          IDS_FONT_LANGUAGE_SETTING_LANGUAGES_INSTRUCTIONS)));
   languages_instructions_->SetMultiLine(true);
   languages_instructions_->SetHorizontalAlignment(
       views::Label::ALIGN_LEFT);
@@ -326,25 +335,25 @@ void LanguagesPageView::InitControlLayout() {
   layout->AddPaddingRow(0, kUnrelatedControlVerticalSpacing);
 
   language_info_label_ = new views::Label(
-      l10n_util::GetString(IDS_OPTIONS_CHROME_LANGUAGE_INFO));
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_OPTIONS_CHROME_LANGUAGE_INFO)));
   language_info_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
   ui_language_label_ = new views::Label(
-      l10n_util::GetString(IDS_OPTIONS_CHROME_UI_LANGUAGE));
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_OPTIONS_CHROME_UI_LANGUAGE)));
   ui_language_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
   ui_language_model_.reset(new LanguageComboboxModel);
   change_ui_language_combobox_ =
       new views::Combobox(ui_language_model_.get());
   change_ui_language_combobox_->set_listener(this);
-  dictionary_language_label_ = new views::Label(
-      l10n_util::GetString(IDS_OPTIONS_CHROME_DICTIONARY_LANGUAGE));
+  dictionary_language_label_ = new views::Label(UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_OPTIONS_CHROME_DICTIONARY_LANGUAGE)));
   dictionary_language_label_->SetHorizontalAlignment(
       views::Label::ALIGN_LEFT);
   enable_spellchecking_checkbox_ = new views::Checkbox(
-      l10n_util::GetString(IDS_OPTIONS_ENABLE_SPELLCHECK));
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_OPTIONS_ENABLE_SPELLCHECK)));
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
   if (command_line.HasSwitch(switches::kExperimentalSpellcheckerFeatures)) {
-    enable_autospellcorrect_checkbox_ = new views::Checkbox(
-        l10n_util::GetString(IDS_OPTIONS_ENABLE_AUTO_SPELL_CORRECTION));
+    enable_autospellcorrect_checkbox_ = new views::Checkbox(UTF16ToWide(
+        l10n_util::GetStringUTF16(IDS_OPTIONS_ENABLE_AUTO_SPELL_CORRECTION)));
     enable_autospellcorrect_checkbox_->set_listener(this);
   }
   enable_spellchecking_checkbox_->set_listener(this);

@@ -14,7 +14,7 @@
 #include "base/time.h"
 #include "chrome/browser/renderer_host/render_widget_host_view.h"
 #include "gfx/native_widget_types.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebInputEvent.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "views/controls/native/native_view_host.h"
 #include "views/event.h"
 #include "views/view.h"
@@ -43,6 +43,7 @@ class RenderWidgetHostViewViews : public RenderWidgetHostView,
   virtual void DidBecomeSelected();
   virtual void WasHidden();
   virtual void SetSize(const gfx::Size& size);
+  virtual gfx::NativeView GetNativeView();
   virtual void MovePluginWindows(
       const std::vector<webkit::npapi::WebPluginGeometry>& moves);
   virtual void Focus();
@@ -75,8 +76,10 @@ class RenderWidgetHostViewViews : public RenderWidgetHostView,
   virtual bool ContainsNativeView(gfx::NativeView native_view) const;
   virtual void AcceleratedCompositingActivated(bool activated);
 
-  gfx::NativeView native_view() const;
-  virtual gfx::NativeView GetNativeView();
+  // On some systems, there can be two native views, where an outer native view
+  // contains the inner native view (e.g. when using GTK+). This returns the
+  // inner view. This can return NULL when it's not attached to a view.
+  gfx::NativeView GetInnerNativeView() const;
 
   virtual void Paint(gfx::Canvas* canvas);
 

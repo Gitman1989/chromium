@@ -51,6 +51,8 @@
         'c/pp_time.h',
         'c/pp_var.h',
         'c/ppb.h',
+        'c/ppb_audio.h',
+        'c/ppb_audio_config.h',
         'c/ppb_core.h',
         'c/ppb_class.h',
         'c/ppb_graphics_2d.h',
@@ -66,12 +68,14 @@
         # Dev interfaces.
         'c/dev/pp_cursor_type_dev.h',
         'c/dev/pp_file_info_dev.h',
+        'c/dev/pp_graphics_3d_dev.h',
         'c/dev/pp_video_dev.h',
         'c/dev/ppb_audio_config_dev.h',
         'c/dev/ppb_audio_dev.h',
         'c/dev/ppb_audio_trusted_dev.h',
         'c/dev/ppb_buffer_dev.h',
         'c/dev/ppb_char_set_dev.h',
+        'c/dev/ppb_context_3d_dev.h',
         'c/dev/ppb_cursor_control_dev.h',
         'c/dev/ppb_directory_reader_dev.h',
         'c/dev/ppb_file_chooser_dev.h',
@@ -85,6 +89,7 @@
         'c/dev/ppb_graphics_3d_dev.h',
         'c/dev/ppb_opengles_dev.h',
         'c/dev/ppb_scrollbar_dev.h',
+        'c/dev/ppb_surface_3d_dev.h',
         'c/dev/ppb_testing_dev.h',
         'c/dev/ppb_transport_dev.h',
         'c/dev/ppb_url_util_dev.h',
@@ -101,7 +106,9 @@
         'c/dev/ppp_zoom_dev.h',
 
         # Private interfaces.
+        'c/private/ppb_flash.h',
         'c/private/ppb_nacl_private.h',
+        'c/private/ppb_pdf.h',
 
         # Deprecated interfaces.
         'c/dev/deprecated_bool.h',
@@ -109,6 +116,7 @@
         'c/dev/ppp_class_deprecated.h',
 
         # Trusted interfaces.
+        'c/trusted/ppb_audio_trusted.h',
         'c/trusted/ppb_image_data_trusted.h',
         'c/trusted/ppb_url_loader_trusted.h',
       ],
@@ -123,6 +131,10 @@
         '..',
       ],
       'sources': [
+        'cpp/audio.cc',
+        'cpp/audio.h',
+        'cpp/audio_config.cc',
+        'cpp/audio_config.h',
         'cpp/common.h',
         'cpp/completion_callback.h',
         'cpp/core.cc',
@@ -164,6 +176,8 @@
         'cpp/dev/audio_dev.h',
         'cpp/dev/buffer_dev.cc',
         'cpp/dev/buffer_dev.h',
+        'cpp/dev/context_3d_dev.cc',
+        'cpp/dev/context_3d_dev.h',
         'cpp/dev/directory_entry_dev.cc',
         'cpp/dev/directory_entry_dev.h',
         'cpp/dev/directory_reader_dev.cc',
@@ -192,6 +206,8 @@
         'cpp/dev/scrollbar_dev.h',
         'cpp/dev/selection_dev.cc',
         'cpp/dev/selection_dev.h',
+        'cpp/dev/surface_3d_dev.cc',
+        'cpp/dev/surface_3d_dev.h',
         'cpp/dev/transport_dev.cc',
         'cpp/dev/transport_dev.h',
         'cpp/dev/url_util_dev.cc',
@@ -485,6 +501,8 @@
         'tests/test_c_includes.c',
         'tests/test_char_set.cc',
         'tests/test_char_set.h',
+        'tests/test_class.cc',
+        'tests/test_class.h',
         'tests/test_cpp_includes.cc',
         'tests/test_directory_reader.cc',
         'tests/test_directory_reader.h',

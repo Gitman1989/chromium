@@ -12,7 +12,7 @@
 #include "base/basictypes.h"
 #include "base/lock.h"
 #include "base/ref_counted.h"
-#include "base/waitable_event_watcher.h"
+#include "base/synchronization/waitable_event_watcher.h"
 #include "ipc/ipc_channel_handle.h"
 #include "ipc/ipc_channel_proxy.h"
 #include "ipc/ipc_sync_message.h"
@@ -106,7 +106,7 @@ class SyncChannel : public ChannelProxy,
     virtual void Clear();
 
     // Called on the IPC thread.
-    virtual void OnMessageReceived(const Message& msg);
+    virtual bool OnMessageReceived(const Message& msg);
     virtual void OnChannelError();
     virtual void OnChannelOpened();
     virtual void OnChannelClosed();

@@ -27,13 +27,12 @@
 #include "base/string_tokenizer.h"
 #include "base/string_util.h"
 #include "base/task.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_thread.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_plugin_util.h"
-#include "chrome/common/chrome_switches.h"
 #include "gfx/codec/png_codec.h"
 #include "googleurl/src/gurl.h"
 
@@ -293,7 +292,7 @@ bool ShellIntegration::GetDesktopShortcutTemplate(
 FilePath ShellIntegration::GetDesktopShortcutFilename(const GURL& url) {
   // Use a prefix, because xdg-desktop-menu requires it.
   std::string filename =
-      WideToUTF8(chrome::kBrowserProcessExecutableName) + "-" + url.spec();
+      std::string(chrome::kBrowserProcessExecutableName) + "-" + url.spec();
   file_util::ReplaceIllegalCharactersInPath(&filename, '_');
 
   FilePath desktop_path;

@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,16 +6,14 @@
 
 #include <map>
 
-#include "app/clipboard/clipboard.h"
 #include "app/l10n_util.h"
 #include "base/command_line.h"
 #include "base/file_util.h"
 #include "base/path_service.h"
 #include "base/task.h"
-#include "base/thread.h"
-#include "base/thread_restrictions.h"
-#include "base/waitable_event.h"
-#include "chrome/browser/appcache/chrome_appcache_service.h"
+#include "base/threading/thread.h"
+#include "base/threading/thread_restrictions.h"
+#include "base/synchronization/waitable_event.h"
 #include "chrome/browser/automation/automation_provider_list.h"
 #include "chrome/browser/browser_child_process_host.h"
 #include "chrome/browser/browser_list.h"
@@ -40,6 +38,7 @@
 #include "chrome/browser/plugin_data_remover.h"
 #include "chrome/browser/plugin_service.h"
 #include "chrome/browser/plugin_updater.h"
+#include "chrome/browser/policy/configuration_policy_provider_keeper.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/printing/print_job_manager.h"
 #include "chrome/browser/printing/print_preview_tab_controller.h"
@@ -62,6 +61,7 @@
 #include "chrome/common/switch_utils.h"
 #include "chrome/installer/util/google_update_constants.h"
 #include "ipc/ipc_logging.h"
+#include "ui/base/clipboard/clipboard.h"
 #include "webkit/database/database_tracker.h"
 
 #if defined(OS_WIN)
@@ -100,6 +100,7 @@ BrowserProcessImpl::BrowserProcessImpl(const CommandLine& command_line)
       created_debugger_wrapper_(false),
       created_devtools_manager_(false),
       created_sidebar_manager_(false),
+      created_configuration_policy_provider_keeper_(false),
       created_notification_ui_manager_(false),
       created_safe_browsing_detection_service_(false),
       module_ref_count_(0),
@@ -108,7 +109,7 @@ BrowserProcessImpl::BrowserProcessImpl(const CommandLine& command_line)
       using_new_frames_(false),
       have_inspector_files_(true) {
   g_browser_process = this;
-  clipboard_.reset(new Clipboard);
+  clipboard_.reset(new ui::Clipboard);
   main_notification_service_.reset(new NotificationService);
 
   notification_registrar_.Add(this,
@@ -174,6 +175,10 @@ BrowserProcessImpl::~BrowserProcessImpl() {
     // Cancel pending requests and prevent new requests.
     resource_dispatcher_host()->Shutdown();
   }
+
+  // The policy providers managed by |configuration_policy_provider_keeper_|
+  // need to shut down while the file thread is still alive.
+  configuration_policy_provider_keeper_.reset();
 
 #if defined(USE_X11)
   // The IO thread must outlive the BACKGROUND_X11 thread.
@@ -402,7 +407,7 @@ SidebarManager* BrowserProcessImpl::sidebar_manager() {
   return sidebar_manager_.get();
 }
 
-Clipboard* BrowserProcessImpl::clipboard() {
+ui::Clipboard* BrowserProcessImpl::clipboard() {
   DCHECK(CalledOnValidThread());
   return clipboard_.get();
 }
@@ -412,6 +417,18 @@ NotificationUIManager* BrowserProcessImpl::notification_ui_manager() {
   if (!created_notification_ui_manager_)
     CreateNotificationUIManager();
   return notification_ui_manager_.get();
+}
+
+policy::ConfigurationPolicyProviderKeeper*
+    BrowserProcessImpl::configuration_policy_provider_keeper() {
+  DCHECK(CalledOnValidThread());
+  if (!created_configuration_policy_provider_keeper_) {
+    DCHECK(configuration_policy_provider_keeper_.get() == NULL);
+    created_configuration_policy_provider_keeper_ = true;
+    configuration_policy_provider_keeper_.reset(
+        new policy::ConfigurationPolicyProviderKeeper());
+  }
+  return configuration_policy_provider_keeper_.get();
 }
 
 IconManager* BrowserProcessImpl::icon_manager() {
@@ -522,7 +539,7 @@ void BrowserProcessImpl::Observe(NotificationType type,
     Profile* profile = ProfileManager::GetDefaultProfile();
     if (profile) {
       PrefService* prefs = profile->GetPrefs();
-      if (prefs->GetBoolean(prefs::kClearPluginLSODataOnExit) &&
+      if (prefs->GetBoolean(prefs::kClearSiteDataOnExit) &&
           local_state()->GetBoolean(prefs::kClearPluginLSODataEnabled)) {
         plugin_data_remover_ = new PluginDataRemover();
         plugin_data_remover_->StartRemoving(base::Time(), NULL);
@@ -558,7 +575,6 @@ bool BrowserProcessImpl::have_inspector_files() const {
 
 void BrowserProcessImpl::ClearLocalState(const FilePath& profile_path) {
   webkit_database::DatabaseTracker::ClearLocalState(profile_path);
-  ChromeAppCacheService::ClearLocalState(profile_path);
 }
 
 bool BrowserProcessImpl::ShouldClearLocalState(FilePath* profile_path) {
@@ -752,7 +768,8 @@ void BrowserProcessImpl::CreateIntranetRedirectDetector() {
 
 void BrowserProcessImpl::CreateNotificationUIManager() {
   DCHECK(notification_ui_manager_.get() == NULL);
-  notification_ui_manager_.reset(NotificationUIManager::Create());
+  notification_ui_manager_.reset(NotificationUIManager::Create(local_state()));
+
   created_notification_ui_manager_ = true;
 }
 
@@ -787,15 +804,11 @@ void BrowserProcessImpl::CreateSafeBrowsingDetectionService() {
 
 bool BrowserProcessImpl::IsSafeBrowsingDetectionServiceEnabled() {
   // The safe browsing client-side detection is enabled only if the switch is
-  // enabled, the user has opted in to UMA usage stats and SafeBrowsing
-  // is enabled.
-  Profile* profile = profile_manager() ?
-      profile_manager()->GetDefaultProfile() : NULL;
-  return (CommandLine::ForCurrentProcess()->HasSwitch(
-              switches::kEnableClientSidePhishingDetection) &&
-          metrics_service() && metrics_service()->reporting_active() &&
-          profile && profile->GetPrefs() &&
-          profile->GetPrefs()->GetBoolean(prefs::kSafeBrowsingEnabled));
+  // enabled and when safe browsing related stats is allowed to be collected.
+  return CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableClientSidePhishingDetection) &&
+      resource_dispatcher_host()->safe_browsing_service() &&
+      resource_dispatcher_host()->safe_browsing_service()->CanReportStats();
 }
 
 // The BrowserProcess object must outlive the file thread so we use traits

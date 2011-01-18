@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -179,8 +179,7 @@ class ATL_NO_VTABLE ChromeFrameActivexBase :  // NOLINT
       : ready_state_(READYSTATE_UNINITIALIZED),
       url_fetcher_(new UrlmonUrlRequestManager()),
       failed_to_fetch_in_place_frame_(false),
-      draw_sad_tab_(false),
-      prev_resource_instance_(NULL) {
+      draw_sad_tab_(false) {
     m_bWindowOnly = TRUE;
     url_fetcher_->set_container(static_cast<IDispatch*>(this));
   }
@@ -248,7 +247,6 @@ END_MSG_MAP()
   DECLARE_PROTECT_FINAL_CONSTRUCT()
 
   void SetResourceModule() {
-    DCHECK(NULL == prev_resource_instance_);
     SimpleResourceLoader* loader_instance = SimpleResourceLoader::GetInstance();
     DCHECK(loader_instance);
     HMODULE res_dll = loader_instance->GetResourceModuleHandle();
@@ -349,8 +347,7 @@ END_MSG_MAP()
     return CComControlBase::IOleObject_SetClientSite(client_site);
   }
 
-  bool HandleContextMenuCommand(UINT cmd,
-                                const IPC::MiniContextMenuParams& params) {
+  bool HandleContextMenuCommand(UINT cmd, const MiniContextMenuParams& params) {
     if (cmd == IDC_ABOUT_CHROME_FRAME) {
       int tab_handle = automation_client_->tab()->handle();
       HostNavigate(GURL("about:version"), GURL(), NEW_WINDOW);
@@ -415,7 +412,7 @@ END_MSG_MAP()
     DVLOG(1) << __FUNCTION__ << ": " << profile_path->value();
   }
 
-  void OnLoad(int tab_handle, const GURL& url) {
+  void OnLoad(const GURL& url) {
     if (ready_state_ < READYSTATE_COMPLETE) {
       ready_state_ = READYSTATE_COMPLETE;
       FireOnChanged(DISPID_READYSTATE);
@@ -428,7 +425,7 @@ END_MSG_MAP()
     HRESULT hr = InvokeScriptFunction(onerror_handler_, url);
   }
 
-  void OnMessageFromChromeFrame(int tab_handle, const std::string& message,
+  void OnMessageFromChromeFrame(const std::string& message,
                                 const std::string& origin,
                                 const std::string& target) {
     base::win::ScopedComPtr<IDispatch> message_event;
@@ -440,7 +437,7 @@ END_MSG_MAP()
     }
   }
 
-  virtual void OnTabbedOut(int tab_handle, bool reverse) {
+  virtual void OnTabbedOut(bool reverse) {
     DCHECK(m_bInPlaceActive);
 
     HWND parent = ::GetParent(m_hWnd);
@@ -451,7 +448,7 @@ END_MSG_MAP()
       control_site->OnFocus(FALSE);
   }
 
-  virtual void OnOpenURL(int tab_handle, const GURL& url_to_open,
+  virtual void OnOpenURL(const GURL& url_to_open,
                          const GURL& referrer, int open_disposition) {
     HostNavigate(url_to_open, referrer, open_disposition);
   }
@@ -480,8 +477,7 @@ END_MSG_MAP()
     return TRUE;
   }
 
-  virtual void OnAttachExternalTab(int tab_handle,
-      const IPC::AttachExternalTabParams& params) {
+  virtual void OnAttachExternalTab(const AttachExternalTabParams& params) {
     std::wstring wide_url = url_;
     GURL parsed_url(WideToUTF8(wide_url));
 
@@ -515,12 +511,11 @@ END_MSG_MAP()
     HostNavigate(GURL(url), GURL(), params.disposition);
   }
 
-  virtual void OnHandleContextMenu(int tab_handle, HANDLE menu_handle,
+  virtual void OnHandleContextMenu(HANDLE menu_handle,
                                    int align_flags,
-                                   const IPC::MiniContextMenuParams& params) {
+                                   const MiniContextMenuParams& params) {
     scoped_refptr<BasePlugin> ref(this);
-    ChromeFramePlugin<T>::OnHandleContextMenu(tab_handle, menu_handle,
-                                              align_flags, params);
+    ChromeFramePlugin<T>::OnHandleContextMenu(menu_handle, align_flags, params);
   }
 
   LRESULT OnCreate(UINT message, WPARAM wparam, LPARAM lparam,
@@ -567,7 +562,7 @@ END_MSG_MAP()
     FireOnChanged(DISPID_READYSTATE);
   }
 
-  virtual void OnCloseTab(int tab_handle) {
+  virtual void OnCloseTab() {
     Fire_onclose();
   }
 
@@ -1093,7 +1088,7 @@ END_MSG_MAP()
     return hr;
   }
 
-  virtual void OnAcceleratorPressed(int tab_handle, const MSG& accel_message) {
+  virtual void OnAcceleratorPressed(const MSG& accel_message) {
     DCHECK(m_spInPlaceSite != NULL);
     // Allow our host a chance to handle the accelerator.
     // This catches things like Ctrl+F, Ctrl+O etc, but not browser
@@ -1227,8 +1222,21 @@ END_MSG_MAP()
       http_headers.Set(referrer_header.c_str());
     }
 
-    web_browser2->Navigate2(url.AsInput(), &flags, &empty, &empty,
-                            http_headers.AsInput());
+    HRESULT hr = web_browser2->Navigate2(url.AsInput(), &flags, &empty, &empty,
+                                         http_headers.AsInput());
+    // If the current window is a popup window then attempting to open a new
+    // tab for the navigation will fail. We attempt to issue the navigation in
+    // a new window in this case.
+    // http://msdn.microsoft.com/en-us/library/aa752133(v=vs.85).aspx
+    if (FAILED(hr) && V_I4(&flags) != navOpenInNewWindow) {
+      V_I4(&flags) = navOpenInNewWindow;
+      hr = web_browser2->Navigate2(url.AsInput(), &flags, &empty, &empty,
+                                   http_headers.AsInput());
+
+      DLOG_IF(ERROR, FAILED(hr))
+          << "Navigate2 failed with error: "
+          << base::StringPrintf("0x%08X", hr);
+    }
   }
 
   void InitializeAutomationSettings() {
@@ -1273,8 +1281,6 @@ END_MSG_MAP()
   // Handle network requests when host network stack is used. Passed to the
   // automation client on initialization.
   scoped_ptr<UrlmonUrlRequestManager> url_fetcher_;
-
-  HINSTANCE prev_resource_instance_;
 };
 
 #endif  // CHROME_FRAME_CHROME_FRAME_ACTIVEX_BASE_H_

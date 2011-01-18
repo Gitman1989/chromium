@@ -41,7 +41,7 @@
 #include "base/ref_counted.h"
 #include "base/weak_ptr.h"
 #include "gfx/native_widget_types.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebNavigationPolicy.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebNavigationPolicy.h"
 #include "webkit/tools/test_shell/event_sending_controller.h"
 #include "webkit/tools/test_shell/layout_test_controller.h"
 #include "webkit/tools/test_shell/plain_text_controller.h"
@@ -373,9 +373,7 @@ public:
         WebKit::WebSpeechInputListener* listener);
     WebKit::WebSpeechInputControllerMock* speech_input_controller_mock();
 
-#if defined(ENABLE_CLIENT_BASED_GEOLOCATION)
     WebKit::WebGeolocationClientMock* geolocation_client_mock();
-#endif
 
 protected:
     void CreateDevToolsClient(TestShellDevToolsAgent* agent);
@@ -460,10 +458,8 @@ private:
         device_orientation_client_mock_;
     scoped_ptr<WebKit::WebSpeechInputControllerMock>
         speech_input_controller_mock_;
-
-#if defined(ENABLE_CLIENT_BASED_GEOLOCATION)
     scoped_ptr<WebKit::WebGeolocationClientMock> geolocation_client_mock_;
-#endif
+
     const TestParams* test_params_;
 
     // True while a test is preparing to run

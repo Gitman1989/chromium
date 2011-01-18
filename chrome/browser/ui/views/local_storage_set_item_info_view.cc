@@ -1,8 +1,8 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/local_storage_set_item_info_view.h"
+#include "chrome/browser/ui/views/local_storage_set_item_info_view.h"
 
 #include <algorithm>
 
@@ -47,7 +47,7 @@ void LocalStorageSetItemInfoView::EnableLocalStorageDisplay(bool enabled) {
 
 void LocalStorageSetItemInfoView::ClearLocalStorageDisplay() {
   std::wstring no_cookie_string =
-      l10n_util::GetString(IDS_COOKIES_COOKIE_NONESELECTED);
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_COOKIES_COOKIE_NONESELECTED));
   host_value_field_->SetText(no_cookie_string);
   key_value_field_->SetText(no_cookie_string);
   value_value_field_->SetText(no_cookie_string);
@@ -73,14 +73,15 @@ void LocalStorageSetItemInfoView::Init() {
   set_border(border);
 
   // TODO(jorlow): These strings are not quite right, but we're post-freeze.
-  views::Label* host_label = new views::Label(
-      l10n_util::GetString(IDS_COOKIES_COOKIE_DOMAIN_LABEL));
+  // http://crbug.com/68688
+  views::Label* host_label = new views::Label(UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_COOKIES_COOKIE_DOMAIN_LABEL)));
   host_value_field_ = new views::Textfield;
-  views::Label* key_label = new views::Label(
-      l10n_util::GetString(IDS_COOKIES_LOCAL_STORAGE_KEY_LABEL));
+  views::Label* key_label = new views::Label(UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_COOKIES_LOCAL_STORAGE_KEY_LABEL)));
   key_value_field_ = new views::Textfield;
-  views::Label* value_label = new views::Label(
-      l10n_util::GetString(IDS_COOKIES_LOCAL_STORAGE_VALUE_LABEL));
+  views::Label* value_label = new views::Label(UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_COOKIES_LOCAL_STORAGE_VALUE_LABEL)));
   value_value_field_ = new views::Textfield;
 
   using views::GridLayout;

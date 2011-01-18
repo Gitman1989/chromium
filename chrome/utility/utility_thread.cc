@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -23,12 +23,13 @@
 #include "printing/page_range.h"
 #include "printing/units.h"
 #include "third_party/skia/include/core/SkBitmap.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSerializedScriptValue.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSerializedScriptValue.h"
 #include "webkit/glue/idb_bindings.h"
 #include "webkit/glue/image_decoder.h"
 
 #if defined(OS_WIN)
 #include "app/win/iat_patch_function.h"
+#include "base/win/scoped_handle.h"
 #endif
 
 namespace {
@@ -51,7 +52,8 @@ UtilityThread::UtilityThread()
 UtilityThread::~UtilityThread() {
 }
 
-void UtilityThread::OnControlMessageReceived(const IPC::Message& msg) {
+bool UtilityThread::OnControlMessageReceived(const IPC::Message& msg) {
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(UtilityThread, msg)
     IPC_MESSAGE_HANDLER(UtilityMsg_UnpackExtension, OnUnpackExtension)
     IPC_MESSAGE_HANDLER(UtilityMsg_UnpackWebResource, OnUnpackWebResource)
@@ -65,7 +67,9 @@ void UtilityThread::OnControlMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(UtilityMsg_BatchMode_Finished, OnBatchModeFinished)
     IPC_MESSAGE_HANDLER(UtilityMsg_GetPrinterCapsAndDefaults,
                         OnGetPrinterCapsAndDefaults)
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
+  return handled;
 }
 
 void UtilityThread::OnUnpackExtension(const FilePath& extension_path) {
@@ -201,7 +205,7 @@ bool UtilityThread::RenderPDFToWinMetafile(
     printing::NativeMetafile* metafile,
     int* highest_rendered_page_number) {
   *highest_rendered_page_number = -1;
-  ScopedHandle file(pdf_file);
+  base::win::ScopedHandle file(pdf_file);
   FilePath pdf_module_path;
   PathService::Get(chrome::FILE_PDF_PLUGIN, &pdf_module_path);
   HMODULE pdf_module = GetModuleHandle(pdf_module_path.value().c_str());

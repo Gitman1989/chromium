@@ -10,8 +10,8 @@
 #include "base/file_util.h"
 #include "base/i18n/file_util_icu.h"
 #include "base/message_loop.h"
-#include "base/platform_thread.h"
-#include "base/thread_restrictions.h"
+#include "base/threading/platform_thread.h"
+#include "base/threading/thread_restrictions.h"
 #include "net/base/net_errors.h"
 
 namespace net {
@@ -39,64 +39,6 @@ public:
   int error;
 };
 
-// Comparator for sorting lister results. This uses the locale aware filename
-// comparison function on the filenames for sorting in the user's locale.
-// Static.
-bool DirectoryLister::CompareAlphaDirsFirst(const DirectoryListerData& a,
-                                            const DirectoryListerData& b) {
-  // Parent directory before all else.
-  if (file_util::IsDotDot(file_util::FileEnumerator::GetFilename(a.info)))
-    return true;
-  if (file_util::IsDotDot(file_util::FileEnumerator::GetFilename(b.info)))
-    return false;
-
-  // Directories before regular files.
-  bool a_is_directory = file_util::FileEnumerator::IsDirectory(a.info);
-  bool b_is_directory = file_util::FileEnumerator::IsDirectory(b.info);
-  if (a_is_directory != b_is_directory)
-    return a_is_directory;
-
-  return file_util::LocaleAwareCompareFilenames(
-      file_util::FileEnumerator::GetFilename(a.info),
-      file_util::FileEnumerator::GetFilename(b.info));
-}
-
-// Static.
-bool DirectoryLister::CompareDate(const DirectoryListerData& a,
-                                  const DirectoryListerData& b) {
-  // Parent directory before all else.
-  if (file_util::IsDotDot(file_util::FileEnumerator::GetFilename(a.info)))
-    return true;
-  if (file_util::IsDotDot(file_util::FileEnumerator::GetFilename(b.info)))
-    return false;
-
-  // Directories before regular files.
-  bool a_is_directory = file_util::FileEnumerator::IsDirectory(a.info);
-  bool b_is_directory = file_util::FileEnumerator::IsDirectory(b.info);
-  if (a_is_directory != b_is_directory)
-    return a_is_directory;
-#if defined(OS_POSIX)
-  return a.info.stat.st_mtime > b.info.stat.st_mtime;
-#elif defined(OS_WIN)
-  if (a.info.ftLastWriteTime.dwHighDateTime ==
-      b.info.ftLastWriteTime.dwHighDateTime) {
-    return a.info.ftLastWriteTime.dwLowDateTime >
-           b.info.ftLastWriteTime.dwLowDateTime;
-  } else {
-    return a.info.ftLastWriteTime.dwHighDateTime >
-           b.info.ftLastWriteTime.dwHighDateTime;
-  }
-#endif
-}
-
-// Comparator for sorting find result by paths. This uses the locale-aware
-// comparison function on the filenames for sorting in the user's locale.
-// Static.
-bool DirectoryLister::CompareFullPath(const DirectoryListerData& a,
-                                      const DirectoryListerData& b) {
-  return file_util::LocaleAwareCompareFilenames(a.path, b.path);
-}
-
 DirectoryLister::DirectoryLister(const FilePath& dir,
                                  DirectoryListerDelegate* delegate)
     : dir_(dir),
@@ -104,7 +46,7 @@ DirectoryLister::DirectoryLister(const FilePath& dir,
       delegate_(delegate),
       sort_(ALPHA_DIRS_FIRST),
       message_loop_(NULL),
-      thread_(kNullThreadHandle) {
+      thread_(base::kNullThreadHandle) {
   DCHECK(!dir.value().empty());
 }
 
@@ -117,17 +59,8 @@ DirectoryLister::DirectoryLister(const FilePath& dir,
       delegate_(delegate),
       sort_(sort),
       message_loop_(NULL),
-      thread_(kNullThreadHandle) {
+      thread_(base::kNullThreadHandle) {
   DCHECK(!dir.value().empty());
-}
-
-DirectoryLister::~DirectoryLister() {
-  if (thread_) {
-    // This is a bug and we should stop joining this thread.
-    // http://crbug.com/65331
-    base::ThreadRestrictions::ScopedAllowIO allow_io;
-    PlatformThread::Join(thread_);
-  }
 }
 
 bool DirectoryLister::Start() {
@@ -139,7 +72,7 @@ bool DirectoryLister::Start() {
 
   AddRef();  // the thread will release us when it is done
 
-  if (!PlatformThread::Create(0, this, &thread_)) {
+  if (!base::PlatformThread::Create(0, this, &thread_)) {
     Release();
     return false;
   }
@@ -154,8 +87,8 @@ void DirectoryLister::Cancel() {
     // This is a bug and we should stop joining this thread.
     // http://crbug.com/65331
     base::ThreadRestrictions::ScopedAllowIO allow_io;
-    PlatformThread::Join(thread_);
-    thread_ = kNullThreadHandle;
+    base::PlatformThread::Join(thread_);
+    thread_ = base::kNullThreadHandle;
   }
 }
 
@@ -214,6 +147,73 @@ void DirectoryLister::ThreadMain() {
   // Notify done
   Release();
   message_loop_->PostTask(FROM_HERE, e);
+}
+
+DirectoryLister::~DirectoryLister() {
+  if (thread_) {
+    // This is a bug and we should stop joining this thread.
+    // http://crbug.com/65331
+    base::ThreadRestrictions::ScopedAllowIO allow_io;
+    base::PlatformThread::Join(thread_);
+  }
+}
+
+// Comparator for sorting lister results. This uses the locale aware filename
+// comparison function on the filenames for sorting in the user's locale.
+// Static.
+bool DirectoryLister::CompareAlphaDirsFirst(const DirectoryListerData& a,
+                                            const DirectoryListerData& b) {
+  // Parent directory before all else.
+  if (file_util::IsDotDot(file_util::FileEnumerator::GetFilename(a.info)))
+    return true;
+  if (file_util::IsDotDot(file_util::FileEnumerator::GetFilename(b.info)))
+    return false;
+
+  // Directories before regular files.
+  bool a_is_directory = file_util::FileEnumerator::IsDirectory(a.info);
+  bool b_is_directory = file_util::FileEnumerator::IsDirectory(b.info);
+  if (a_is_directory != b_is_directory)
+    return a_is_directory;
+
+  return file_util::LocaleAwareCompareFilenames(
+      file_util::FileEnumerator::GetFilename(a.info),
+      file_util::FileEnumerator::GetFilename(b.info));
+}
+
+// Static.
+bool DirectoryLister::CompareDate(const DirectoryListerData& a,
+                                  const DirectoryListerData& b) {
+  // Parent directory before all else.
+  if (file_util::IsDotDot(file_util::FileEnumerator::GetFilename(a.info)))
+    return true;
+  if (file_util::IsDotDot(file_util::FileEnumerator::GetFilename(b.info)))
+    return false;
+
+  // Directories before regular files.
+  bool a_is_directory = file_util::FileEnumerator::IsDirectory(a.info);
+  bool b_is_directory = file_util::FileEnumerator::IsDirectory(b.info);
+  if (a_is_directory != b_is_directory)
+    return a_is_directory;
+#if defined(OS_POSIX)
+  return a.info.stat.st_mtime > b.info.stat.st_mtime;
+#elif defined(OS_WIN)
+  if (a.info.ftLastWriteTime.dwHighDateTime ==
+      b.info.ftLastWriteTime.dwHighDateTime) {
+    return a.info.ftLastWriteTime.dwLowDateTime >
+           b.info.ftLastWriteTime.dwLowDateTime;
+  } else {
+    return a.info.ftLastWriteTime.dwHighDateTime >
+           b.info.ftLastWriteTime.dwHighDateTime;
+  }
+#endif
+}
+
+// Comparator for sorting find result by paths. This uses the locale-aware
+// comparison function on the filenames for sorting in the user's locale.
+// Static.
+bool DirectoryLister::CompareFullPath(const DirectoryListerData& a,
+                                      const DirectoryListerData& b) {
+  return file_util::LocaleAwareCompareFilenames(a.path, b.path);
 }
 
 void DirectoryLister::OnReceivedData(const DirectoryListerData* data,

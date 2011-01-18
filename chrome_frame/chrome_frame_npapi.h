@@ -74,6 +74,7 @@ class ChromeFrameNPAPI
   NPError DestroyStream(NPStream* stream, NPReason reason);
 
   void Print(NPPrint* print_info);
+  void URLRedirectNotify(const char* url, int status, void* notify_data);
 
   // NPObject functions, which ensure that the plugin object is scriptable.
   static bool HasMethod(NPObject* obj, NPIdentifier name);
@@ -129,18 +130,16 @@ END_MSG_MAP()
   static void InitializeIdentifiers();
 
   bool PreProcessContextMenu(HMENU menu);
-  bool HandleContextMenuCommand(UINT cmd,
-                                const IPC::MiniContextMenuParams& params);
+  bool HandleContextMenuCommand(UINT cmd, const MiniContextMenuParams& params);
  protected:
   // Handler for accelerator messages passed on from the hosted chrome
   // instance.
-  virtual void OnAcceleratorPressed(int tab_handle, const MSG& accel_message);
-  virtual void OnTabbedOut(int tab_handle, bool reverse);
-  virtual void OnOpenURL(int tab_handle, const GURL& url,
-                         const GURL& referrer, int open_disposition);
-  virtual void OnLoad(int tab_handle, const GURL& url);
-  virtual void OnMessageFromChromeFrame(int tab_handle,
-                                        const std::string& message,
+  virtual void OnAcceleratorPressed(const MSG& accel_message);
+  virtual void OnTabbedOut(bool reverse);
+  virtual void OnOpenURL(const GURL& url, const GURL& referrer,
+                         int open_disposition);
+  virtual void OnLoad(const GURL& url);
+  virtual void OnMessageFromChromeFrame(const std::string& message,
                                         const std::string& origin,
                                         const std::string& target);
   // ChromeFrameDelegate overrides
@@ -153,7 +152,7 @@ END_MSG_MAP()
   virtual void OnGetEnabledExtensionsComplete(
       void* user_data,
       const std::vector<FilePath>& extension_directories);
-  virtual void OnCloseTab(int tab_handle);
+  virtual void OnCloseTab();
 
  private:
   void SubscribeToFocusEvents();

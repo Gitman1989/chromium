@@ -7,10 +7,10 @@
 #include <set>
 
 #include "app/l10n_util.h"
-#include "app/table_model_observer.h"
 #include "base/string_split.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
+#include "ui/base/models/table_model_observer.h"
 
 LanguageOrderTableModel::LanguageOrderTableModel()
     : observer_(NULL) {
@@ -35,16 +35,16 @@ void LanguageOrderTableModel::SetAcceptLanguagesString(
     observer_->OnModelChanged();
 }
 
-void LanguageOrderTableModel::SetObserver(TableModelObserver* observer) {
+void LanguageOrderTableModel::SetObserver(ui::TableModelObserver* observer) {
   observer_ = observer;
 }
 
-std::wstring LanguageOrderTableModel::GetText(int row, int column_id) {
+string16 LanguageOrderTableModel::GetText(int row, int column_id) {
   DCHECK(row >= 0 && row < RowCount());
   const std::string app_locale = g_browser_process->GetApplicationLocale();
-  return UTF16ToWide(l10n_util::GetDisplayNameForLocale(languages_.at(row),
-                                                        app_locale,
-                                                        true));
+  return l10n_util::GetDisplayNameForLocale(languages_.at(row),
+                                            app_locale,
+                                            true);
 }
 
 bool LanguageOrderTableModel::Add(const std::string& language) {

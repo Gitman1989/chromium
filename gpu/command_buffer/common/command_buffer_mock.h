@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,17 +14,14 @@ namespace gpu {
 // API to manage the put and get pointers.
 class MockCommandBuffer : public CommandBuffer {
  public:
-  MockCommandBuffer() {
-    ON_CALL(*this, GetRingBuffer())
-      .WillByDefault(testing::Return(Buffer()));
-    ON_CALL(*this, GetTransferBuffer(testing::_))
-      .WillByDefault(testing::Return(Buffer()));
-  }
+  MockCommandBuffer();
+  virtual ~MockCommandBuffer();
 
   MOCK_METHOD1(Initialize, bool(int32 size));
   MOCK_METHOD0(GetRingBuffer, Buffer());
   MOCK_METHOD0(GetState, State());
-  MOCK_METHOD1(Flush, State(int32 put_offset));
+  MOCK_METHOD1(Flush, void(int32 put_offset));
+  MOCK_METHOD1(FlushSync, State(int32 put_offset));
   MOCK_METHOD1(SetGetOffset, void(int32 get_offset));
   MOCK_METHOD1(CreateTransferBuffer, int32(size_t size));
   MOCK_METHOD1(DestroyTransferBuffer, void(int32 handle));

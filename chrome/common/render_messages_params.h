@@ -30,7 +30,7 @@
 #include "googleurl/src/gurl.h"
 #include "ipc/ipc_param_traits.h"
 #include "media/audio/audio_parameters.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebTextDirection.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebTextDirection.h"
 #include "webkit/glue/password_form.h"
 #include "webkit/glue/resource_type.h"
 #include "webkit/glue/webaccessibility.h"
@@ -459,7 +459,7 @@ struct ViewHostMsg_Resource_Request {
   // object).
   ResourceType::Type resource_type;
 
-  // Used by plugin->browser requests to get the correct URLRequestContext.
+  // Used by plugin->browser requests to get the correct net::URLRequestContext.
   uint32 request_context;
 
   // Indicates which frame (or worker context) the request is being loaded into,
@@ -520,6 +520,9 @@ struct ViewMsg_Print_Params {
   // Should only print currently selected text.
   bool selection_only;
 
+  // Does the printer support alpha blending?
+  bool supports_alpha_blend;
+
   // Warning: do not compare document_cookie.
   bool Equals(const ViewMsg_Print_Params& rhs) const;
 
@@ -552,7 +555,7 @@ struct ViewMsg_PrintPages_Params {
   std::vector<int> pages;
 };
 
-//Parameters to describe a rendered document.
+// Parameters to describe a rendered document.
 struct ViewHostMsg_DidPreviewDocument_Params {
   ViewHostMsg_DidPreviewDocument_Params();
   ~ViewHostMsg_DidPreviewDocument_Params();

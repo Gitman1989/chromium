@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,6 +9,7 @@
 #include "base/string16.h"
 #include "base/task.h"
 #include "gfx/font.h"
+#include "ui/base/models/simple_menu_model.h"
 #include "views/border.h"
 #include "views/controls/textfield/native_textfield_wrapper.h"
 #include "views/view.h"
@@ -20,21 +21,23 @@ class Canvas;
 namespace views {
 
 class KeyEvent;
+class Menu2;
 class TextfieldViewsModel;
 
 // A views/skia only implementation of NativeTextfieldWrapper.
 // No platform specific code is used.
 // Following features are not yet supported.
 // * BIDI
-// * Clipboard  (Cut & Paste).
-// * Context Menu.
 // * IME/i18n support.
 // * X selection (only if we want to support).
 // * STYLE_MULTILINE, STYLE_LOWERCASE text. (These are not used in
 //   chromeos, so we may not need them)
 // * Double click to select word, and triple click to select all.
+// * Undo/Redo
 class NativeTextfieldViews : public views::View,
-                             public NativeTextfieldWrapper {
+                             public views::ContextMenuController,
+                             public NativeTextfieldWrapper,
+                             public ui::SimpleMenuModel::Delegate {
  public:
   explicit NativeTextfieldViews(Textfield* parent);
   ~NativeTextfieldViews();
@@ -46,11 +49,16 @@ class NativeTextfieldViews : public views::View,
   virtual bool OnKeyPressed(const views::KeyEvent& e);
   virtual bool OnKeyReleased(const views::KeyEvent& e);
   virtual void Paint(gfx::Canvas* canvas);
+  virtual void DidChangeBounds(const gfx::Rect& previous,
+                               const gfx::Rect& current);
   virtual void WillGainFocus();
   virtual void DidGainFocus();
   virtual void WillLoseFocus();
-  virtual void DidChangeBounds(const gfx::Rect& previous,
-                               const gfx::Rect& current);
+
+  // views::ContextMenuController overrides:
+  virtual void ShowContextMenu(View* source,
+                               const gfx::Point& p,
+                               bool is_mouse_gesture);
 
   // NativeTextfieldWrapper overrides:
   virtual string16 GetText() const;
@@ -66,14 +74,25 @@ class NativeTextfieldViews : public views::View,
   virtual void UpdateFont();
   virtual void UpdateIsPassword();
   virtual void UpdateEnabled();
-  virtual bool IsPassword();
   virtual gfx::Insets CalculateInsets();
   virtual void UpdateHorizontalMargins();
   virtual void UpdateVerticalMargins();
-  virtual void SetFocus();
+  virtual bool SetFocus();
   virtual View* GetView();
   virtual gfx::NativeView GetTestingHandle() const;
   virtual bool IsIMEComposing() const;
+  virtual bool HandleKeyPressed(const views::KeyEvent& e);
+  virtual bool HandleKeyReleased(const views::KeyEvent& e);
+  virtual void HandleWillGainFocus();
+  virtual void HandleDidGainFocus();
+  virtual void HandleWillLoseFocus();
+
+  // ui::SimpleMenuModel::Delegate overrides
+  virtual bool IsCommandIdChecked(int command_id) const;
+  virtual bool IsCommandIdEnabled(int command_id) const;
+  virtual bool GetAcceleratorForCommandId(int command_id,
+                                          ui::Accelerator* accelerator);
+  virtual void ExecuteCommand(int command_id);
 
   // class name of internal
   static const char kViewClassName[];
@@ -140,6 +159,13 @@ class NativeTextfieldViews : public views::View,
   // Find a cusor position for given |point| in this views coordinates.
   size_t FindCursorPosition(const gfx::Point& point) const;
 
+  // Utility function to inform the parent textfield (and its controller if any)
+  // that the text in the textfield has changed.
+  void PropagateTextChange();
+
+  // Utility function to create the context menu if one does not already exist.
+  void InitContextMenuIfRequired();
+
   // The parent textfield, the owner of this object.
   Textfield* textfield_;
 
@@ -163,6 +189,10 @@ class NativeTextfieldViews : public views::View,
 
   // A runnable method factory for callback to update the cursor.
   ScopedRunnableMethodFactory<NativeTextfieldViews> cursor_timer_;
+
+  // Context menu and its content list for the textfield.
+  scoped_ptr<ui::SimpleMenuModel> context_menu_contents_;
+  scoped_ptr<Menu2> context_menu_menu_;
 
   DISALLOW_COPY_AND_ASSIGN(NativeTextfieldViews);
 };

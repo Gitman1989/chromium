@@ -5,8 +5,8 @@
 #include <stack>
 
 #include "base/message_loop.h"
-#include "base/thread.h"
-#include "base/waitable_event.h"
+#include "base/threading/thread.h"
+#include "base/synchronization/waitable_event.h"
 #include "net/base/net_errors.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "webkit/appcache/appcache.h"

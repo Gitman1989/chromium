@@ -1,19 +1,20 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/infobars/infobars.h"
+#include "chrome/browser/ui/views/infobars/infobars.h"
 
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
-#include "app/slide_animation.h"
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/views/event_utils.h"
-#include "chrome/browser/views/infobars/infobar_container.h"
+#include "chrome/browser/ui/views/event_utils.h"
+#include "chrome/browser/ui/views/infobars/infobar_container.h"
+#include "chrome/browser/ui/views/infobars/infobar_text_button.h"
 #include "gfx/canvas.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "ui/base/animation/slide_animation.h"
 #include "views/background.h"
 #include "views/controls/button/image_button.h"
 #include "views/controls/button/native_button.h"
@@ -23,7 +24,7 @@
 #include "views/widget/widget.h"
 
 #if defined(OS_WIN)
-#include "app/win_util.h"
+#include "app/win/hwnd_util.h"
 #endif
 
 // static
@@ -96,10 +97,12 @@ InfoBar::InfoBar(InfoBarDelegate* delegate)
 
   switch (delegate->GetInfoBarType()) {
     case InfoBarDelegate::WARNING_TYPE:
-      SetAccessibleName(l10n_util::GetString(IDS_ACCNAME_INFOBAR_WARNING));
+      SetAccessibleName(
+          l10n_util::GetStringUTF16(IDS_ACCNAME_INFOBAR_WARNING));
       break;
     case InfoBarDelegate::PAGE_ACTION_TYPE:
-      SetAccessibleName(l10n_util::GetString(IDS_ACCNAME_INFOBAR_PAGE_ACTION));
+      SetAccessibleName(
+          l10n_util::GetStringUTF16(IDS_ACCNAME_INFOBAR_PAGE_ACTION));
       break;
     default:
       NOTREACHED();
@@ -113,11 +116,12 @@ InfoBar::InfoBar(InfoBarDelegate* delegate)
                           rb.GetBitmapNamed(IDR_CLOSE_BAR_H));
   close_button_->SetImage(views::CustomButton::BS_PUSHED,
                           rb.GetBitmapNamed(IDR_CLOSE_BAR_P));
-  close_button_->SetAccessibleName(l10n_util::GetString(IDS_ACCNAME_CLOSE));
+  close_button_->SetAccessibleName(
+      l10n_util::GetStringUTF16(IDS_ACCNAME_CLOSE));
   AddChildView(close_button_);
 
-  animation_.reset(new SlideAnimation(this));
-  animation_->SetTweenType(Tween::LINEAR);
+  animation_.reset(new ui::SlideAnimation(this));
+  animation_->SetTweenType(ui::Tween::LINEAR);
 }
 
 InfoBar::~InfoBar() {
@@ -207,14 +211,14 @@ void InfoBar::FocusWillChange(View* focused_before, View* focused_now) {
   }
 }
 
-// InfoBar, AnimationDelegate implementation: ----------------------------------
+// InfoBar, ui::AnimationDelegate implementation: ------------------------------
 
-void InfoBar::AnimationProgressed(const Animation* animation) {
+void InfoBar::AnimationProgressed(const ui::Animation* animation) {
   if (container_)
     container_->InfoBarAnimated(true);
 }
 
-void InfoBar::AnimationEnded(const Animation* animation) {
+void InfoBar::AnimationEnded(const ui::Animation* animation) {
   if (container_) {
     container_->InfoBarAnimated(false);
 
@@ -243,7 +247,7 @@ void InfoBar::AnimateClose() {
   // Do not restore focus (and active state with it) on Windows if some other
   // top-level window became active.
   if (GetWidget() &&
-      !win_util::DoesWindowBelongToActiveWindow(GetWidget()->GetNativeView())) {
+      !app::win::DoesWindowBelongToActiveWindow(GetWidget()->GetNativeView())) {
     restore_focus = false;
   }
 #endif  // defined(OS_WIN)
@@ -466,18 +470,12 @@ ConfirmInfoBar::ConfirmInfoBar(ConfirmInfoBarDelegate* delegate)
       cancel_button_(NULL),
       link_(NULL),
       initialized_(false) {
-  ok_button_ = new views::NativeButton(this,
-      UTF16ToWideHack(delegate->GetButtonLabel(
-                          ConfirmInfoBarDelegate::BUTTON_OK)));
-  ok_button_->SetAccessibleName(ok_button_->label());
-  if (delegate->GetButtons() & ConfirmInfoBarDelegate::BUTTON_OK_DEFAULT)
-    ok_button_->SetAppearsAsDefault(true);
-  if (delegate->NeedElevation(ConfirmInfoBarDelegate::BUTTON_OK))
-    ok_button_->SetNeedElevation(true);
-  cancel_button_ = new views::NativeButton(
-      this, UTF16ToWideHack(
-          delegate->GetButtonLabel(ConfirmInfoBarDelegate::BUTTON_CANCEL)));
-  cancel_button_->SetAccessibleName(cancel_button_->label());
+  ok_button_ = InfoBarTextButton::Create(this,
+      delegate->GetButtonLabel(ConfirmInfoBarDelegate::BUTTON_OK));
+  ok_button_->SetAccessibleName(WideToUTF16Hack(ok_button_->text()));
+  cancel_button_ = InfoBarTextButton::Create(this,
+      delegate->GetButtonLabel(ConfirmInfoBarDelegate::BUTTON_CANCEL));
+  cancel_button_->SetAccessibleName(WideToUTF16Hack(cancel_button_->text()));
 
   // Set up the link.
   link_ = new views::Link;

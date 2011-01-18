@@ -187,10 +187,13 @@ class Browser : public TabHandlerDelegate,
   }
 #endif
 
+  // |window()| will return NULL if called before |CreateBrowserWindow()|
+  // is done.
   BrowserWindow* window() const { return window_; }
   ToolbarModel* toolbar_model() { return &toolbar_model_; }
   const SessionID& session_id() const { return session_id_; }
   CommandUpdater* command_updater() { return &command_updater_; }
+  bool block_command_execution() const { return block_command_execution_; }
 
   // Get the FindBarController for this browser, creating it if it does not
   // yet exist.
@@ -705,7 +708,8 @@ class Browser : public TabHandlerDelegate,
   virtual void TabMoved(TabContentsWrapper* contents,
                         int from_index,
                         int to_index);
-  virtual void TabReplacedAt(TabContentsWrapper* old_contents,
+  virtual void TabReplacedAt(TabStripModel* tab_strip_model,
+                             TabContentsWrapper* old_contents,
                              TabContentsWrapper* new_contents,
                              int index);
   virtual void TabPinnedStateChanged(TabContentsWrapper* contents, int index);
@@ -717,6 +721,8 @@ class Browser : public TabHandlerDelegate,
  private:
   FRIEND_TEST_ALL_PREFIXES(BrowserTest, NoTabsInPopups);
   FRIEND_TEST_ALL_PREFIXES(BrowserTest, ConvertTabToAppShortcut);
+  FRIEND_TEST_ALL_PREFIXES(BrowserTest, OpenAppWindowLikeNtp);
+  FRIEND_TEST_ALL_PREFIXES(BrowserTest, AppIdSwitch);
 
   // Used to describe why a tab is being detached. This is used by
   // TabDetachedAtImpl.
@@ -905,8 +911,13 @@ class Browser : public TabHandlerDelegate,
   // Cleans up state appropriately when we are trying to close the browser and
   // the tab has finished firing its unload handler. We also use this in the
   // cases where a tab crashes or hangs even if the beforeunload/unload haven't
-  // successfully fired.
-  void ClearUnloadState(TabContents* tab);
+  // successfully fired. If |process_now| is true |ProcessPendingTabs| is
+  // invoked immediately, otherwise it is invoked after a delay (PostTask).
+  //
+  // Typically you'll want to pass in true for |process_now|. Passing in true
+  // may result in deleting |tab|. If you know that shouldn't happen (because of
+  // the state of the stack), pass in false.
+  void ClearUnloadState(TabContents* tab, bool process_now);
 
   // In-progress download termination handling /////////////////////////////////
 
@@ -995,12 +1006,6 @@ class Browser : public TabHandlerDelegate,
 
   // Opens view-source tab for given tab contents.
   void ViewSource(TabContentsWrapper* tab);
-
-  // Inserts contents dupe next to the original contents. This method is used
-  // to insert duplicate tab and view source tab next to the original tab.
-  void InsertContentsDupe(
-      TabContentsWrapper* original_content,
-      TabContentsWrapper* clone_content);
 
   // Data members /////////////////////////////////////////////////////////////
 

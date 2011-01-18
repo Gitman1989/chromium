@@ -1,12 +1,13 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "app/gfx/gl/gl_implementation.h"
 #include "base/basictypes.h"
 #include "base/file_path.h"
-#include "base/platform_thread.h"
 #include "base/string_util.h"
+#include "base/test/test_timeouts.h"
+#include "base/threading/platform_thread.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/test_launcher_utils.h"
 #include "chrome/test/ui/ui_layout_test.h"
@@ -46,7 +47,7 @@ class MediaTest : public UITest {
     const std::wstring kFailed = L"FAILED";
     const std::wstring kError = L"ERROR";
     for (int i = 0; i < 10; ++i) {
-      PlatformThread::Sleep(sleep_timeout_ms());
+      base::PlatformThread::Sleep(TestTimeouts::action_timeout_ms());
       const std::wstring& title = GetActiveTabTitle();
       if (title == kPlaying || title == kFailed ||
           StartsWith(title, kError, true))
@@ -65,7 +66,7 @@ class MediaTest : public UITest {
   }
 };
 
-#if defined(OS_LINUX)
+#if defined(OS_LINUX) || defined(OS_WIN)
 // Test appears to be fine on linux, but let's first change to flaky and
 // see how that goes.
 // http://crbug.com/56364

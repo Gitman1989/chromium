@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -125,6 +125,12 @@ SafeBrowsingProtocolManager::SafeBrowsingProtocolManager(
     version_ = version_info.Version();
 }
 
+// static
+void SafeBrowsingProtocolManager::RecordGetHashResult(ResultType result_type) {
+  UMA_HISTOGRAM_ENUMERATION("SB2.GetHashResult", result_type,
+                            GET_HASH_RESULT_MAX);
+}
+
 SafeBrowsingProtocolManager::~SafeBrowsingProtocolManager() {
   // Delete in-progress SafeBrowsing requests.
   STLDeleteContainerPairFirstPointers(hash_requests_.begin(),
@@ -195,7 +201,7 @@ void SafeBrowsingProtocolManager::GetNextUpdate() {
 void SafeBrowsingProtocolManager::OnURLFetchComplete(
     const URLFetcher* source,
     const GURL& url,
-    const URLRequestStatus& status,
+    const net::URLRequestStatus& status,
     int response_code,
     const ResponseCookies& cookies,
     const std::string& data) {
@@ -225,9 +231,9 @@ void SafeBrowsingProtocolManager::OnURLFetchComplete(
       // For tracking our GetHash false positive (204) rate, compared to real
       // (200) responses.
       if (response_code == 200)
-        UMA_HISTOGRAM_COUNTS("SB2.GetHash200", 1);
+        RecordGetHashResult(GET_HASH_STATUS_200);
       else
-        UMA_HISTOGRAM_COUNTS("SB2.GetHash204", 1);
+        RecordGetHashResult(GET_HASH_STATUS_204);
       can_cache = true;
       gethash_error_count_ = 0;
       gethash_back_off_mult_ = 1;
@@ -249,7 +255,7 @@ void SafeBrowsingProtocolManager::OnURLFetchComplete(
       }
     } else {
       HandleGetHashError(Time::Now());
-      if (status.status() == URLRequestStatus::FAILED) {
+      if (status.status() == net::URLRequestStatus::FAILED) {
         VLOG(1) << "SafeBrowsing GetHash request for: " << source->url()
                 << " failed with os error: " << status.os_error();
       } else {
@@ -323,7 +329,7 @@ void SafeBrowsingProtocolManager::OnURLFetchComplete(
       if (request_type_ == CHUNK_REQUEST)
         chunk_request_urls_.clear();
       UpdateFinished(false);
-      if (status.status() == URLRequestStatus::FAILED) {
+      if (status.status() == net::URLRequestStatus::FAILED) {
         VLOG(1) << "SafeBrowsing request for: " << source->url()
                 << " failed with os error: " << status.os_error();
       } else {
@@ -411,7 +417,7 @@ bool SafeBrowsingProtocolManager::HandleServiceResponse(const GURL& url,
       scoped_ptr<SBChunkList> chunks(new SBChunkList);
       UMA_HISTOGRAM_COUNTS("SB2.ChunkSize", length);
       update_size_ += length;
-      if (!parser.ParseChunk(data, length,
+      if (!parser.ParseChunk(chunk_url.list_name, data, length,
                              client_key_, chunk_url.mac,
                              &re_key, chunks.get())) {
 #ifndef NDEBUG

@@ -16,7 +16,7 @@ cr.define('options', function() {
   function ContentSettings() {
     this.activeNavTab = null;
     OptionsPage.call(this, 'content', templateData.contentSettingsPage,
-                     'contentSettingsPage');
+                     'content-settings-page');
   }
 
   cr.addSingletonGetter(ContentSettings);
@@ -30,7 +30,7 @@ cr.define('options', function() {
       chrome.send('getContentFilterSettings');
 
       var exceptionsButtons =
-          this.pageDiv.querySelectorAll('.exceptionsListButton');
+          this.pageDiv.querySelectorAll('.exceptions-list-button');
       for (var i = 0; i < exceptionsButtons.length; i++) {
         exceptionsButtons[i].onclick = function(event) {
           ContentSettingsExceptionsArea.getInstance().showList(
@@ -98,11 +98,7 @@ cr.define('options', function() {
         document.querySelector('div[contentType=' + type + ']' +
                                ' list[mode=normal]');
 
-    exceptionsList.reset();
-    for (var i = 0; i < list.length; i++) {
-      exceptionsList.addException(list[i]);
-    }
-    exceptionsList.redraw();
+    exceptionsList.setExceptions(list);
   };
 
   ContentSettings.setOTRExceptions = function(type, list) {
@@ -111,12 +107,7 @@ cr.define('options', function() {
                                ' list[mode=otr]');
 
     exceptionsList.parentNode.classList.remove('hidden');
-
-    exceptionsList.reset();
-    for (var i = 0; i < list.length; i++) {
-      exceptionsList.addException(list[i]);
-    }
-    exceptionsList.redraw();
+    exceptionsList.setExceptions(list);
   };
 
   /**
@@ -142,6 +133,10 @@ cr.define('options', function() {
         document.querySelector('div[contentType=' + type + '] ' +
                                'list[mode=' + mode + ']');
     exceptionsList.patternValidityCheckComplete(pattern, valid);
+  };
+
+  ContentSettings.setClearLocalDataOnShutdownLabel = function(label) {
+    $('clear-cookies-on-exit-label').innerText = label;
   };
 
   // Export

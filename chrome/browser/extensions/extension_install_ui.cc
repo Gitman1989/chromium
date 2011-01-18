@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -21,7 +21,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/tabs/tab_strip_model.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_action.h"
 #include "chrome/common/extensions/extension_icon_set.h"
@@ -34,11 +33,11 @@
 #include "grit/theme_resources.h"
 
 #if defined(OS_MACOSX)
-#include "chrome/browser/ui/cocoa/extension_installed_bubble_bridge.h"
+#include "chrome/browser/ui/cocoa/extensions/extension_installed_bubble_bridge.h"
 #endif
 
 #if defined(TOOLKIT_VIEWS)
-#include "chrome/browser/views/extensions/extension_installed_bubble.h"
+#include "chrome/browser/ui/views/extensions/extension_installed_bubble.h"
 #endif
 
 #if defined(TOOLKIT_GTK)
@@ -77,7 +76,22 @@ ExtensionInstallUI::ExtensionInstallUI(Profile* profile)
       extension_(NULL),
       delegate_(NULL),
       prompt_type_(NUM_PROMPT_TYPES),
-      ALLOW_THIS_IN_INITIALIZER_LIST(tracker_(this)) {}
+      ALLOW_THIS_IN_INITIALIZER_LIST(tracker_(this)) {
+  // Remember the current theme in case the user presses undo.
+  if (profile_) {
+    const Extension* previous_theme = profile_->GetTheme();
+    if (previous_theme)
+      previous_theme_id_ = previous_theme->id();
+#if defined(TOOLKIT_GTK)
+    // On Linux, we also need to take the user's system settings into account
+    // to undo theme installation.
+    previous_use_system_theme_ =
+        GtkThemeProvider::GetFrom(profile_)->UseGtkTheme();
+#else
+    DCHECK(!previous_use_system_theme_);
+#endif
+  }
+}
 
 ExtensionInstallUI::~ExtensionInstallUI() {
 }
@@ -92,20 +106,6 @@ void ExtensionInstallUI::ConfirmInstall(Delegate* delegate,
   // immediately installed, and then we show an infobar (see OnInstallSuccess)
   // to allow the user to revert if they don't like it.
   if (extension->is_theme()) {
-    // Remember the current theme in case the user pressed undo.
-    const Extension* previous_theme = profile_->GetTheme();
-    if (previous_theme)
-      previous_theme_id_ = previous_theme->id();
-
-#if defined(TOOLKIT_GTK)
-    // On Linux, we also need to take the user's system settings into account
-    // to undo theme installation.
-    previous_use_system_theme_ =
-        GtkThemeProvider::GetFrom(profile_)->UseGtkTheme();
-#else
-    DCHECK(!previous_use_system_theme_);
-#endif
-
     delegate->InstallUIProceed();
     return;
   }

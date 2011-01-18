@@ -4,8 +4,8 @@
 
 #include "views/controls/button/native_button.h"
 
-#include "app/keyboard_codes.h"
 #include "base/i18n/rtl.h"
+#include "ui/base/keycodes/keyboard_codes.h"
 #include "views/controls/native/native_view_host.h"
 
 #if defined(OS_WIN)
@@ -62,7 +62,7 @@ NativeButton::~NativeButton() {
 }
 
 void NativeButton::SetLabel(const std::wstring& label) {
-  label_ = label;
+  label_ = WideToUTF16Hack(label);
 
   // Even though we create a flipped HWND for a native button when the locale
   // is right-to-left, Windows does not render text for the button using a
@@ -80,31 +80,27 @@ void NativeButton::SetLabel(const std::wstring& label) {
     native_wrapper_->UpdateLabel();
 
   // Update the accessible name whenever the label changes.
-  SetAccessibleName(label);
+  SetAccessibleName(WideToUTF16Hack(label));
   PreferredSizeChanged();
 }
 
 void NativeButton::SetIsDefault(bool is_default) {
   if (is_default == is_default_)
     return;
-  if (is_default)
-    AddAccelerator(Accelerator(app::VKEY_RETURN, false, false, false));
+  is_default_ = is_default;
+  if (is_default_)
+    AddAccelerator(Accelerator(ui::VKEY_RETURN, false, false, false));
   else
-    RemoveAccelerator(Accelerator(app::VKEY_RETURN, false, false, false));
-  SetAppearsAsDefault(is_default);
+    RemoveAccelerator(Accelerator(ui::VKEY_RETURN, false, false, false));
+  if (native_wrapper_)
+    native_wrapper_->UpdateDefault();
+  PreferredSizeChanged();
 }
 
 void NativeButton::SetNeedElevation(bool need_elevation) {
   need_elevation_ = need_elevation;
   if (native_wrapper_)
     native_wrapper_->UpdateLabel();
-  PreferredSizeChanged();
-}
-
-void NativeButton::SetAppearsAsDefault(bool appears_as_default) {
-  is_default_ = appears_as_default;
-  if (native_wrapper_)
-    native_wrapper_->UpdateDefault();
   PreferredSizeChanged();
 }
 

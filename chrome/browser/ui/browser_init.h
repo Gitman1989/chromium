@@ -53,7 +53,7 @@ class BrowserInit {
   }
 
   template <class AutomationProviderClass>
-  static void CreateAutomationProvider(const std::string& channel_id,
+  static bool CreateAutomationProvider(const std::string& channel_id,
                                        Profile* profile,
                                        size_t expected_tabs);
 
@@ -126,6 +126,7 @@ class BrowserInit {
 
    private:
     FRIEND_TEST_ALL_PREFIXES(BrowserTest, RestorePinnedTabs);
+    FRIEND_TEST_ALL_PREFIXES(BrowserTest, AppIdSwitch);
 
     // If the process was launched with the web application command line flags,
     // e.g. --app=http://www.google.com/ or --app_id=... return true.

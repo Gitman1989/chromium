@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 #include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "app/l10n_util.h"
 #include "base/basictypes.h"
@@ -19,7 +20,6 @@
 #include "chrome/browser/chromeos/cros/input_method_library.h"
 #include "chrome/browser/chromeos/input_method/input_method_util.h"
 #include "chrome/browser/metrics/user_metrics.h"
-#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/browser.h"
@@ -196,18 +196,18 @@ ListValue* LanguageOptionsHandler::GetLanguageList(
   // In theory, we should be able to create a map that is sorted by
   // display names using ICU comparator, but doing it is hard, thus we'll
   // use an auxiliary vector to achieve the same result.
-  typedef std::pair<std::string, std::wstring> LanguagePair;
-  typedef std::map<std::wstring, LanguagePair> LanguageMap;
+  typedef std::pair<std::string, string16> LanguagePair;
+  typedef std::map<string16, LanguagePair> LanguageMap;
   LanguageMap language_map;
   // The auxiliary vector mentioned above.
-  std::vector<std::wstring> display_names;
+  std::vector<string16> display_names;
 
   // Build the list of display names, and build the language map.
   for (std::set<std::string>::const_iterator iter = language_codes.begin();
        iter != language_codes.end(); ++iter) {
-    const std::wstring display_name =
+    const string16 display_name =
         input_method::GetLanguageDisplayNameFromCode(*iter);
-    const std::wstring native_display_name =
+    const string16 native_display_name =
         input_method::GetLanguageNativeDisplayNameFromCode(*iter);
     display_names.push_back(display_name);
     language_map[display_name] =
@@ -216,8 +216,8 @@ ListValue* LanguageOptionsHandler::GetLanguageList(
   DCHECK_EQ(display_names.size(), language_map.size());
 
   // Sort display names using locale specific sorter.
-  l10n_util::SortStrings(g_browser_process->GetApplicationLocale(),
-                         &display_names);
+  l10n_util::SortStrings16(g_browser_process->GetApplicationLocale(),
+                           &display_names);
 
   // Build the language list from the language map.
   ListValue* language_list = new ListValue();
@@ -225,8 +225,8 @@ ListValue* LanguageOptionsHandler::GetLanguageList(
     const LanguagePair& pair = language_map[display_names[i]];
     DictionaryValue* dictionary = new DictionaryValue();
     dictionary->SetString("code",  pair.first);
-    dictionary->SetString("displayName", WideToUTF16Hack(display_names[i]));
-    dictionary->SetString("nativeDisplayName", WideToUTF16Hack(pair.second));
+    dictionary->SetString("displayName", display_names[i]);
+    dictionary->SetString("nativeDisplayName", pair.second);
     language_list->Append(dictionary);
   }
 
@@ -289,18 +289,7 @@ void LanguageOptionsHandler::UiLanguageChangeCallback(
   const std::string action = StringPrintf(
       "LanguageOptions_UiLanguageChange_%s", language_code.c_str());
   UserMetrics::RecordComputedAction(action);
-
-  // We maintain kApplicationLocale property in both a global storage
-  // and user's profile.  Global property determines locale of login screen,
-  // while user's profile determines his personal locale preference.
-  PrefService* prefs[] = {
-      g_browser_process->local_state(),
-      dom_ui_->GetProfile()->GetPrefs()
-  };
-  for (size_t i = 0; i < arraysize(prefs); ++i) {
-    prefs[i]->SetString(prefs::kApplicationLocale, language_code);
-    prefs[i]->SavePersistentPrefs();
-  }
+  dom_ui_->GetProfile()->ChangeApplicationLocale(language_code, false);
   dom_ui_->CallJavascriptFunction(
       L"options.LanguageOptions.uiLanguageSaved");
 }

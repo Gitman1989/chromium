@@ -5,9 +5,7 @@
 #include "chrome/browser/notifications/notification_exceptions_table_model.h"
 
 #include "app/l10n_util.h"
-#include "app/table_model_observer.h"
 #include "base/auto_reset.h"
-#include "base/utf_string_conversions.h"
 #include "chrome/common/content_settings.h"
 #include "chrome/common/content_settings_helper.h"
 #include "chrome/common/content_settings_types.h"
@@ -15,6 +13,7 @@
 #include "chrome/common/notification_type.h"
 #include "chrome/common/url_constants.h"
 #include "grit/generated_resources.h"
+#include "ui/base/models/table_model_observer.h"
 
 struct NotificationExceptionsTableModel::Entry {
   Entry(const GURL& origin, ContentSetting setting);
@@ -71,30 +70,30 @@ int NotificationExceptionsTableModel::RowCount() {
   return static_cast<int>(entries_.size());
 }
 
-std::wstring NotificationExceptionsTableModel::GetText(int row,
-                                                       int column_id) {
+string16 NotificationExceptionsTableModel::GetText(int row,
+                                                   int column_id) {
   const Entry& entry = entries_[row];
   if (column_id == IDS_EXCEPTIONS_HOSTNAME_HEADER) {
-    return content_settings_helper::OriginToWString(entry.origin);
+    return content_settings_helper::OriginToString16(entry.origin);
   }
 
   if (column_id == IDS_EXCEPTIONS_ACTION_HEADER) {
     switch (entry.setting) {
       case CONTENT_SETTING_ALLOW:
-        return l10n_util::GetString(IDS_EXCEPTIONS_ALLOW_BUTTON);
+        return l10n_util::GetStringUTF16(IDS_EXCEPTIONS_ALLOW_BUTTON);
       case CONTENT_SETTING_BLOCK:
-        return l10n_util::GetString(IDS_EXCEPTIONS_BLOCK_BUTTON);
+        return l10n_util::GetStringUTF16(IDS_EXCEPTIONS_BLOCK_BUTTON);
       default:
         break;
     }
   }
 
   NOTREACHED();
-  return std::wstring();
+  return string16();
 }
 
 void NotificationExceptionsTableModel::SetObserver(
-    TableModelObserver* observer) {
+    ui::TableModelObserver* observer) {
   observer_ = observer;
 }
 

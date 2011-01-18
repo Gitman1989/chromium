@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,6 +12,7 @@
 #include "grit/webkit_strings.h"
 #include "skia/ext/platform_canvas.h"
 #include "ppapi/c/pp_resource.h"
+#include "ppapi/c/private/ppb_pdf.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "unicode/usearch.h"
 #include "webkit/glue/webkit_glue.h"
@@ -19,7 +20,6 @@
 #include "webkit/plugins/ppapi/plugin_module.h"
 #include "webkit/plugins/ppapi/ppapi_plugin_instance.h"
 #include "webkit/plugins/ppapi/ppb_image_data_impl.h"
-#include "webkit/plugins/ppapi/ppb_pdf.h"
 #include "webkit/plugins/ppapi/var.h"
 
 namespace webkit {
@@ -28,8 +28,8 @@ namespace ppapi {
 #if defined(OS_LINUX)
 class PrivateFontFile : public Resource {
  public:
-  PrivateFontFile(PluginModule* module, int fd)
-      : Resource(module),
+  PrivateFontFile(PluginInstance* instance, int fd)
+      : Resource(instance),
         fd_(fd) {
   }
   virtual ~PrivateFontFile() {
@@ -82,9 +82,10 @@ static const ResourceImageInfo kResourceImageMap[] = {
       IDR_PDF_THUMBNAIL_NUM_BACKGROUND },
 };
 
-PP_Var GetLocalizedString(PP_Module module_id, PP_ResourceString string_id) {
-  PluginModule* module = ResourceTracker::Get()->GetModule(module_id);
-  if (!module)
+PP_Var GetLocalizedString(PP_Instance instance_id,
+                          PP_ResourceString string_id) {
+  PluginInstance* instance = ResourceTracker::Get()->GetInstance(instance_id);
+  if (!instance)
     return PP_MakeUndefined();
 
   std::string rv;
@@ -98,10 +99,11 @@ PP_Var GetLocalizedString(PP_Module module_id, PP_ResourceString string_id) {
     NOTREACHED();
   }
 
-  return StringVar::StringToPPVar(module, rv);
+  return StringVar::StringToPPVar(instance->module(), rv);
 }
 
-PP_Resource GetResourceImage(PP_Module module_id, PP_ResourceImage image_id) {
+PP_Resource GetResourceImage(PP_Instance instance_id,
+                             PP_ResourceImage image_id) {
   int res_id = 0;
   for (size_t i = 0; i < arraysize(kResourceImageMap); ++i) {
     if (kResourceImageMap[i].pp_id == image_id) {
@@ -115,10 +117,11 @@ PP_Resource GetResourceImage(PP_Module module_id, PP_ResourceImage image_id) {
   SkBitmap* res_bitmap =
       ResourceBundle::GetSharedInstance().GetBitmapNamed(res_id);
 
-  PluginModule* module = ResourceTracker::Get()->GetModule(module_id);
-  if (!module)
+  PluginInstance* instance = ResourceTracker::Get()->GetInstance(instance_id);
+  if (!instance)
     return 0;
-  scoped_refptr<PPB_ImageData_Impl> image_data(new PPB_ImageData_Impl(module));
+  scoped_refptr<PPB_ImageData_Impl> image_data(
+      new PPB_ImageData_Impl(instance));
   if (!image_data->Init(PPB_ImageData_Impl::GetNativeImageDataFormat(),
                         res_bitmap->width(), res_bitmap->height(), false)) {
     return 0;
@@ -139,12 +142,12 @@ PP_Resource GetResourceImage(PP_Module module_id, PP_ResourceImage image_id) {
 }
 
 PP_Resource GetFontFileWithFallback(
-    PP_Module module_id,
+    PP_Instance instance_id,
     const PP_FontDescription_Dev* description,
     PP_PrivateFontCharset charset) {
 #if defined(OS_LINUX)
-  PluginModule* module = ResourceTracker::Get()->GetModule(module_id);
-  if (!module)
+  PluginInstance* instance = ResourceTracker::Get()->GetInstance(instance_id);
+  if (!instance)
     return 0;
 
   scoped_refptr<StringVar> face_name(StringVar::FromPPVar(description->face));
@@ -159,7 +162,7 @@ PP_Resource GetFontFileWithFallback(
   if (fd == -1)
     return 0;
 
-  scoped_refptr<PrivateFontFile> font(new PrivateFontFile(module, fd));
+  scoped_refptr<PrivateFontFile> font(new PrivateFontFile(instance, fd));
 
   return font->GetReference();
 #else
@@ -184,7 +187,7 @@ bool GetFontTableForPrivateFontFile(PP_Resource font_file,
 #endif
 }
 
-void SearchString(PP_Module module,
+void SearchString(PP_Instance instance,
                   const unsigned short* input_string,
                   const unsigned short* input_term,
                   bool case_sensitive,

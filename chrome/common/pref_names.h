@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -27,6 +27,8 @@ extern const char kURLsToRestoreOnStartup[];
 extern const char kApplicationLocale[];
 #if defined(OS_CHROMEOS)
 extern const char kApplicationLocaleBackup[];
+extern const char kApplicationLocaleOverride[];
+extern const char kApplicationLocaleAccepted[];
 #endif
 
 extern const char kDefaultCharset[];
@@ -173,7 +175,6 @@ extern const char kDeleteCache[];
 extern const char kDeleteCookies[];
 extern const char kDeletePasswords[];
 extern const char kDeleteFormData[];
-extern const char kDeleteLSOData[];
 extern const char kClearPluginLSODataEnabled[];
 extern const char kEnableSpellCheck[];
 extern const char kEnabledLabsExperiments[];
@@ -211,6 +212,7 @@ extern const char kShowOmniboxSearchHint[];
 extern const char kDesktopNotificationDefaultContentSetting[];
 extern const char kDesktopNotificationAllowedOrigins[];
 extern const char kDesktopNotificationDeniedOrigins[];
+extern const char kDesktopNotificationPosition[];
 extern const char kDefaultContentSettings[];
 extern const char kPerHostContentSettings[];  // OBSOLETE
 extern const char kContentSettingsVersion[];
@@ -218,7 +220,6 @@ extern const char kContentSettingsPatterns[];
 extern const char kBlockThirdPartyCookies[];
 extern const char kBlockNonsandboxedPlugins[];
 extern const char kClearSiteDataOnExit[];
-extern const char kClearPluginLSODataOnExit[];
 extern const char kDefaultZoomLevel[];
 extern const char kPerHostZoomLevels[];
 extern const char kAutoFillEnabled[];
@@ -411,8 +412,7 @@ extern const char kCloudPrintPrintSystemSettings[];
 extern const char kRemotingHasSetupCompleted[];
 extern const char kRemotingHostEnabled[];
 
-extern const char kNoProxyServer[];
-extern const char kProxyAutoDetect[];
+extern const char kProxyMode[];
 extern const char kProxyServer[];
 extern const char kProxyPacUrl[];
 extern const char kProxyBypassList[];

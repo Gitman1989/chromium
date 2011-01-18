@@ -4,7 +4,7 @@
 
 #include "base/compiler_specific.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebBindings.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebBindings.h"
 #include "webkit/glue/cpp_variant.h"
 
 using WebKit::WebBindings;
@@ -273,7 +273,7 @@ TEST(CppVariantTest, SetsSimpleTypesAndValues) {
   CppVariant cpp;
   cpp.Set(true);
   EXPECT_EQ(NPVariantType_Bool, cpp.type);
-  EXPECT_EQ(true, cpp.value.boolValue);
+  EXPECT_TRUE(cpp.value.boolValue);
 
   cpp.Set(5);
   EXPECT_EQ(NPVariantType_Int32, cpp.type);

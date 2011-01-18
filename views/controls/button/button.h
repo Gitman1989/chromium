@@ -39,9 +39,10 @@ class Button : public View {
   void SetAccessibleKeyboardShortcut(const std::wstring& shortcut);
 
   // Overridden from View:
-  virtual bool GetTooltipText(const gfx::Point& p, std::wstring* tooltip);
-  virtual std::wstring GetAccessibleKeyboardShortcut();
-  virtual AccessibilityTypes::Role GetAccessibleRole();
+  virtual bool GetTooltipText(const gfx::Point& p,
+                              std::wstring* tooltip) OVERRIDE;
+  virtual string16 GetAccessibleKeyboardShortcut() OVERRIDE;
+  virtual AccessibilityTypes::Role GetAccessibleRole() OVERRIDE;
 
  protected:
   // Construct the Button with a Listener. The listener can be NULL. This can be
@@ -57,10 +58,10 @@ class Button : public View {
 
  private:
   // The text shown in a tooltip.
-  std::wstring tooltip_text_;
+  string16 tooltip_text_;
 
   // Accessibility data.
-  std::wstring accessible_shortcut_;
+  string16 accessible_shortcut_;
 
   // The id tag associated with this button. Used to disambiguate buttons in
   // the ButtonListener implementation.

@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -22,8 +22,11 @@ const int kInfobarSlideCloseStep = 6;
 
 }  // namespace
 
-void OnSliderTimer(InfobarWindow::Host* host) {
-  host->UpdateLayout();
+VOID CALLBACK OnSliderTimer(InfobarWindow::Host* host,
+                            HWND /*hwnd*/, UINT /*uMsg*/,
+                            UINT_PTR /*idEvent*/, DWORD /*dwTime*/) {
+  if (host)
+    host->UpdateLayout();
 }
 
 InfobarWindow::InfobarWindow(InfobarType type)
@@ -41,9 +44,10 @@ InfobarWindow::InfobarWindow(InfobarType type)
 }
 
 InfobarWindow::~InfobarWindow() {
-  StopTimer();
-  if (timer_stub_ != NULL)
+  if (StopTimer() && timer_stub_ != NULL)
     FunctionStub::Destroy(timer_stub_);
+  else if (timer_stub_ != NULL)
+    timer_stub_->set_argument(NULL);  // Couldn't stop it, so orphan and disable
 }
 
 void InfobarWindow::SetHost(Host* host) {
@@ -137,6 +141,13 @@ void InfobarWindow::StartSlidingTowards(int target_height) {
 }
 
 bool InfobarWindow::StartTimer() {
+  if (timer_id_ != 0)
+    return true;
+
+  DCHECK(timer_stub_ != NULL);
+  if (timer_stub_ == NULL)
+    return false;
+
   timer_id_ = ::SetTimer(NULL,
                          timer_id_,
                          kInfobarSlidingTimerIntervalMs,
@@ -147,8 +158,17 @@ bool InfobarWindow::StartTimer() {
   return timer_id_ != 0;
 }
 
-void InfobarWindow::StopTimer() {
-  ::KillTimer(NULL, timer_id_);
+bool InfobarWindow::StopTimer() {
+  if (timer_id_ == 0)
+    return true;
+
+  if (::KillTimer(NULL, timer_id_)) {
+    timer_id_ = 0;
+    return true;
+  }
+
+  DPLOG(ERROR) << "Failure in KillTimer.";
+  return false;
 }
 
 int InfobarWindow::CalculateHeight() {

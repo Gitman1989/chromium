@@ -7,11 +7,11 @@
 #include "base/command_line.h"
 #include "base/file_util.h"
 #include "base/path_service.h"
-#include "base/platform_thread.h"
 #include "base/process.h"
 #include "base/process_util.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
+#include "base/threading/platform_thread.h"
 #include "base/win/registry.h"
 #include "chrome/installer/util/browser_distribution.h"
 #include "chrome/installer/util/google_update_constants.h"
@@ -130,13 +130,13 @@ void ChromeMiniInstaller::InstallFullInstaller(bool over_install) {
 // Installs the Chrome mini-installer, checks the registry and shortcuts.
 void ChromeMiniInstaller::InstallMiniInstaller(bool over_install,
                                                const std::wstring& path) {
-  std::wstring exe_name = file_util::GetFilenameFromPath(path);
   printf("\nChrome will be installed at %ls level\n", install_type_.c_str());
   printf("\nWill proceed with the test only if this path exists: %ls\n\n",
          path.c_str());
-  ASSERT_TRUE(file_util::PathExists(FilePath(path))) << path
-                                                     << " does not exist.";
-  LaunchInstaller(path, exe_name.c_str());
+
+  FilePath exe_path(path);
+  ASSERT_TRUE(file_util::PathExists(exe_path)) << path << " does not exist.";
+  LaunchInstaller(path, exe_path.BaseName().value().c_str());
   BrowserDistribution* dist = BrowserDistribution::GetDistribution();
   ASSERT_TRUE(CheckRegistryKey(dist->GetVersionKey())) << dist->GetVersionKey()
                                                        << " does not exist.";
@@ -307,7 +307,7 @@ bool ChromeMiniInstaller::CloseUninstallWindow() {
     window_name = mini_installer_constants::kChromeUninstallDialogName;
   while (hndl == NULL && timer < 5000) {
     hndl = FindWindow(NULL, window_name.c_str());
-    PlatformThread::Sleep(200);
+    base::PlatformThread::Sleep(200);
     timer = timer + 200;
   }
 
@@ -338,7 +338,7 @@ bool ChromeMiniInstaller::CloseChromeBrowser() {
     while (!handle && timer < 10000) {
       handle = FindWindowEx(NULL, handle, L"Chrome_WidgetWin_0", NULL);
       if (!handle) {
-        PlatformThread::Sleep(100);
+        base::PlatformThread::Sleep(100);
         timer = timer + 100;
       }
     }
@@ -348,7 +348,7 @@ bool ChromeMiniInstaller::CloseChromeBrowser() {
     LRESULT _result = SendMessage(handle, WM_CLOSE, 1, 0);
     if (_result != 0)
       return false;
-    PlatformThread::Sleep(1000);
+    base::PlatformThread::Sleep(1000);
     timer = timer + 1000;
   }
   if (base::GetProcessCount(installer::kChromeExe, NULL) > 0) {
@@ -382,7 +382,7 @@ bool ChromeMiniInstaller::CheckRegistryKeyOnUninstall(
   int timer = 0;
   while ((key.Open(GetRootRegistryKey(), key_path.c_str(), KEY_ALL_ACCESS)) &&
          (timer < 20000)) {
-    PlatformThread::Sleep(200);
+    base::PlatformThread::Sleep(200);
     timer = timer + 200;
   }
   return CheckRegistryKey(key_path);
@@ -601,7 +601,7 @@ void ChromeMiniInstaller::VerifyInstall(bool over_install) {
       MiniInstallerTestUtil::VerifyProcessLaunch(
           installer::kChromeExe, true);
     }
-    PlatformThread::Sleep(800);
+    base::PlatformThread::Sleep(800);
     FindChromeShortcut();
     LaunchAndCloseChrome(over_install);
   }
@@ -645,7 +645,7 @@ void ChromeMiniInstaller::LaunchBrowser(const std::wstring& launch_path,
                                         bool expected_status) {
   base::LaunchApp(L"\"" + launch_path + L"\"" + L" " + launch_args,
       false, false, NULL);
-  PlatformThread::Sleep(1000);
+  base::PlatformThread::Sleep(1000);
   MiniInstallerTestUtil::VerifyProcessLaunch(process_name.c_str(),
                                              expected_status);
 }

@@ -7,7 +7,8 @@
     # TODO: remove this helper when we have loops in GYP
     'apply_locales_cmd': ['python', '<(DEPTH)/build/apply_locales.py',],
     'chromium_code': 1,
-    'grit_info_cmd': ['python', '../tools/grit/grit_info.py',],
+    'grit_info_cmd': ['python', '../tools/grit/grit_info.py',
+                      '<@(grit_defines)'],
     'grit_out_dir': '<(SHARED_INTERMEDIATE_DIR)/app',
     'grit_cmd': ['python', '../tools/grit/grit.py'],
     'localizable_resources': [
@@ -20,6 +21,8 @@
   ],
   'targets': [
     {
+        'win_util_unittest.cc',
+            'os_exchange_data_win_unittest.cc',
       'target_name': 'app_strings',
       'msvs_guid': 'AE9BF4A2-19C5-49D8-BB1A-F28496DD7051',
       'type': 'none',
@@ -36,16 +39,9 @@
             '>!@(<(apply_locales_cmd) \'<(grit_out_dir)/<(RULE_INPUT_ROOT)/<(RULE_INPUT_ROOT)_ZZLOCALE.pak\' <(locales))',
           ],
           'action': ['<@(grit_cmd)', '-i', '<(RULE_INPUT_PATH)',
-            'build', '-o', '<(grit_out_dir)/<(RULE_INPUT_ROOT)'],
+            'build', '-o', '<(grit_out_dir)/<(RULE_INPUT_ROOT)',
+            '<@(grit_defines)'],
           'message': 'Generating resources from <(RULE_INPUT_PATH)',
-          'conditions': [
-            ['use_titlecase_in_grd_files==1', {
-              'action': ['-D', 'use_titlecase'],
-            }],
-            ['chromeos==1', {
-              'action': ['-D', 'chromeos'],
-            }],
-          ],
         },
       ],
       'sources': [
@@ -81,12 +77,8 @@
           ],
           'action': ['<@(grit_cmd)',
                      '-i', '<(input_path)', 'build',
-                     '-o', '<(grit_out_dir)/app_resources'],
-          'conditions': [
-            ['toolkit_views==1', {
-              'action': ['-D', 'toolkit_views'],
-            }],
-          ],
+                     '-o', '<(grit_out_dir)/app_resources',
+                     '<@(grit_defines)' ],
           'message': 'Generating resources from <(input_path)',
         },
       ],

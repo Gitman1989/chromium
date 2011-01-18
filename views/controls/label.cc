@@ -68,7 +68,7 @@ int Label::GetHeightForWidth(int w) {
 
   w = std::max(0, w - GetInsets().width());
   int h = font_.GetHeight();
-  gfx::CanvasSkia::SizeStringInt(WideToUTF16Hack(text_), font_, &w, &h,
+  gfx::CanvasSkia::SizeStringInt(text_, font_, &w, &h,
                                  ComputeMultiLineFlags());
   return h + GetInsets().height();
 }
@@ -104,21 +104,21 @@ void Label::SetFont(const gfx::Font& font) {
 }
 
 void Label::SetText(const std::wstring& text) {
-  text_ = text;
+  text_ = WideToUTF16Hack(text);
   url_set_ = false;
   text_size_valid_ = false;
-  SetAccessibleName(text);
+  SetAccessibleName(WideToUTF16Hack(text));
   PreferredSizeChanged();
   SchedulePaint();
 }
 
 const std::wstring Label::GetText() const {
-  return url_set_ ? UTF8ToWide(url_.spec()) : text_;
+  return url_set_ ? UTF8ToWide(url_.spec()) : UTF16ToWideHack(text_);
 }
 
 void Label::SetURL(const GURL& url) {
   url_ = url;
-  text_ = UTF8ToWide(url_.spec());
+  text_ = UTF8ToUTF16(url_.spec());
   url_set_ = true;
   text_size_valid_ = false;
   PreferredSizeChanged();
@@ -126,7 +126,7 @@ void Label::SetURL(const GURL& url) {
 }
 
 const GURL Label::GetURL() const {
-  return url_set_ ? url_ : GURL(WideToUTF8(text_));
+  return url_set_ ? url_ : GURL(UTF16ToUTF8(text_));
 }
 
 void Label::SetHorizontalAlignment(Alignment alignment) {
@@ -172,7 +172,7 @@ void Label::SetElideInMiddle(bool elide_in_middle) {
 }
 
 void Label::SetTooltipText(const std::wstring& tooltip_text) {
-  tooltip_text_ = tooltip_text;
+  tooltip_text_ = WideToUTF16Hack(tooltip_text);
 }
 
 bool Label::GetTooltipText(const gfx::Point& p, std::wstring* tooltip) {
@@ -180,14 +180,14 @@ bool Label::GetTooltipText(const gfx::Point& p, std::wstring* tooltip) {
 
   // If a tooltip has been explicitly set, use it.
   if (!tooltip_text_.empty()) {
-    tooltip->assign(tooltip_text_);
+    tooltip->assign(UTF16ToWideHack(tooltip_text_));
     return true;
   }
 
   // Show the full text if the text does not fit.
   if (!is_multi_line_ &&
       (font_.GetStringWidth(text_) > GetAvailableRect().width())) {
-    *tooltip = text_;
+    *tooltip = UTF16ToWideHack(text_);
     return true;
   }
   return false;
@@ -233,12 +233,14 @@ void Label::SizeToFit(int max_width) {
   DCHECK(is_multi_line_);
 
   std::vector<std::wstring> lines;
-  base::SplitString(text_, L'\n', &lines);
+  base::SplitString(UTF16ToWideHack(text_), L'\n', &lines);
 
   int label_width = 0;
   for (std::vector<std::wstring>::const_iterator iter = lines.begin();
-       iter != lines.end(); ++iter)
-    label_width = std::max(label_width, font_.GetStringWidth(*iter));
+       iter != lines.end(); ++iter) {
+    label_width = std::max(label_width,
+                           font_.GetStringWidth(WideToUTF16Hack(*iter)));
+  }
 
   label_width += GetInsets().width();
 
@@ -269,7 +271,7 @@ void Label::PaintText(gfx::Canvas* canvas,
                       const std::wstring& text,
                       const gfx::Rect& text_bounds,
                       int flags) {
-  canvas->DrawStringInt(text, font_, color_,
+  canvas->DrawStringInt(WideToUTF16Hack(text), font_, color_,
                         text_bounds.x(), text_bounds.y(),
                         text_bounds.width(), text_bounds.height(), flags);
 
@@ -295,8 +297,7 @@ gfx::Size Label::GetTextSize() const {
     int flags = ComputeMultiLineFlags();
     if (!is_multi_line_)
       flags |= gfx::Canvas::NO_ELLIPSIS;
-    gfx::CanvasSkia::SizeStringInt(WideToUTF16Hack(text_), font_, &w, &h,
-                                   flags);
+    gfx::CanvasSkia::SizeStringInt(text_, font_, &w, &h, flags);
     text_size_.SetSize(w, h);
     text_size_valid_ = true;
   }
@@ -444,7 +445,7 @@ void Label::CalculateDrawStringParams(std::wstring* paint_text,
 //    *paint_text = UTF16ToWideHack(gfx::ElideText(WideToUTF16Hack(text_),
 //        font_, GetAvailableRect().width(), true));
   } else {
-    *paint_text = text_;
+    *paint_text = UTF16ToWideHack(text_);
   }
 
   *text_bounds = GetTextBounds();

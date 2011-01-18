@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -33,9 +33,11 @@
 #include "chrome/common/net/url_fetcher.h"
 #include "googleurl/src/gurl.h"
 
-class SkBitmap;
 class URLRequestContextGetter;
+
+namespace net {
 class URLRequestStatus;
+}  // namespace net
 
 namespace safe_browsing {
 
@@ -58,7 +60,7 @@ class ClientSideDetectionService : public URLFetcher::Delegate {
   // From the URLFetcher::Delegate interface.
   virtual void OnURLFetchComplete(const URLFetcher* source,
                                   const GURL& url,
-                                  const URLRequestStatus& status,
+                                  const net::URLRequestStatus& status,
                                   int response_code,
                                   const ResponseCookies& cookies,
                                   const std::string& data);
@@ -72,17 +74,15 @@ class ClientSideDetectionService : public URLFetcher::Delegate {
   void GetModelFile(OpenModelDoneCallback* callback);
 
   // Sends a request to the SafeBrowsing servers with the potentially phishing
-  // URL, the client-side phishing score, and a low resolution thumbnail.  The
-  // |phishing_url| scheme should be HTTP.  This method takes ownership of the
-  // |callback| and calls it once the result has come back from the server or
-  // if an error occurs during the fetch.  If an error occurs the phishing
-  // verdict will always be false.  The callback is always called after
-  // SendClientReportPhishingRequest() returns and on the same thread as
-  // SendClientReportPhishingRequest() was called.
+  // URL and the client-side phishing score.  The |phishing_url| scheme should
+  // be HTTP.  This method takes ownership of the |callback| and calls it once
+  // the result has come back from the server or if an error occurs during the
+  // fetch.  If an error occurs the phishing verdict will always be false.  The
+  // callback is always called after SendClientReportPhishingRequest() returns
+  // and on the same thread as SendClientReportPhishingRequest() was called.
   void SendClientReportPhishingRequest(
       const GURL& phishing_url,
       double score,
-      SkBitmap thumbnail,
       ClientReportPhishingRequestCallback* callback);
 
  private:
@@ -139,7 +139,6 @@ class ClientSideDetectionService : public URLFetcher::Delegate {
   void StartClientReportPhishingRequest(
       const GURL& phishing_url,
       double score,
-      SkBitmap thumbnail,
       ClientReportPhishingRequestCallback* callback);
 
   // Starts getting the model file.
@@ -149,7 +148,7 @@ class ClientSideDetectionService : public URLFetcher::Delegate {
   // model.
   void HandleModelResponse(const URLFetcher* source,
                            const GURL& url,
-                           const URLRequestStatus& status,
+                           const net::URLRequestStatus& status,
                            int response_code,
                            const ResponseCookies& cookies,
                            const std::string& data);
@@ -158,7 +157,7 @@ class ClientSideDetectionService : public URLFetcher::Delegate {
   // sending the client-side phishing request.
   void HandlePhishingVerdict(const URLFetcher* source,
                              const GURL& url,
-                             const URLRequestStatus& status,
+                             const net::URLRequestStatus& status,
                              int response_code,
                              const ResponseCookies& cookies,
                              const std::string& data);

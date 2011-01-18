@@ -4,24 +4,25 @@
 
 #include "chrome/browser/renderer_host/render_widget_host.h"
 
-#include "app/keyboard_codes.h"
 #include "base/auto_reset.h"
 #include "base/command_line.h"
 #include "base/message_loop.h"
 #include "base/metrics/histogram.h"
 #include "chrome/browser/accessibility/browser_accessibility_state.h"
+#include "chrome/browser/metrics/user_metrics.h"
 #include "chrome/browser/renderer_host/backing_store.h"
 #include "chrome/browser/renderer_host/backing_store_manager.h"
 #include "chrome/browser/renderer_host/render_process_host.h"
 #include "chrome/browser/renderer_host/render_widget_helper.h"
-#include "chrome/browser/renderer_host/render_widget_host_painting_observer.h"
 #include "chrome/browser/renderer_host/render_widget_host_view.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/common/result_codes.h"
 #include "chrome/common/native_web_keyboard_event.h"
 #include "chrome/common/notification_service.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/common/render_messages_params.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebCompositionUnderline.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCompositionUnderline.h"
+#include "ui/base/keycodes/keyboard_codes.h"
 #include "webkit/glue/webcursor.h"
 #include "webkit/plugins/npapi/webplugin.h"
 
@@ -30,8 +31,8 @@
 #endif
 
 #if defined (OS_MACOSX)
-#include "third_party/WebKit/WebKit/chromium/public/WebScreenInfo.h"
-#include "third_party/WebKit/WebKit/chromium/public/mac/WebScreenInfoFactory.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebScreenInfo.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/mac/WebScreenInfoFactory.h"
 #endif
 
 using base::Time;
@@ -72,7 +73,6 @@ RenderWidgetHost::RenderWidgetHost(RenderProcessHost* process,
       renderer_accessible_(false),
       view_(NULL),
       process_(process),
-      painting_observer_(NULL),
       routing_id_(routing_id),
       is_loading_(false),
       is_hidden_(false),
@@ -149,7 +149,8 @@ bool RenderWidgetHost::IsRenderView() const {
   return false;
 }
 
-void RenderWidgetHost::OnMessageReceived(const IPC::Message &msg) {
+bool RenderWidgetHost::OnMessageReceived(const IPC::Message &msg) {
+  bool handled = true;
   bool msg_is_ok = true;
   IPC_BEGIN_MESSAGE_MAP_EX(RenderWidgetHost, msg, msg_is_ok)
     IPC_MESSAGE_HANDLER(ViewHostMsg_RenderViewReady, OnMsgRenderViewReady)
@@ -190,13 +191,15 @@ void RenderWidgetHost::OnMessageReceived(const IPC::Message &msg) {
     IPC_MESSAGE_HANDLER(ViewHostMsg_DestroyPluginContainer,
                         OnMsgDestroyPluginContainer)
 #endif
-    IPC_MESSAGE_UNHANDLED_ERROR()
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP_EX()
 
   if (!msg_is_ok) {
     // The message de-serialization failed. Kill the renderer process.
-    process()->ReceivedBadMessage(msg.type());
+    UserMetrics::RecordAction(UserMetricsAction("BadMessageTerminate_RWH"));
+    process()->ReceivedBadMessage();
   }
+  return handled;
 }
 
 bool RenderWidgetHost::Send(IPC::Message* msg) {
@@ -537,8 +540,8 @@ void RenderWidgetHost::ForwardKeyboardEvent(
     return;
 
   if (key_event.type == WebKeyboardEvent::Char &&
-      (key_event.windowsKeyCode == app::VKEY_RETURN ||
-       key_event.windowsKeyCode == app::VKEY_SPACE)) {
+      (key_event.windowsKeyCode == ui::VKEY_RETURN ||
+       key_event.windowsKeyCode == ui::VKEY_SPACE)) {
     OnUserGesture();
   }
 
@@ -709,13 +712,11 @@ void RenderWidgetHost::ImeSetComposition(
 }
 
 void RenderWidgetHost::ImeConfirmComposition(const string16& text) {
-  Send(new ViewMsg_ImeSetComposition(routing_id(),
-            text, std::vector<WebKit::WebCompositionUnderline>(), 0, 0));
-  Send(new ViewMsg_ImeConfirmComposition(routing_id()));
+  Send(new ViewMsg_ImeConfirmComposition(routing_id(), text));
 }
 
 void RenderWidgetHost::ImeConfirmComposition() {
-  Send(new ViewMsg_ImeConfirmComposition(routing_id()));
+  Send(new ViewMsg_ImeConfirmComposition(routing_id(), string16()));
 }
 
 void RenderWidgetHost::ImeCancelComposition() {
@@ -795,17 +796,22 @@ void RenderWidgetHost::OnMsgRequestMove(const gfx::Rect& pos) {
 }
 
 void RenderWidgetHost::OnMsgPaintAtSizeAck(int tag, const gfx::Size& size) {
-  if (painting_observer_) {
-    painting_observer_->WidgetDidReceivePaintAtSizeAck(this, tag, size);
-  }
+  PaintAtSizeAckDetails details = {tag, size};
+  gfx::Size size_details = size;
+  NotificationService::current()->Notify(
+      NotificationType::RENDER_WIDGET_HOST_DID_RECEIVE_PAINT_AT_SIZE_ACK,
+      Source<RenderWidgetHost>(this),
+      Details<PaintAtSizeAckDetails>(&details));
 }
 
 void RenderWidgetHost::OnMsgUpdateRect(
     const ViewHostMsg_UpdateRect_Params& params) {
   TimeTicks paint_start = TimeTicks::Now();
 
-  if (paint_observer_.get())
-    paint_observer_->RenderWidgetHostWillPaint(this);
+  NotificationService::current()->Notify(
+      NotificationType::RENDER_WIDGET_HOST_WILL_PAINT,
+      Source<RenderWidgetHost>(this),
+      NotificationService::NoDetails());
 
   // Update our knowledge of the RenderWidget's size.
   current_size_ = params.view_size;
@@ -850,7 +856,9 @@ void RenderWidgetHost::OnMsgUpdateRect(
     if (dib) {
       if (dib->size() < size) {
         DLOG(WARNING) << "Transport DIB too small for given rectangle";
-        process()->ReceivedBadMessage(ViewHostMsg_UpdateRect::ID);
+        UserMetrics::RecordAction(UserMetricsAction(
+            "BadMessageTerminate_RWH1"));
+        process()->ReceivedBadMessage();
       } else {
         // Scroll the backing store.
         if (!params.scroll_rect.IsEmpty()) {
@@ -895,8 +903,10 @@ void RenderWidgetHost::OnMsgUpdateRect(
     }
   }
 
-  if (paint_observer_.get())
-    paint_observer_->RenderWidgetHostDidPaint(this);
+  NotificationService::current()->Notify(
+      NotificationType::RENDER_WIDGET_HOST_DID_PAINT,
+      Source<RenderWidgetHost>(this),
+      NotificationService::NoDetails());
 
   // If we got a resize ack, then perhaps we have another resize to send?
   if (is_resize_ack && view_) {
@@ -905,8 +915,10 @@ void RenderWidgetHost::OnMsgUpdateRect(
     WasResized();
   }
 
-  if (painting_observer_)
-    painting_observer_->WidgetDidUpdateBackingStore(this);
+  NotificationService::current()->Notify(
+      NotificationType::RENDER_WIDGET_HOST_DID_UPDATE_BACKING_STORE,
+      Source<RenderWidgetHost>(this),
+      NotificationService::NoDetails());
 
   // Log the time delta for processing a paint message.
   TimeDelta delta = TimeTicks::Now() - paint_start;
@@ -924,7 +936,8 @@ void RenderWidgetHost::OnMsgInputEventAck(const IPC::Message& message) {
   void* iter = NULL;
   int type = 0;
   if (!message.ReadInt(&iter, &type) || (type < WebInputEvent::Undefined)) {
-    process()->ReceivedBadMessage(message.type());
+    UserMetrics::RecordAction(UserMetricsAction("BadMessageTerminate_RWH2"));
+    process()->ReceivedBadMessage();
   } else if (type == WebInputEvent::MouseMove) {
     mouse_move_pending_ = false;
 
@@ -937,8 +950,10 @@ void RenderWidgetHost::OnMsgInputEventAck(const IPC::Message& message) {
     ProcessWheelAck();
   } else if (WebInputEvent::isKeyboardEventType(type)) {
     bool processed = false;
-    if (!message.ReadBool(&iter, &processed))
-      process()->ReceivedBadMessage(message.type());
+    if (!message.ReadBool(&iter, &processed)) {
+      UserMetrics::RecordAction(UserMetricsAction("BadMessageTerminate_RWH3"));
+      process()->ReceivedBadMessage();
+    }
 
     ProcessKeyboardEventAck(type, processed);
   }
@@ -958,12 +973,14 @@ void RenderWidgetHost::ProcessWheelAck() {
 
 void RenderWidgetHost::OnMsgFocus() {
   // Only RenderViewHost can deal with that message.
-  process()->ReceivedBadMessage(ViewHostMsg_Focus::ID);
+  UserMetrics::RecordAction(UserMetricsAction("BadMessageTerminate_RWH4"));
+  process()->ReceivedBadMessage();
 }
 
 void RenderWidgetHost::OnMsgBlur() {
   // Only RenderViewHost can deal with that message.
-  process()->ReceivedBadMessage(ViewHostMsg_Blur::ID);
+  UserMetrics::RecordAction(UserMetricsAction("BadMessageTerminate_RWH5"));
+  process()->ReceivedBadMessage();
 }
 
 void RenderWidgetHost::OnMsgSetCursor(const WebCursor& cursor) {

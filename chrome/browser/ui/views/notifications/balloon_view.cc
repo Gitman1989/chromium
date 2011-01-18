@@ -1,14 +1,13 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/notifications/balloon_view.h"
+#include "chrome/browser/ui/views/notifications/balloon_view.h"
 
 #include <vector>
 
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
-#include "app/slide_animation.h"
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/notifications/balloon.h"
@@ -19,8 +18,8 @@
 #include "chrome/browser/renderer_host/render_view_host.h"
 #include "chrome/browser/renderer_host/render_widget_host_view.h"
 #include "chrome/browser/themes/browser_theme_provider.h"
-#include "chrome/browser/views/bubble_border.h"
-#include "chrome/browser/views/notifications/balloon_view_host.h"
+#include "chrome/browser/ui/views/bubble_border.h"
+#include "chrome/browser/ui/views/notifications/balloon_view_host.h"
 #include "chrome/common/notification_details.h"
 #include "chrome/common/notification_source.h"
 #include "chrome/common/notification_type.h"
@@ -29,6 +28,7 @@
 #include "gfx/native_widget_types.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "ui/base/animation/slide_animation.h"
 #include "views/controls/button/button.h"
 #include "views/controls/button/image_button.h"
 #include "views/controls/button/text_button.h"
@@ -213,7 +213,7 @@ void BalloonViewImpl::RepositionToBalloon() {
       balloon_->GetPosition().x(), balloon_->GetPosition().y(),
       GetTotalWidth(), GetTotalHeight());
   frame_container_->GetBounds(&anim_frame_start_, false);
-  animation_.reset(new SlideAnimation(this));
+  animation_.reset(new ui::SlideAnimation(this));
   animation_->Show();
 }
 
@@ -224,7 +224,7 @@ void BalloonViewImpl::Update() {
         balloon_->notification().content_url());
 }
 
-void BalloonViewImpl::AnimationProgressed(const Animation* animation) {
+void BalloonViewImpl::AnimationProgressed(const ui::Animation* animation) {
   DCHECK(animation == animation_.get());
 
   // Linear interpolation from start to end position.
@@ -299,8 +299,8 @@ void BalloonViewImpl::Show(Balloon* balloon) {
   options_menu_button_ = new views::MenuButton(NULL, L"", this, false);
   AddChildView(options_menu_button_);
   close_button_ = new views::ImageButton(this);
-  close_button_->SetTooltipText(l10n_util::GetString(
-      IDS_NOTIFICATION_BALLOON_DISMISS_LABEL));
+  close_button_->SetTooltipText(UTF16ToWide(l10n_util::GetStringUTF16(
+      IDS_NOTIFICATION_BALLOON_DISMISS_LABEL)));
   AddChildView(close_button_);
 
   // We have to create two windows: one for the contents and one for the

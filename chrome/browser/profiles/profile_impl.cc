@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -409,20 +409,16 @@ void ProfileImpl::RegisterComponentExtensions() {
 }
 
 void ProfileImpl::InstallDefaultApps() {
-  // The web store only supports en-US at the moment, so we don't install
-  // default apps in other locales.
-  if (g_browser_process->GetApplicationLocale() != "en-US")
+  ExtensionService* extension_service = GetExtensionService();
+  DefaultApps* default_apps = extension_service->default_apps();
+
+  if (!default_apps->ShouldInstallDefaultApps(extension_service->GetAppIds()))
     return;
 
-  ExtensionService* extensions_service = GetExtensionService();
-  const ExtensionIdSet* app_ids =
-      extensions_service->default_apps()->GetAppsToInstall();
-  if (!app_ids)
-    return;
-
-  for (ExtensionIdSet::const_iterator iter = app_ids->begin();
-       iter != app_ids->end(); ++iter) {
-    extensions_service->AddPendingExtensionFromDefaultAppList(*iter);
+  const ExtensionIdSet& app_ids = default_apps->default_apps();
+  for (ExtensionIdSet::const_iterator iter = app_ids.begin();
+       iter != app_ids.end(); ++iter) {
+    extension_service->AddPendingExtensionFromDefaultAppList(*iter);
   }
 }
 
@@ -466,8 +462,8 @@ ProfileImpl::~ProfileImpl() {
 
   // DownloadManager is lazily created, so check before accessing it.
   if (download_manager_.get()) {
-    // The download manager queries the history system and should be shutdown
-    // before the history is shutdown so it can properly cancel all requests.
+    // The download manager queries the history system and should be shut down
+    // before the history is shut down so it can properly cancel all requests.
     download_manager_->Shutdown();
     download_manager_ = NULL;
   }
@@ -579,7 +575,8 @@ ChromeAppCacheService* ProfileImpl::GetAppCacheService() {
         NewRunnableMethod(appcache_service_.get(),
                           &ChromeAppCacheService::InitializeOnIOThread,
                           GetPath(), IsOffTheRecord(),
-                          make_scoped_refptr(GetHostContentSettingsMap())));
+                          make_scoped_refptr(GetHostContentSettingsMap()),
+                          clear_local_state_on_exit_));
   }
   return appcache_service_;
 }
@@ -719,7 +716,7 @@ URLRequestContextGetter* ProfileImpl::GetRequestContext() {
       default_request_context_ = request_context_;
       request_context_->set_is_main(true);
       // TODO(eroman): this isn't terribly useful anymore now that the
-      // URLRequestContext is constructed by the IO thread...
+      // net::URLRequestContext is constructed by the IO thread...
       NotificationService::current()->Notify(
           NotificationType::DEFAULT_REQUEST_CONTEXT_AVAILABLE,
           NotificationService::AllSources(), NotificationService::NoDetails());
@@ -923,7 +920,7 @@ void ProfileImpl::CreatePasswordStore() {
 #elif defined(OS_POSIX)
   // On POSIX systems, we try to use the "native" password management system of
   // the desktop environment currently running, allowing GNOME Keyring in XFCE.
-  // (In all cases we fall back on the default store in case of failure.)
+  // (In all cases we fall back on the basic store in case of failure.)
   base::nix::DesktopEnvironment desktop_env;
   std::string store_type =
       CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
@@ -932,16 +929,13 @@ void ProfileImpl::CreatePasswordStore() {
     desktop_env = base::nix::DESKTOP_ENVIRONMENT_KDE4;
   } else if (store_type == "gnome") {
     desktop_env = base::nix::DESKTOP_ENVIRONMENT_GNOME;
-  } else if (store_type == "detect") {
+  } else if (store_type == "basic") {
+    desktop_env = base::nix::DESKTOP_ENVIRONMENT_OTHER;
+  } else {  // Detect the store to use automatically.
     scoped_ptr<base::Environment> env(base::Environment::Create());
     desktop_env = base::nix::GetDesktopEnvironment(env.get());
     VLOG(1) << "Password storage detected desktop environment: "
             << base::nix::GetDesktopEnvironmentName(desktop_env);
-  } else {
-    // TODO(mdm): If the flag is not given, or has an unknown value, use the
-    // default store for now. Once we're confident in the other stores, we can
-    // default to detecting the desktop environment instead.
-    desktop_env = base::nix::DESKTOP_ENVIRONMENT_OTHER;
   }
 
   scoped_ptr<PasswordStoreX::NativeBackend> backend;
@@ -964,9 +958,11 @@ void ProfileImpl::CreatePasswordStore() {
       backend.reset();
 #endif  // defined(USE_GNOME_KEYRING)
   }
-  // TODO(mdm): this can change to a WARNING when we detect by default.
-  if (!backend.get())
-    VLOG(1) << "Using default (unencrypted) store for password storage.";
+  if (!backend.get()) {
+    LOG(WARNING) << "Using basic (unencrypted) store for password storage. "
+        "See http://code.google.com/p/chromium/wiki/LinuxPasswordStorage for "
+        "more information about password storage options.";
+  }
 
   ps = new PasswordStoreX(login_db, this,
                           GetWebDataService(Profile::IMPLICIT_ACCESS),
@@ -1219,9 +1215,14 @@ void ProfileImpl::Observe(NotificationType type,
     } else if (*pref_name_in == prefs::kClearSiteDataOnExit) {
       clear_local_state_on_exit_ =
           prefs->GetBoolean(prefs::kClearSiteDataOnExit);
-      if (webkit_context_)
+      if (webkit_context_) {
         webkit_context_->set_clear_local_state_on_exit(
             clear_local_state_on_exit_);
+      }
+      if (appcache_service_) {
+        appcache_service_->SetClearLocalStateOnExit(
+            clear_local_state_on_exit_);
+      }
     }
   } else if (NotificationType::THEME_INSTALLED == type) {
     DCHECK_EQ(Source<Profile>(source).ptr(), GetOriginalProfile());
@@ -1247,12 +1248,13 @@ TokenService* ProfileImpl::GetTokenService() {
 
 ProfileSyncService* ProfileImpl::GetProfileSyncService() {
 #if defined(OS_CHROMEOS)
-  // If kLoginManager is specified, we shouldn't call this unless login has
-  // completed and specified cros_user. Guard with if (HasProfileSyncService())
-  // where this might legitimately get called before login has completed.
-  if (!sync_service_.get() &&
-      CommandLine::ForCurrentProcess()->HasSwitch(switches::kLoginManager)) {
-    LOG(FATAL) << "GetProfileSyncService() called before login complete.";
+  if (!sync_service_.get()) {
+    // In ChromeOS, sync only gets initialized properly from login, when
+    // kLoginManager is specified. If this gets called before login, or
+    // during a debugging session without kLoginManager, this will return
+    // NULL, so ensure that calls either handle a NULL result, or use
+    // HasProfileSyncService() to guard against the call.
+    return NULL;
   }
 #endif
   return GetProfileSyncService("");
@@ -1339,6 +1341,30 @@ PromoCounter* ProfileImpl::GetInstantPromoCounter() {
 }
 
 #if defined(OS_CHROMEOS)
+void ProfileImpl::ChangeApplicationLocale(
+    const std::string& locale, bool keep_local) {
+  if (locale.empty()) {
+    NOTREACHED();
+    return;
+  }
+  if (keep_local) {
+    GetPrefs()->SetString(prefs::kApplicationLocaleOverride, locale);
+  } else {
+    GetPrefs()->SetString(prefs::kApplicationLocale, locale);
+    GetPrefs()->SetString(prefs::kApplicationLocaleOverride, "");
+  }
+  GetPrefs()->SetString(prefs::kApplicationLocaleBackup, locale);
+  GetPrefs()->ClearPref(prefs::kApplicationLocaleAccepted);
+  // We maintain kApplicationLocale property in both a global storage
+  // and user's profile.  Global property determines locale of login screen,
+  // while user's profile determines his personal locale preference.
+  g_browser_process->local_state()->SetString(
+      prefs::kApplicationLocale, locale);
+
+  GetPrefs()->SavePersistentPrefs();
+  g_browser_process->local_state()->SavePersistentPrefs();
+}
+
 chromeos::ProxyConfigServiceImpl*
     ProfileImpl::GetChromeOSProxyConfigServiceImpl() {
   if (!chromeos_proxy_config_service_impl_) {
@@ -1366,7 +1392,7 @@ PrerenderManager* ProfileImpl::GetPrerenderManager() {
   CommandLine* cl = CommandLine::ForCurrentProcess();
   if (!cl->HasSwitch(switches::kEnablePagePrerender))
     return NULL;
-  if (!prerender_manager_.get())
-    prerender_manager_.reset(new PrerenderManager(this));
-  return prerender_manager_.get();
+  if (!prerender_manager_)
+    prerender_manager_ = new PrerenderManager(this);
+  return prerender_manager_;
 }

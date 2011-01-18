@@ -4,19 +4,15 @@
 
 #include "chrome/browser/ui/touch/frame/touch_browser_frame_view.h"
 
-#include <algorithm>
-
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_host/render_view_host.h"
-#include "chrome/browser/renderer_host/site_instance.h"
 #include "chrome/browser/tab_contents/navigation_controller.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/views/dom_view.h"
+#include "chrome/browser/ui/touch/frame/keyboard_container_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/common/notification_service.h"
 #include "chrome/common/notification_type.h"
-#include "chrome/common/url_constants.h"
 #include "gfx/rect.h"
 
 namespace {
@@ -50,9 +46,8 @@ void TouchBrowserFrameView::Layout() {
   if (!keyboard_)
     return;
 
-  keyboard_->SetBounds(GetBoundsForReservedArea());
   keyboard_->SetVisible(keyboard_showing_);
-  keyboard_->Layout();
+  keyboard_->SetBounds(GetBoundsForReservedArea());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -71,16 +66,10 @@ void TouchBrowserFrameView::InitVirtualKeyboard() {
   if (keyboard_)
     return;
 
-  keyboard_ = new DOMView;
-
   Profile* keyboard_profile = browser_view()->browser()->profile();
   DCHECK(keyboard_profile) << "Profile required for virtual keyboard.";
 
-  GURL keyboard_url(chrome::kChromeUIKeyboardURL);
-  keyboard_->Init(keyboard_profile,
-      SiteInstance::CreateSiteInstanceForURL(keyboard_profile, keyboard_url));
-  keyboard_->LoadURL(keyboard_url);
-
+  keyboard_ = new KeyboardContainerView(keyboard_profile);
   keyboard_->SetVisible(false);
   AddChildView(keyboard_);
 }
@@ -116,16 +105,16 @@ void TouchBrowserFrameView::Observe(NotificationType type,
   if (type == NotificationType::FOCUS_CHANGED_IN_PAGE) {
     // Only modify the keyboard state if the currently active tab sent the
     // notification.
-    if (browser->GetSelectedTabContents()->render_view_host() ==
-        Source<RenderViewHost>(source).ptr()) {
+    const TabContents* tab_contents = browser->GetSelectedTabContents();
+    if (tab_contents &&
+        tab_contents->render_view_host() ==
+            Source<RenderViewHost>(source).ptr())
       UpdateKeyboardAndLayout(*Details<const bool>(details).ptr());
-    }
   } else if (type == NotificationType::NAV_ENTRY_COMMITTED) {
     Browser* source_browser = Browser::GetBrowserForController(
         Source<NavigationController>(source).ptr(), NULL);
     // If the Browser for the keyboard has navigated, hide the keyboard.
-    if (source_browser == browser) {
+    if (source_browser == browser)
       UpdateKeyboardAndLayout(false);
-    }
   }
 }

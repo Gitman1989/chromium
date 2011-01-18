@@ -49,9 +49,32 @@
 //   will notify its regular ObserverList.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
+// Forward declaration for ObserverListThreadSafeTraits.
+template <class ObserverType>
+class ObserverListThreadSafe;
+
+// This class is used to work around VS2005 not accepting:
+//
+// friend class
+//     base::RefCountedThreadSafe<ObserverListThreadSafe<ObserverType> >;
+//
+// Instead of friending the class, we could friend the actual function
+// which calls delete.  However, this ends up being
+// RefCountedThreadSafe::DeleteInternal(), which is private.  So we
+// define our own templated traits class so we can friend it.
+template <class T>
+struct ObserverListThreadSafeTraits {
+  static void Destruct(const ObserverListThreadSafe<T>* x) {
+    delete x;
+  }
+};
+
 template <class ObserverType>
 class ObserverListThreadSafe
-    : public base::RefCountedThreadSafe<ObserverListThreadSafe<ObserverType> > {
+    : public base::RefCountedThreadSafe<
+        ObserverListThreadSafe<ObserverType>,
+        ObserverListThreadSafeTraits<ObserverType> > {
  public:
   typedef typename ObserverList<ObserverType>::NotificationType
       NotificationType;
@@ -59,13 +82,6 @@ class ObserverListThreadSafe
   ObserverListThreadSafe()
       : type_(ObserverListBase<ObserverType>::NOTIFY_ALL) {}
   explicit ObserverListThreadSafe(NotificationType type) : type_(type) {}
-
-  ~ObserverListThreadSafe() {
-    typename ObserversListMap::const_iterator it;
-    for (it = observer_lists_.begin(); it != observer_lists_.end(); ++it)
-      delete (*it).second;
-    observer_lists_.clear();
-  }
 
   // Add an observer to the list.
   void AddObserver(ObserverType* obs) {
@@ -137,6 +153,16 @@ class ObserverListThreadSafe
   // TODO(mbelshe):  Add more wrappers for Notify() with more arguments.
 
  private:
+  // See comment above ObserverListThreadSafeTraits' definition.
+  friend struct ObserverListThreadSafeTraits<ObserverType>;
+
+  ~ObserverListThreadSafe() {
+    typename ObserversListMap::const_iterator it;
+    for (it = observer_lists_.begin(); it != observer_lists_.end(); ++it)
+      delete (*it).second;
+    observer_lists_.clear();
+  }
+
   template <class Method, class Params>
   void Notify(const UnboundMethod<ObserverType, Method, Params>& method) {
     AutoLock lock(list_lock_);

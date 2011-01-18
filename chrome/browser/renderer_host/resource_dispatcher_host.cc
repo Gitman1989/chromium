@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -31,6 +31,7 @@
 #include "chrome/browser/net/chrome_url_request_context.h"
 #include "chrome/browser/net/url_request_tracking.h"
 #include "chrome/browser/plugin_service.h"
+#include "chrome/browser/prerender/prerender_resource_handler.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_host/async_resource_handler.h"
 #include "chrome/browser/renderer_host/buffered_resource_handler.h"
@@ -54,6 +55,7 @@
 #include "chrome/browser/ui/login/login_prompt.h"
 #include "chrome/browser/worker_host/worker_service.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/common/notification_service.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/common/render_messages_params.h"
 #include "chrome/common/url_constants.h"
@@ -193,6 +195,24 @@ std::vector<int> GetAllNetErrorCodes() {
   return all_error_codes;
 }
 
+#if defined(OS_WIN)
+#pragma warning (disable: 4748)
+#pragma optimize( "", off )
+#endif
+
+// Temporary experiment to help track down http://crbug.com/68766.
+// This should crash if called with an invalid ChromeURLRequestContext.
+// TODO(eroman): Delete this when experiment is complete.
+void CheckContextForBug68766(net::URLRequestContext* context) {
+  if (context)
+    static_cast<ChromeURLRequestContext*>(context)->IsExternal();
+}
+
+#if defined(OS_WIN)
+#pragma optimize( "", on )
+#pragma warning (default: 4748)
+#endif
+
 }  // namespace
 
 ResourceDispatcherHost::ResourceDispatcherHost()
@@ -284,10 +304,10 @@ bool ResourceDispatcherHost::HandleExternalProtocol(int request_id,
       NewRunnableFunction(
           &ExternalProtocolHandler::LaunchUrl, url, child_id, route_id));
 
-  handler->OnResponseCompleted(request_id, URLRequestStatus(
-                                               URLRequestStatus::FAILED,
-                                               net::ERR_ABORTED),
-                               std::string());  // No security info necessary.
+  handler->OnResponseCompleted(
+      request_id,
+      net::URLRequestStatus(net::URLRequestStatus::FAILED, net::ERR_ABORTED),
+      std::string());  // No security info necessary.
   return true;
 }
 
@@ -348,6 +368,8 @@ void ResourceDispatcherHost::BeginRequest(
   ChromeURLRequestContext* context = filter_->GetURLRequestContext(
       request_id, request_data.resource_type);
 
+  CheckContextForBug68766(context);
+
   // Might need to resolve the blob references in the upload data.
   if (request_data.upload_data && context) {
     context->blob_storage_context()->controller()->
@@ -356,7 +378,8 @@ void ResourceDispatcherHost::BeginRequest(
 
   if (is_shutdown_ ||
       !ShouldServiceRequest(process_type, child_id, request_data)) {
-    URLRequestStatus status(URLRequestStatus::FAILED, net::ERR_ABORTED);
+    net::URLRequestStatus status(net::URLRequestStatus::FAILED,
+                                 net::ERR_ABORTED);
     if (sync_result) {
       SyncLoadResult result;
       result.status = status;
@@ -442,6 +465,15 @@ void ResourceDispatcherHost::BeginRequest(
     request->set_upload(request_data.upload_data);
     upload_size = request_data.upload_data->GetContentLength();
   }
+
+  // Install a PrerenderResourceHandler if the requested URL could
+  // be prerendered. This should be in front of the [a]syncResourceHandler,
+  // but after the BufferedResourceHandler since it depends on the MIME
+  // sniffing capabilities in the BufferedResourceHandler.
+  PrerenderResourceHandler* pre_handler = PrerenderResourceHandler::MaybeCreate(
+      *request, context, handler);
+  if (pre_handler)
+    handler = pre_handler;
 
   // Install a CrossSiteResourceHandler if this request is coming from a
   // RenderViewHost with a pending cross-site request.  We only check this for
@@ -660,7 +692,7 @@ void ResourceDispatcherHost::BeginDownload(
     bool prompt_for_save_location,
     int child_id,
     int route_id,
-    URLRequestContext* request_context) {
+    net::URLRequestContext* request_context) {
   if (is_shutdown_)
     return;
 
@@ -717,11 +749,12 @@ void ResourceDispatcherHost::BeginDownload(
 }
 
 // This function is only used for saving feature.
-void ResourceDispatcherHost::BeginSaveFile(const GURL& url,
-                                           const GURL& referrer,
-                                           int child_id,
-                                           int route_id,
-                                           URLRequestContext* request_context) {
+void ResourceDispatcherHost::BeginSaveFile(
+    const GURL& url,
+    const GURL& referrer,
+    int child_id,
+    int route_id,
+    net::URLRequestContext* request_context) {
   if (is_shutdown_)
     return;
 
@@ -1300,8 +1333,10 @@ void ResourceDispatcherHost::BeginRequestInternal(net::URLRequest* request) {
     return;
   }
 
-  if (!defer_start)
+  if (!defer_start) {
+    CheckContextForBug68766(request->context());
     InsertIntoResourceQueue(request, *info);
+  }
 }
 
 void ResourceDispatcherHost::InsertIntoResourceQueue(
@@ -1571,10 +1606,14 @@ void ResourceDispatcherHost::NotifyResponseStarted(net::URLRequest* request,
     return;
 
   // Notify the observers on the UI thread.
-  CallRenderViewHostResourceDelegate(
-      render_process_id, render_view_id,
-      &RenderViewHostDelegate::Resource::DidStartReceivingResourceResponse,
-      ResourceRequestDetails(request, GetCertID(request, child_id)));
+  ResourceRequestDetails* detail = new ResourceRequestDetails(
+      request, GetCertID(request, child_id));
+  BrowserThread::PostTask(
+      BrowserThread::UI, FROM_HERE,
+      NewRunnableFunction(
+          &ResourceDispatcherHost::NotifyOnUI<ResourceRequestDetails>,
+          NotificationType::RESOURCE_RESPONSE_STARTED,
+          render_process_id, render_view_id, detail));
 }
 
 void ResourceDispatcherHost::NotifyResponseCompleted(net::URLRequest* request,
@@ -1596,10 +1635,29 @@ void ResourceDispatcherHost::NotifyReceivedRedirect(net::URLRequest* request,
     return;
 
   // Notify the observers on the UI thread.
-  CallRenderViewHostResourceDelegate(
-      render_process_id, render_view_id,
-      &RenderViewHostDelegate::Resource::DidRedirectResource,
-      ResourceRedirectDetails(request, GetCertID(request, child_id), new_url));
+  ResourceRedirectDetails* detail = new ResourceRedirectDetails(
+      request, GetCertID(request, child_id), new_url);
+  BrowserThread::PostTask(
+      BrowserThread::UI, FROM_HERE,
+      NewRunnableFunction(
+          &ResourceDispatcherHost::NotifyOnUI<ResourceRedirectDetails>,
+          NotificationType::RESOURCE_RECEIVED_REDIRECT,
+          render_process_id, render_view_id, detail));
+}
+
+template <class T>
+void ResourceDispatcherHost::NotifyOnUI(NotificationType type,
+                                        int render_process_id,
+                                        int render_view_id,
+                                        T* detail) {
+  RenderViewHost* rvh =
+      RenderViewHost::FromID(render_process_id, render_view_id);
+  if (rvh) {
+    RenderViewHostDelegate* rvhd = rvh->delegate();
+    NotificationService::current()->Notify(
+        type, Source<RenderViewHostDelegate>(rvhd), Details<T>(detail));
+  }
+  delete detail;
 }
 
 namespace {

@@ -12,10 +12,10 @@
 #include "chrome/renderer/devtools_agent_filter.h"
 #include "chrome/renderer/render_view.h"
 #include "grit/webkit_chromium_resources.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDevToolsAgent.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPoint.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebString.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebView.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDevToolsAgent.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPoint.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "webkit/glue/webkit_glue.h"
 
 using WebKit::WebDevToolsAgent;
@@ -53,24 +53,16 @@ class WebKitClientMessageLoopImpl
 // static
 std::map<int, DevToolsAgent*> DevToolsAgent::agent_for_routing_id_;
 
-DevToolsAgent::DevToolsAgent(int routing_id, RenderView* render_view)
-    : routing_id_(routing_id),
-      render_view_(render_view) {
-  agent_for_routing_id_[routing_id] = this;
+DevToolsAgent::DevToolsAgent(RenderView* render_view)
+    : RenderViewObserver(render_view) {
+  agent_for_routing_id_[routing_id()] = this;
 
   CommandLine* cmd = CommandLine::ForCurrentProcess();
-  expose_v8_debugger_protocol_ =cmd->HasSwitch(switches::kRemoteShellPort);
+  expose_v8_debugger_protocol_ = cmd->HasSwitch(switches::kRemoteShellPort);
 }
 
 DevToolsAgent::~DevToolsAgent() {
-  agent_for_routing_id_.erase(routing_id_);
-}
-
-void DevToolsAgent::OnNavigate() {
-  WebDevToolsAgent* web_agent = GetWebAgent();
-  if (web_agent) {
-    web_agent->didNavigate();
-  }
+  agent_for_routing_id_.erase(routing_id());
 }
 
 // Called on the Renderer thread.
@@ -83,44 +75,37 @@ bool DevToolsAgent::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(DevToolsAgentMsg_DispatchOnInspectorBackend,
                         OnDispatchOnInspectorBackend)
     IPC_MESSAGE_HANDLER(DevToolsAgentMsg_InspectElement, OnInspectElement)
-    IPC_MESSAGE_HANDLER(DevToolsAgentMsg_SetApuAgentEnabled,
-                        OnSetApuAgentEnabled)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
+
+  if (message.type() == ViewMsg_Navigate::ID)
+    OnNavigate();  // Don't want to swallow the message.
+
   return handled;
 }
 
 void DevToolsAgent::sendMessageToInspectorFrontend(
     const WebKit::WebString& message) {
-  IPC::Message* m = new ViewHostMsg_ForwardToDevToolsClient(
-      routing_id_,
-      DevToolsClientMsg_DispatchOnInspectorFrontend(message.utf8()));
-  render_view_->Send(m);
+  Send(new ViewHostMsg_ForwardToDevToolsClient(
+      routing_id(),
+      DevToolsClientMsg_DispatchOnInspectorFrontend(message.utf8())));
 }
 
 void DevToolsAgent::sendDebuggerOutput(const WebKit::WebString& data) {
-  IPC::Message* m = new ViewHostMsg_ForwardToDevToolsClient(
-      routing_id_,
-      DevToolsClientMsg_DebuggerOutput(data.utf8()));
-  render_view_->Send(m);
-}
-
-void DevToolsAgent::sendDispatchToAPU(const WebKit::WebString& data) {
-  IPC::Message* m = new ViewHostMsg_ForwardToDevToolsClient(
-      routing_id_,
-      DevToolsClientMsg_DispatchToAPU(data.utf8()));
-  render_view_->Send(m);
+  Send(new ViewHostMsg_ForwardToDevToolsClient(
+      routing_id(),
+      DevToolsClientMsg_DebuggerOutput(data.utf8())));
 }
 
 int DevToolsAgent::hostIdentifier() {
-  return routing_id_;
+  return routing_id();
 }
 
 void DevToolsAgent::runtimeFeatureStateChanged(
     const WebKit::WebString& feature,
     bool enabled) {
-  render_view_->Send(new ViewHostMsg_DevToolsRuntimePropertyChanged(
-      routing_id_,
+  Send(new ViewHostMsg_DevToolsRuntimePropertyChanged(
+      routing_id(),
       feature.utf8(),
       enabled ? "true" : "false"));
 }
@@ -128,8 +113,8 @@ void DevToolsAgent::runtimeFeatureStateChanged(
 void DevToolsAgent::runtimePropertyChanged(
     const WebKit::WebString& name,
     const WebKit::WebString& value) {
-  render_view_->Send(new ViewHostMsg_DevToolsRuntimePropertyChanged(
-      routing_id_,
+  Send(new ViewHostMsg_DevToolsRuntimePropertyChanged(
+      routing_id(),
       name.utf8(),
       value.utf8()));
 }
@@ -200,15 +185,15 @@ void DevToolsAgent::OnInspectElement(int x, int y) {
   }
 }
 
-void DevToolsAgent::OnSetApuAgentEnabled(bool enabled) {
+void DevToolsAgent::OnNavigate() {
   WebDevToolsAgent* web_agent = GetWebAgent();
-  if (web_agent)
-    web_agent->setRuntimeProperty("apu-agent", enabled ?
-        WebString::fromUTF8("true") : WebString::fromUTF8("false"));
+  if (web_agent) {
+    web_agent->didNavigate();
+  }
 }
 
 WebDevToolsAgent* DevToolsAgent::GetWebAgent() {
-  WebView* web_view = render_view_->webview();
+  WebView* web_view = render_view()->webview();
   if (!web_view)
     return NULL;
   return web_view->devToolsAgent();

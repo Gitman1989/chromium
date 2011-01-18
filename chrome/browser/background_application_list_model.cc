@@ -16,13 +16,11 @@
 #include "chrome/browser/extensions/extension_prefs.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/image_loading_tracker.h"
-#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_resource.h"
 #include "chrome/common/notification_details.h"
 #include "chrome/common/notification_source.h"
-#include "chrome/common/pref_names.h"
 
 class ExtensionNameComparator {
  public:
@@ -153,9 +151,6 @@ BackgroundApplicationListModel::BackgroundApplicationListModel(Profile* profile)
                  NotificationType::EXTENSION_UNLOADED,
                  Source<Profile>(profile));
   registrar_.Add(this,
-                 NotificationType::EXTENSION_UNLOADED_DISABLED,
-                 Source<Profile>(profile));
-  registrar_.Add(this,
                  NotificationType::EXTENSIONS_READY,
                  Source<Profile>(profile));
   ExtensionService* service = profile->GetExtensionService();
@@ -261,9 +256,7 @@ void BackgroundApplicationListModel::Observe(
       OnExtensionLoaded(Details<Extension>(details).ptr());
       break;
     case NotificationType::EXTENSION_UNLOADED:
-      // Handle extension unload uniformly, falling through to next case.
-    case NotificationType::EXTENSION_UNLOADED_DISABLED:
-      OnExtensionUnloaded(Details<Extension>(details).ptr());
+      OnExtensionUnloaded(Details<UnloadedExtensionInfo>(details)->extension);
       break;
     default:
       NOTREACHED() << "Received unexpected notification";
@@ -283,7 +276,8 @@ void BackgroundApplicationListModel::OnExtensionLoaded(Extension* extension) {
   Update();
 }
 
-void BackgroundApplicationListModel::OnExtensionUnloaded(Extension* extension) {
+void BackgroundApplicationListModel::OnExtensionUnloaded(
+    const Extension* extension) {
   if (!IsBackgroundApp(*extension))
     return;
   Update();

@@ -6,6 +6,8 @@
 
 #include "ipc/ipc_message_macros.h"
 
+#include "chrome/common/remoting/chromoting_host_info.h"
+
 #define IPC_MESSAGE_START ServiceMsgStart
 
 //------------------------------------------------------------------------------
@@ -27,14 +29,19 @@ IPC_MESSAGE_CONTROL0(ServiceMsg_DisableCloudPrintProxy)
 // enabled.
 IPC_MESSAGE_CONTROL0(ServiceMsg_IsCloudPrintProxyEnabled)
 
-// This message is for testing purpose.
-IPC_MESSAGE_CONTROL0(ServiceMsg_Hello)
-
-// This message is for enabling the remoting process.
-IPC_MESSAGE_CONTROL3(ServiceMsg_EnableRemotingWithTokens,
+// Set credentials used by the RemotingHost.
+IPC_MESSAGE_CONTROL2(ServiceMsg_SetRemotingHostCredentials,
                      std::string, /* username */
-                     std::string, /* Token for remoting */
-                     std::string  /* Token for Google Talk */)
+                     std::string  /* token for XMPP */)
+
+// Enabled remoting host.
+IPC_MESSAGE_CONTROL0(ServiceMsg_EnableRemotingHost)
+
+// Disable remoting host.
+IPC_MESSAGE_CONTROL0(ServiceMsg_DisableRemotingHost)
+
+// Get remoting host status information.
+IPC_MESSAGE_CONTROL0(ServiceMsg_GetRemotingHostInfo)
 
 // Tell the service process to shutdown.
 IPC_MESSAGE_CONTROL0(ServiceMsg_Shutdown)
@@ -53,5 +60,5 @@ IPC_MESSAGE_CONTROL2(ServiceHostMsg_CloudPrintProxy_IsEnabled,
                      bool,       /* Is the proxy enabled? */
                      std::string /* Email address of account */)
 
-// Sent from the service process in response to a Hello message.
-IPC_MESSAGE_CONTROL0(ServiceHostMsg_GoodDay)
+IPC_MESSAGE_CONTROL1(ServiceHostMsg_RemotingHost_HostInfo,
+                     remoting::ChromotingHostInfo /* host_info */)

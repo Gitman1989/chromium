@@ -6,7 +6,7 @@
 
 #include "base/command_line.h"
 #include "base/lazy_instance.h"
-#include "base/thread_local.h"
+#include "base/threading/thread_local.h"
 #include "chrome/common/appcache/appcache_dispatcher.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/db_message_filter.h"
@@ -16,10 +16,10 @@
 #include "chrome/worker/websharedworker_stub.h"
 #include "chrome/worker/worker_webkitclient_impl.h"
 #include "ipc/ipc_sync_channel.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebBlobRegistry.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDatabase.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebKit.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebRuntimeFeatures.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebBlobRegistry.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDatabase.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebRuntimeFeatures.h"
 
 using WebKit::WebRuntimeFeatures;
 
@@ -77,14 +77,17 @@ WorkerThread* WorkerThread::current() {
   return lazy_tls.Pointer()->Get();
 }
 
-void WorkerThread::OnControlMessageReceived(const IPC::Message& msg) {
+bool WorkerThread::OnControlMessageReceived(const IPC::Message& msg) {
   // Appcache messages are handled by a delegate.
   if (appcache_dispatcher_->OnMessageReceived(msg))
-    return;
+    return true;
 
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(WorkerThread, msg)
     IPC_MESSAGE_HANDLER(WorkerProcessMsg_CreateWorker, OnCreateWorker)
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
+  return handled;
 }
 
 void WorkerThread::OnCreateWorker(

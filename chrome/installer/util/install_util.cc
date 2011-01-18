@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -34,7 +34,7 @@ using installer::MasterPreferences;
 bool InstallUtil::ExecuteExeAsAdmin(const CommandLine& cmd, DWORD* exit_code) {
   FilePath::StringType program(cmd.GetProgram().value());
   DCHECK(!program.empty());
-  DCHECK(program[0] != '\"');
+  DCHECK_NE(program[0], L'\"');
 
   CommandLine::StringType params(cmd.command_line_string());
   if (params[0] == '"') {
@@ -87,13 +87,15 @@ Version* InstallUtil::GetChromeVersion(BrowserDistribution* dist,
   HKEY reg_root = (system_install) ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER;
   if (!key.Open(reg_root, dist->GetVersionKey().c_str(), KEY_READ) ||
       !key.ReadValue(google_update::kRegVersionField, &version_str)) {
-    VLOG(1) << "No existing Chrome install found.";
+    VLOG(1) << "No existing " << dist->GetApplicationName()
+            << " install found.";
     key.Close();
     return NULL;
   }
   key.Close();
-  VLOG(1) << "Existing Chrome version found " << version_str;
-  return Version::GetVersionFromString(version_str);
+  VLOG(1) << "Existing " << dist->GetApplicationName()
+          << " version found " << version_str;
+  return Version::GetVersionFromString(WideToASCII(version_str));
 }
 
 bool InstallUtil::IsOSSupported() {
@@ -106,6 +108,34 @@ bool InstallUtil::IsOSSupported() {
           << ", Service Pack: " << major << "." << minor;
   return (version > base::win::VERSION_XP) ||
       (version == base::win::VERSION_XP && major >= 2);
+}
+
+void InstallUtil::WriteInstallerResult(bool system_install,
+                                       const std::wstring& state_key,
+                                       installer::InstallStatus status,
+                                       int string_resource_id,
+                                       const std::wstring* const launch_cmd) {
+  const HKEY root = system_install ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER;
+  DWORD installer_result = (GetInstallReturnCode(status) == 0) ? 0 : 1;
+  scoped_ptr<WorkItemList> install_list(WorkItem::CreateWorkItemList());
+  install_list->AddCreateRegKeyWorkItem(root, state_key);
+  install_list->AddSetRegValueWorkItem(root, state_key,
+                                       installer::kInstallerResult,
+                                       installer_result, true);
+  install_list->AddSetRegValueWorkItem(root, state_key,
+                                       installer::kInstallerError,
+                                       static_cast<DWORD>(status), true);
+  if (string_resource_id != 0) {
+    std::wstring msg = installer::GetLocalizedString(string_resource_id);
+    install_list->AddSetRegValueWorkItem(root, state_key,
+        installer::kInstallerResultUIString, msg, true);
+  }
+  if (launch_cmd != NULL && !launch_cmd->empty()) {
+    install_list->AddSetRegValueWorkItem(root, state_key,
+        installer::kInstallerSuccessLaunchCmdLine, *launch_cmd, true);
+  }
+  if (!install_list->Do())
+    LOG(ERROR) << "Failed to record installer error information in registry.";
 }
 
 bool InstallUtil::IsPerUserInstall(const wchar_t* const exe_path) {

@@ -6,6 +6,8 @@
 #define VIEWS_CONTROLS_BUTTON_NATIVE_BUTTON_H_
 #pragma once
 
+// TODO(avi): remove when not needed
+#include "base/utf_string_conversions.h"
 #include "gfx/font.h"
 #include "views/controls/button/button.h"
 #include "views/controls/button/native_button_wrapper.h"
@@ -27,7 +29,7 @@ class NativeButton : public Button {
 
   // Sets/Gets the text to be used as the button's label.
   virtual void SetLabel(const std::wstring& label);
-  std::wstring label() const { return label_; }
+  std::wstring label() const { return UTF16ToWideHack(label_); }
 
   // Sets the font to be used when displaying the button's label.
   void set_font(const gfx::Font& font) { font_ = font; }
@@ -41,11 +43,6 @@ class NativeButton : public Button {
   // Sets/Gets whether or not pressing this button requires elevation.
   void SetNeedElevation(bool need_elevation);
   bool need_elevation() const { return need_elevation_; }
-
-  // Sets whether or not the button appears as the default button. This does
-  // not make it behave as the default (i.e. no enter key accelerator is
-  // registered, use SetIsDefault for that).
-  void SetAppearsAsDefault(bool default_button);
 
   void set_ignore_minimum_size(bool ignore_minimum_size) {
     ignore_minimum_size_ = ignore_minimum_size;
@@ -82,7 +79,7 @@ class NativeButton : public Button {
 
  private:
   // The button label.
-  std::wstring label_;
+  string16 label_;
 
   // True if the button is the default button in its context.
   bool is_default_;

@@ -15,9 +15,10 @@
 #include "base/message_loop.h"
 #include "base/ref_counted.h"
 #include "base/scoped_ptr.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "base/time.h"
 #include "media/base/clock.h"
+#include "media/base/composite_filter.h"
 #include "media/base/filter_host.h"
 #include "media/base/pipeline.h"
 
@@ -119,11 +120,11 @@ class PipelineImpl : public Pipeline, public FilterHost {
   // is used by the constructor, and the Stop() method.
   void ResetState();
 
+  // Updates |state_|. All state transitions should use this call.
+  void set_state(State next_state);
+
   // Simple method used to make sure the pipeline is running normally.
   bool IsPipelineOk();
-
-  // Helper method to tell whether we are in the state of initializing.
-  bool IsPipelineInitializing();
 
   // Helper method to tell whether we are stopped or in error.
   bool IsPipelineStopped();
@@ -290,6 +291,9 @@ class PipelineImpl : public Pipeline, public FilterHost {
   // Whether or not the pipeline is perform a stop operation.
   bool tearing_down_;
 
+  // Whether or not an error triggered the teardown.
+  bool error_caused_teardown_;
+
   // Duration of the media in microseconds.  Set by filters.
   base::TimeDelta duration_;
 
@@ -353,12 +357,6 @@ class PipelineImpl : public Pipeline, public FilterHost {
   // Member that tracks the current state.
   State state_;
 
-  // For kPausing, kSeeking and kStarting, we need to track how many filters
-  // have completed transitioning to the destination state.  When
-  // |remaining_transitions_| reaches 0 the pipeline can transition out
-  // of the current state.
-  size_t remaining_transitions_;
-
   // For kSeeking we need to remember where we're seeking between filter
   // replies.
   base::TimeDelta seek_timestamp_;
@@ -388,19 +386,13 @@ class PipelineImpl : public Pipeline, public FilterHost {
   scoped_ptr<PipelineCallback> error_callback_;
   scoped_ptr<PipelineCallback> network_callback_;
 
-  // Vector of our filters and map maintaining the relationship between the
-  // FilterType and the filter itself.
-  typedef std::vector<scoped_refptr<Filter> > FilterVector;
-  FilterVector filters_;
+  // Reference to the filter(s) that constitute the pipeline.
+  scoped_refptr<Filter> pipeline_filter_;
 
   // Renderer references used for setting the volume and determining
   // when playback has finished.
   scoped_refptr<AudioRenderer> audio_renderer_;
   scoped_refptr<VideoRenderer> video_renderer_;
-
-  // Vector of threads owned by the pipeline and being used by filters.
-  typedef std::vector<base::Thread*> FilterThreadVector;
-  FilterThreadVector filter_threads_;
 
   // Helper class that stores filter references during pipeline
   // initialization.

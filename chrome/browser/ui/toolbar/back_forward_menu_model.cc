@@ -14,7 +14,10 @@
 #include "chrome/browser/tab_contents/navigation_controller.h"
 #include "chrome/browser/tab_contents/navigation_entry.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
+#include "chrome/browser/prefs/pref_service.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
@@ -56,7 +59,7 @@ int BackForwardMenuModel::GetItemCount() const {
   return items;
 }
 
-menus::MenuModel::ItemType BackForwardMenuModel::GetTypeAt(int index) const {
+ui::MenuModel::ItemType BackForwardMenuModel::GetTypeAt(int index) const {
   return IsSeparator(index) ? TYPE_SEPARATOR : TYPE_COMMAND;
 }
 
@@ -77,7 +80,8 @@ string16 BackForwardMenuModel::GetLabelAt(int index) const {
   // super long.
   NavigationEntry* entry = GetNavigationEntry(index);
   string16 menu_text(entry->GetTitleForDisplay(
-      &GetTabContents()->controller()));
+      GetTabContents()->profile()->GetPrefs()->
+          GetString(prefs::kAcceptLanguages)));
   menu_text = gfx::ElideText(menu_text, gfx::Font(), kMaxWidth, false);
 
   for (size_t i = menu_text.find('&'); i != string16::npos;
@@ -94,7 +98,7 @@ bool BackForwardMenuModel::IsItemDynamicAt(int index) const {
 
 bool BackForwardMenuModel::GetAcceleratorAt(
     int index,
-    menus::Accelerator* accelerator) const {
+    ui::Accelerator* accelerator) const {
   return false;
 }
 
@@ -121,7 +125,7 @@ bool BackForwardMenuModel::GetIconAt(int index, SkBitmap* icon) const {
   return true;
 }
 
-menus::ButtonMenuItemModel* BackForwardMenuModel::GetButtonMenuItemAt(
+ui::ButtonMenuItemModel* BackForwardMenuModel::GetButtonMenuItemAt(
     int index) const {
   return NULL;
 }
@@ -130,7 +134,7 @@ bool BackForwardMenuModel::IsEnabledAt(int index) const {
   return index < GetItemCount() && !IsSeparator(index);
 }
 
-menus::MenuModel* BackForwardMenuModel::GetSubmenuModelAt(int index) const {
+ui::MenuModel* BackForwardMenuModel::GetSubmenuModelAt(int index) const {
   return NULL;
 }
 

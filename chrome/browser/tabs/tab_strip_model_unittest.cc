@@ -32,7 +32,6 @@
 #include "chrome/common/notification_observer_mock.h"
 #include "chrome/common/notification_registrar.h"
 #include "chrome/common/notification_source.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/common/property_bag.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/testing_profile.h"
@@ -341,8 +340,10 @@ class MockTabStripModelObserver : public TabStripModelObserver {
                             TabChangeType change_type) {
     states_.push_back(new State(contents, index, CHANGE));
   }
-  virtual void TabReplacedAt(TabContentsWrapper* old_contents,
-                             TabContentsWrapper* new_contents, int index) {
+  virtual void TabReplacedAt(TabStripModel* tab_strip_model,
+                             TabContentsWrapper* old_contents,
+                             TabContentsWrapper* new_contents,
+                             int index) {
     State* s = new State(new_contents, index, REPLACED);
     s ->src_contents = old_contents;
     states_.push_back(s);

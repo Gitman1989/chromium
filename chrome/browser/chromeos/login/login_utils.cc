@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -23,6 +23,7 @@
 #include "chrome/browser/chromeos/cros/login_library.h"
 #include "chrome/browser/chromeos/cros/network_library.h"
 #include "chrome/browser/chromeos/input_method/input_method_util.h"
+#include "chrome/browser/chromeos/login/background_view.h"
 #include "chrome/browser/chromeos/login/cookie_fetcher.h"
 #include "chrome/browser/chromeos/login/google_authenticator.h"
 #include "chrome/browser/chromeos/login/language_switch_menu.h"
@@ -99,7 +100,8 @@ class ResetDefaultProxyConfigServiceTask : public Task {
 class LoginUtilsImpl : public LoginUtils {
  public:
   LoginUtilsImpl()
-      : browser_launch_enabled_(true) {
+      : browser_launch_enabled_(true),
+        background_view_(NULL) {
   }
 
   // Invoked after the user has successfully logged in. This launches a browser
@@ -143,12 +145,21 @@ class LoginUtilsImpl : public LoginUtils {
       Profile* profile,
       const GaiaAuthConsumer::ClientLoginResult& credentials);
 
+  // Sets the current background view.
+  virtual void SetBackgroundView(chromeos::BackgroundView* background_view);
+
+  // Gets the current background view.
+  virtual chromeos::BackgroundView* GetBackgroundView();
+
  private:
   // Check user's profile for kApplicationLocale setting.
   void RespectLocalePreference(PrefService* pref);
 
   // Indicates if DoBrowserLaunch will actually launch the browser or not.
   bool browser_launch_enabled_;
+
+  // The current background view.
+  chromeos::BackgroundView* background_view_;
 
   DISALLOW_COPY_AND_ASSIGN(LoginUtilsImpl);
 };
@@ -268,7 +279,9 @@ void LoginUtilsImpl::CompleteLogin(
 
   // Set the CrOS user by getting this constructor run with the
   // user's email on first retrieval.
-  profile->GetProfileSyncService(username)->SetPassphrase(password, false);
+  profile->GetProfileSyncService(username)->SetPassphrase(password,
+                                                          false,
+                                                          true);
   btl->AddLoginTimeMarker("SyncStarted", false);
 
   // Attempt to take ownership; this will fail if device is already owned.
@@ -329,26 +342,53 @@ void LoginUtilsImpl::FetchTokens(
   }
 }
 
-void LoginUtilsImpl::RespectLocalePreference(PrefService* pref) {
-  std::string pref_locale = pref->GetString(prefs::kApplicationLocale);
-  if (pref_locale.empty()) {
-    // Profile synchronization takes time and is not completed at that moment
-    // at first login.  So we initialize locale preference in steps:
-    // (1) first save it to temporary backup;
-    // (2) on next login we assume that synchronization is already completed
-    //     and we may finalize initialization.
-    std::string pref_locale_backup =
-        pref->GetString(prefs::kApplicationLocaleBackup);
-    if (pref_locale_backup.empty()) {
-      pref->SetString(prefs::kApplicationLocaleBackup,
-                      g_browser_process->GetApplicationLocale());
-      return;
-    } else {
-      pref_locale.swap(pref_locale_backup);
-      pref->SetString(prefs::kApplicationLocale, pref_locale);
-    }
+void LoginUtilsImpl::RespectLocalePreference(PrefService* prefs) {
+  DCHECK(prefs != NULL);
+  std::string pref_locale_override =
+      prefs->GetString(prefs::kApplicationLocaleOverride);
+  if (!pref_locale_override.empty()) {
+    LanguageSwitchMenu::SwitchLanguage(pref_locale_override);
+    return;
   }
-  LanguageSwitchMenu::SwitchLanguage(pref_locale);
+
+  if (g_browser_process == NULL)
+    return;
+  std::string cur_locale = g_browser_process->GetApplicationLocale();
+
+  std::string pref_locale = prefs->GetString(prefs::kApplicationLocale);
+  if (!pref_locale.empty()) {
+    if (prefs->GetString(prefs::kApplicationLocaleAccepted) == pref_locale) {
+      // If locale is accepted then we do not want to show LocaleChange
+      // notification.  This notification is triggered by different values of
+      // kApplicationLocaleBackup and kApplicationLocale preferences,
+      // so make them identical.
+      prefs->SetString(prefs::kApplicationLocaleBackup, pref_locale);
+    } else {
+      std::string pref_locale_backup =
+          prefs->GetString(prefs::kApplicationLocaleBackup);
+      if (pref_locale_backup != cur_locale) {
+        if (pref_locale_backup == pref_locale || pref_locale_backup.empty()) {
+          prefs->SetString(prefs::kApplicationLocaleBackup, cur_locale);
+        }
+      }
+    }
+    LanguageSwitchMenu::SwitchLanguage(pref_locale);
+    return;
+  }
+  // Profile synchronization takes time and is not completed at that moment
+  // at first login.  So we initialize locale preference in steps:
+  // (1) first save it to temporary backup;
+  // (2) on next login we assume that synchronization is already completed
+  //     and we may finalize initialization.
+  std::string pref_locale_backup =
+      prefs->GetString(prefs::kApplicationLocaleBackup);
+  prefs->SetString(prefs::kApplicationLocaleBackup, cur_locale);
+  prefs->ScheduleSavePersistentPrefs();
+  if (!pref_locale_backup.empty()) {
+    prefs->SetString(prefs::kApplicationLocale, pref_locale_backup);
+    prefs->ScheduleSavePersistentPrefs();
+    LanguageSwitchMenu::SwitchLanguage(pref_locale_backup);
+  }
 }
 
 void LoginUtilsImpl::CompleteOffTheRecordLogin(const GURL& start_url) {
@@ -366,7 +406,6 @@ void LoginUtilsImpl::CompleteOffTheRecordLogin(const GURL& start_url) {
         switches::kEnableGView,
         switches::kNoFirstRun,
         switches::kLoginProfile,
-        switches::kEnableTabbedOptions,
         switches::kCompressSystemFeedback,
         switches::kDisableSeccompSandbox,
 #if defined(HAVE_XINPUT2)
@@ -503,6 +542,14 @@ void LoginUtilsImpl::PrewarmAuthentication() {
       new WarmingObserver();
     }
   }
+}
+
+void LoginUtilsImpl::SetBackgroundView(BackgroundView* background_view) {
+  background_view_ = background_view;
+}
+
+BackgroundView* LoginUtilsImpl::GetBackgroundView() {
+  return background_view_;
 }
 
 LoginUtils* LoginUtils::Get() {

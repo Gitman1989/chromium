@@ -70,7 +70,7 @@ class SearchProvider : public AutocompleteProvider,
   // URLFetcher::Delegate
   virtual void OnURLFetchComplete(const URLFetcher* source,
                                   const GURL& url,
-                                  const URLRequestStatus& status,
+                                  const net::URLRequestStatus& status,
                                   int response_code,
                                   const ResponseCookies& cookies,
                                   const std::string& data);
@@ -268,6 +268,9 @@ class SearchProvider : public AutocompleteProvider,
   // Updates the value of |done_| from the internal state.
   void UpdateDone();
 
+  // Updates the description/description_class of the first search match.
+  void UpdateFirstSearchMatchDescription();
+
   // Should we query for suggest results immediately? This is normally false,
   // but may be set to true during testing.
   static bool query_suggest_immediately_;
@@ -313,6 +316,9 @@ class SearchProvider : public AutocompleteProvider,
 
   // Has FinalizeInstantQuery been invoked since the last |Start|?
   bool instant_finalized_;
+
+  // The |suggest_text| parameter passed to FinalizeInstantQuery.
+  std::wstring default_provider_suggest_text_;
 
   DISALLOW_COPY_AND_ASSIGN(SearchProvider);
 };

@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,7 +9,7 @@
 #include "chrome/browser/browser_list.h"
 #include "chrome/browser/browser_window.h"
 #include "chrome/browser/extensions/extension_install_ui.h"
-#include "chrome/browser/views/window.h"
+#include "chrome/browser/ui/views/window.h"
 #include "chrome/common/extensions/extension.h"
 #include "grit/generated_resources.h"
 #include "views/controls/button/checkbox.h"
@@ -20,10 +20,6 @@
 #include "views/view.h"
 #include "views/window/dialog_delegate.h"
 #include "views/window/window.h"
-
-#if defined(OS_WIN)
-#include "app/win_util.h"
-#endif
 
 class Profile;
 
@@ -49,9 +45,9 @@ class InstallDialogContent : public views::View, public views::DialogDelegate {
     icon_->SetImage(*icon);
     AddChildView(icon_);
 
-    heading_ = new views::Label(
-        l10n_util::GetStringF(ExtensionInstallUI::kHeadingIds[type_],
-                              UTF8ToWide(extension->name())));
+    heading_ = new views::Label(UTF16ToWide(
+        l10n_util::GetStringFUTF16(ExtensionInstallUI::kHeadingIds[type_],
+                                   UTF8ToUTF16(extension->name()))));
     heading_->SetMultiLine(true);
     heading_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
     AddChildView(heading_);
@@ -63,9 +59,10 @@ class InstallDialogContent : public views::View, public views::DialogDelegate {
       MessageBoxFlags::DialogButton button) const {
     switch (button) {
       case MessageBoxFlags::DIALOGBUTTON_OK:
-        return l10n_util::GetString(ExtensionInstallUI::kButtonIds[type_]);
+        return UTF16ToWide(
+            l10n_util::GetStringUTF16(ExtensionInstallUI::kButtonIds[type_]));
       case MessageBoxFlags::DIALOGBUTTON_CANCEL:
-        return l10n_util::GetString(IDS_CANCEL);
+        return UTF16ToWide(l10n_util::GetStringUTF16(IDS_CANCEL));
       default:
         NOTREACHED();
         return L"";
@@ -89,7 +86,8 @@ class InstallDialogContent : public views::View, public views::DialogDelegate {
   // WindowDelegate
   virtual bool IsModal() const { return true; }
   virtual std::wstring GetWindowTitle() const {
-    return l10n_util::GetString(ExtensionInstallUI::kTitleIds[type_]);
+    return UTF16ToWide(
+        l10n_util::GetStringUTF16(ExtensionInstallUI::kTitleIds[type_]));
   }
   virtual views::View* GetContentsView() { return this; }
 

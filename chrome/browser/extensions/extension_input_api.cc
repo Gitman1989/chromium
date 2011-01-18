@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,15 +6,16 @@
 
 #include <string>
 
-#include "app/keyboard_code_conversion.h"
+#include "base/string_util.h"
 #include "base/values.h"
 #include "chrome/browser/browser_window.h"
 #include "chrome/browser/extensions/extension_tabs_module.h"
 #include "chrome/browser/renderer_host/render_view_host.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/common/native_web_keyboard_event.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebInputEvent.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
+#include "ui/base/keycodes/keyboard_code_conversion.h"
 #include "views/event.h"
 #include "views/widget/root_view.h"
 
@@ -83,8 +84,10 @@ bool SendKeyboardEventInputFunction::RunImpl() {
 
   std::string identifier;
   EXTENSION_FUNCTION_VALIDATE(args->GetString(kKeyIdentifier, &identifier));
-  app::KeyboardCode code = app::KeyCodeFromKeyIdentifier(identifier);
-  if (code == app::VKEY_UNKNOWN) {
+  TrimWhitespaceASCII(identifier, TRIM_ALL, &identifier);
+
+  ui::KeyboardCode code = ui::KeyCodeFromKeyIdentifier(identifier);
+  if (code == ui::VKEY_UNKNOWN) {
     error_ = kUnknownOrUnsupportedKeyIdentiferError;
     return false;
   }

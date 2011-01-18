@@ -1,11 +1,11 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "base/ref_counted.h"
 
 #include "base/logging.h"
-#include "base/thread_collision_warner.h"
+#include "base/threading/thread_collision_warner.h"
 
 namespace base {
 
@@ -51,6 +51,11 @@ bool RefCountedBase::Release() const {
   return false;
 }
 
+bool RefCountedThreadSafeBase::HasOneRef() const {
+  return AtomicRefCountIsOne(
+      &const_cast<RefCountedThreadSafeBase*>(this)->ref_count_);
+}
+
 RefCountedThreadSafeBase::RefCountedThreadSafeBase() : ref_count_(0) {
 #ifndef NDEBUG
   in_dtor_ = false;
@@ -83,11 +88,6 @@ bool RefCountedThreadSafeBase::Release() const {
     return true;
   }
   return false;
-}
-
-bool RefCountedThreadSafeBase::HasOneRef() const {
-  return AtomicRefCountIsOne(
-      &const_cast<RefCountedThreadSafeBase*>(this)->ref_count_);
 }
 
 }  // namespace subtle

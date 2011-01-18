@@ -13,12 +13,12 @@
 #include "ppapi/c/pp_stdint.h"
 #include "ppapi/c/pp_var.h"
 
-#define PPB_TRANSPORT_DEV_INTERFACE "PPB_Transport;0.3"
+#define PPB_TRANSPORT_DEV_INTERFACE "PPB_Transport;0.4"
 
 struct PPB_Transport_Dev {
   // Creates a new transport object with the specified name
   // using the specified protocol.
-  PP_Resource (*CreateTransport)(PP_Module module,
+  PP_Resource (*CreateTransport)(PP_Instance instance,
                                  const char* name,
                                  const char* proto);
 

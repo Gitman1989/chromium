@@ -6,10 +6,10 @@
 #define CHROME_BROWSER_DOM_UI_OPTIONS_BROWSER_OPTIONS_HANDLER_H_
 #pragma once
 
-#include "app/table_model_observer.h"
 #include "chrome/browser/dom_ui/options/options_ui.h"
 #include "chrome/browser/search_engines/template_url_model_observer.h"
 #include "chrome/browser/shell_integration.h"
+#include "ui/base/models/table_model_observer.h"
 
 class CustomHomePagesTableModel;
 class OptionsManagedBannerHandler;
@@ -19,7 +19,7 @@ class TemplateURLModel;
 class BrowserOptionsHandler : public OptionsPageUIHandler,
                               public ShellIntegration::DefaultBrowserObserver,
                               public TemplateURLModelObserver,
-                              public TableModelObserver {
+                              public ui::TableModelObserver {
  public:
   BrowserOptionsHandler();
   virtual ~BrowserOptionsHandler();
@@ -37,7 +37,7 @@ class BrowserOptionsHandler : public OptionsPageUIHandler,
   // TemplateURLModelObserver implementation.
   virtual void OnTemplateURLModelChanged();
 
-  // TableModelObserver implementation.
+  // ui::TableModelObserver implementation.
   virtual void OnModelChanged();
   virtual void OnItemsChanged(int start, int length);
   virtual void OnItemsAdded(int start, int length);
@@ -56,6 +56,10 @@ class BrowserOptionsHandler : public OptionsPageUIHandler,
   // Adds a startup page with the given URL after the given index.
   // Called from DOMUI.
   void AddStartupPage(const ListValue* args);
+
+  // Changes the startup page at the given index to the given URL.
+  // Called from DOMUI.
+  void EditStartupPage(const ListValue* args);
 
   // Sets the startup page set to the current pages. Called from DOMUI.
   void SetStartupPagesToCurrentPages(const ListValue* args);

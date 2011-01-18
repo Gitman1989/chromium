@@ -6,13 +6,11 @@
 #define CHROME_RENDERER_GEOLOCATION_DISPATCHER_H_
 #pragma once
 
-#if defined(ENABLE_CLIENT_BASED_GEOLOCATION)
-
 #include "base/scoped_ptr.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebGeolocationClient.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebGeolocationController.h"
+#include "chrome/renderer/render_view_observer.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebGeolocationClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebGeolocationController.h"
 
-class RenderView;
 struct Geoposition;
 
 namespace WebKit {
@@ -23,19 +21,17 @@ class WebGeolocationPosition;
 class WebSecurityOrigin;
 }
 
-namespace IPC {
-class Message;
-}
-
 // GeolocationDispatcher is a delegate for Geolocation messages used by
 // WebKit.
 // It's the complement of GeolocationDispatcherHost (owned by RenderViewHost).
-class GeolocationDispatcher : public WebKit::WebGeolocationClient {
+class GeolocationDispatcher : public RenderViewObserver,
+                              public WebKit::WebGeolocationClient {
  public:
   explicit GeolocationDispatcher(RenderView* render_view);
   virtual ~GeolocationDispatcher();
 
-  // IPC
+ private:
+  // RenderView::Observer implementation.
   bool OnMessageReceived(const IPC::Message& message);
 
   // WebGeolocationClient
@@ -50,7 +46,6 @@ class GeolocationDispatcher : public WebKit::WebGeolocationClient {
   virtual void cancelPermissionRequest(
       const WebKit::WebGeolocationPermissionRequest& permissionRequest);
 
- private:
   // Permission for using geolocation has been set.
   void OnGeolocationPermissionSet(int bridge_id, bool is_allowed);
 
@@ -70,6 +65,5 @@ class GeolocationDispatcher : public WebKit::WebGeolocationClient {
   bool enable_high_accuracy_;
   bool updating_;
 };
-#endif // ENABLE_CLIENT_BASED_GEOLOCATION
 
-#endif // CHROME_RENDERER_GEOLOCATION_DISPATCHER_H_
+#endif  // CHROME_RENDERER_GEOLOCATION_DISPATCHER_H_

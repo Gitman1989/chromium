@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,9 +12,10 @@
 #include "chrome/common/json_pref_store.h"
 
 PrefServiceMockBuilder::PrefServiceMockBuilder()
-  : user_prefs_(new TestingPrefStore),
-    profile_(NULL) {
+  : user_prefs_(new TestingPrefStore) {
 }
+
+PrefServiceMockBuilder::~PrefServiceMockBuilder() {}
 
 PrefServiceMockBuilder&
 PrefServiceMockBuilder::WithManagedPlatformPrefs(PrefStore* store) {
@@ -98,10 +99,7 @@ PrefService* PrefServiceMockBuilder::Create() {
                       extension_prefs_.release(),
                       command_line_prefs_.release(),
                       user_prefs_.release(),
-                      recommended_prefs_.release(),
-                      profile_);
+                      recommended_prefs_.release());
   user_prefs_.reset(new TestingPrefStore);
-  profile_ = NULL;
-
   return pref_service;
 }

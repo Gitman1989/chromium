@@ -7,6 +7,7 @@
 #include "app/l10n_util.h"
 #include "base/compiler_specific.h"
 #include "base/message_loop.h"
+#include "base/utf_string_conversions.h"
 #include "grit/app_strings.h"
 #include "views/controls/menu/view_menu_delegate.h"
 #include "views/widget/widget.h"
@@ -23,7 +24,7 @@ static const int kMenuTimerDelay = 500;
 ////////////////////////////////////////////////////////////////////////////////
 
 ButtonDropDown::ButtonDropDown(ButtonListener* listener,
-                               menus::MenuModel* model)
+                               ui::MenuModel* model)
     : ImageButton(listener),
       model_(model),
       y_position_on_lbuttondown_(0),
@@ -164,8 +165,8 @@ void ButtonDropDown::ShowDropDownMenu(gfx::NativeView window) {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-std::wstring ButtonDropDown::GetAccessibleDefaultAction() {
-  return l10n_util::GetString(IDS_APP_ACCACTION_PRESS);
+string16 ButtonDropDown::GetAccessibleDefaultAction() {
+  return l10n_util::GetStringUTF16(IDS_APP_ACCACTION_PRESS);
 }
 
 AccessibilityTypes::Role ButtonDropDown::GetAccessibleRole() {

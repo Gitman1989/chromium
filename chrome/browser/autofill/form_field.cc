@@ -4,6 +4,7 @@
 
 #include "chrome/browser/autofill/form_field.h"
 
+#include "app/l10n_util.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/autofill/address_field.h"
@@ -12,8 +13,9 @@
 #include "chrome/browser/autofill/fax_field.h"
 #include "chrome/browser/autofill/name_field.h"
 #include "chrome/browser/autofill/phone_field.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebRegularExpression.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebRegularExpression.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebString.h"
+#include "grit/autofill_resources.h"
 
 // Field names from the ECML specification; see RFC 3106.  We've
 // made these names lowercase since we convert labels and field names to
@@ -89,7 +91,7 @@ class EmailField : public FormField {
     if (is_ecml) {
       pattern = GetEcmlPattern(kEcmlShipToEmail, kEcmlBillToEmail, '|');
     } else {
-      pattern = ASCIIToUTF16("email|e-mail");
+      pattern = l10n_util::GetStringUTF16(IDS_AUTOFILL_EMAIL_RE);
     }
 
     AutoFillField* field;

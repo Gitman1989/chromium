@@ -234,7 +234,7 @@ TEST_F(GLES2DecoderWithShaderTest, DrawArraysInvalidCountFails) {
 
   // Try with stride > 8 (vec2 + vec2 byte)
   GLfloat f;
-  DoVertexAttribPointer(1, 2, GL_FLOAT, sizeof(f) * 2 + 1, 0);
+  DoVertexAttribPointer(1, 2, GL_FLOAT, sizeof(f) * 2 + sizeof(f), 0);
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
   EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
   EXPECT_EQ(GL_NO_ERROR, GetGLError());
@@ -1235,7 +1235,7 @@ TEST_F(GLES2DecoderTest, FramebufferTexture2DWithNoBoundTarget) {
   FramebufferTexture2D cmd;
   cmd.Init(
       GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, client_texture_id_,
-      5);
+      0);
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
   EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
 }
@@ -1259,10 +1259,16 @@ TEST_F(GLES2DecoderTest, GetFramebufferAttachmentParameterivWithNoBoundTarget) {
 TEST_F(GLES2DecoderTest, GetFramebufferAttachmentParameterivWithRenderbuffer) {
   DoBindFramebuffer(GL_FRAMEBUFFER, client_framebuffer_id_,
                     kServiceFramebufferId);
+  EXPECT_CALL(*gl_, GetError())
+      .WillOnce(Return(GL_NO_ERROR))
+      .RetiresOnSaturation();
   EXPECT_CALL(*gl_, FramebufferRenderbufferEXT(
       GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER,
       kServiceRenderbufferId))
       .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, GetError())
+      .WillOnce(Return(GL_NO_ERROR))
       .RetiresOnSaturation();
   SetupExpectationsForFramebufferAttachment(
       GL_COLOR_BUFFER_BIT,    // clear bits
@@ -1313,10 +1319,16 @@ TEST_F(GLES2DecoderTest, GetFramebufferAttachmentParameterivWithRenderbuffer) {
 TEST_F(GLES2DecoderTest, GetFramebufferAttachmentParameterivWithTexture) {
   DoBindFramebuffer(GL_FRAMEBUFFER, client_framebuffer_id_,
                     kServiceFramebufferId);
+  EXPECT_CALL(*gl_, GetError())
+      .WillOnce(Return(GL_NO_ERROR))
+      .RetiresOnSaturation();
   EXPECT_CALL(*gl_, FramebufferTexture2DEXT(
       GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-      kServiceTextureId, 5))
+      kServiceTextureId, 0))
       .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, GetError())
+      .WillOnce(Return(GL_NO_ERROR))
       .RetiresOnSaturation();
   SetupExpectationsForFramebufferAttachment(
       0,                      // clear bits
@@ -1353,7 +1365,7 @@ TEST_F(GLES2DecoderTest, GetFramebufferAttachmentParameterivWithTexture) {
   GetFramebufferAttachmentParameteriv cmd;
   fbtex_cmd.Init(
       GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, client_texture_id_,
-      5);
+      0);
   cmd.Init(
       GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
       GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, shared_memory_id_,
@@ -1485,37 +1497,33 @@ void GLES2DecoderTest::CheckReadPixelsOutOfRange(
                  kFormat, GL_UNSIGNED_BYTE, 0, 0);
     DoBindFramebuffer(GL_FRAMEBUFFER, client_framebuffer_id_,
                       kServiceFramebufferId);
+    EXPECT_CALL(*gl_, GetError())
+        .WillOnce(Return(GL_NO_ERROR))
+        .RetiresOnSaturation();
+    EXPECT_CALL(*gl_, FramebufferTexture2DEXT(
+        GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+        kServiceTextureId, 0))
+        .Times(1)
+        .RetiresOnSaturation();
+    EXPECT_CALL(*gl_, GetError())
+        .WillOnce(Return(GL_NO_ERROR))
+        .RetiresOnSaturation();
+    SetupExpectationsForFramebufferAttachment(
+        0,                      // clear bits
+        0, 0, 0, 0,             // color
+        0x1111,                 // color bits
+        0,                      // stencil
+        -1,                     // stencil mask back,
+        -1,                     // stencil mask front,
+        1.0f,                   // depth
+        1,                      // depth mask
+        false);                 // scissor test
+    FramebufferTexture2D fbtex_cmd;
+    fbtex_cmd.Init(
+        GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, client_texture_id_,
+        0);
+    EXPECT_EQ(error::kNoError, ExecuteCmd(fbtex_cmd));
   }
-
-  // We need to tell our mock GL to return the info about our FBO.
-  EXPECT_CALL(*gl_, GetFramebufferAttachmentParameterivEXT(
-      GL_FRAMEBUFFER,
-      GL_COLOR_ATTACHMENT0,
-      GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE,
-      _))
-      .WillOnce(SetArgumentPointee<3>(GL_TEXTURE))
-      .RetiresOnSaturation();
-  EXPECT_CALL(*gl_, GetFramebufferAttachmentParameterivEXT(
-            GL_FRAMEBUFFER,
-            GL_COLOR_ATTACHMENT0,
-            GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME,
-            _))
-      .WillOnce(SetArgumentPointee<3>(kServiceTextureId))
-      .RetiresOnSaturation();
-  EXPECT_CALL(*gl_, GetFramebufferAttachmentParameterivEXT(
-      GL_FRAMEBUFFER,
-      GL_COLOR_ATTACHMENT0,
-      GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_LEVEL,
-      _))
-      .WillOnce(SetArgumentPointee<3>(0))
-      .RetiresOnSaturation();
-  EXPECT_CALL(*gl_, GetFramebufferAttachmentParameterivEXT(
-      GL_FRAMEBUFFER,
-      GL_COLOR_ATTACHMENT0,
-      GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_CUBE_MAP_FACE,
-      _))
-      .WillOnce(SetArgumentPointee<3>(0))
-      .RetiresOnSaturation();
 
   ReadPixelsEmulator emu(
       kWidth, kHeight, kBytesPerPixel, kSrcPixels, kPackAlignment);
@@ -2447,10 +2455,16 @@ TEST_F(GLES2DecoderTest, FramebufferRenderbufferClearColor) {
   EXPECT_CALL(*gl_, Enable(GL_SCISSOR_TEST))
       .Times(1)
       .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, GetError())
+      .WillOnce(Return(GL_NO_ERROR))
+      .RetiresOnSaturation();
   EXPECT_CALL(*gl_, FramebufferRenderbufferEXT(
       GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER,
       kServiceRenderbufferId))
       .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, GetError())
+      .WillOnce(Return(GL_NO_ERROR))
       .RetiresOnSaturation();
   SetupExpectationsForFramebufferAttachment(
       GL_COLOR_BUFFER_BIT,     // clear bits
@@ -2486,10 +2500,16 @@ TEST_F(GLES2DecoderTest, FramebufferRenderbufferClearDepth) {
   EXPECT_CALL(*gl_, DepthMask(0))
       .Times(1)
       .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, GetError())
+      .WillOnce(Return(GL_NO_ERROR))
+      .RetiresOnSaturation();
   EXPECT_CALL(*gl_, FramebufferRenderbufferEXT(
       GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER,
       kServiceRenderbufferId))
       .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, GetError())
+      .WillOnce(Return(GL_NO_ERROR))
       .RetiresOnSaturation();
   SetupExpectationsForFramebufferAttachment(
       GL_DEPTH_BUFFER_BIT,    // clear bits
@@ -2524,10 +2544,16 @@ TEST_F(GLES2DecoderTest, FramebufferRenderbufferClearStencil) {
   EXPECT_CALL(*gl_, StencilMaskSeparate(GL_BACK, 0x1234u))
       .Times(1)
       .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, GetError())
+      .WillOnce(Return(GL_NO_ERROR))
+      .RetiresOnSaturation();
   EXPECT_CALL(*gl_, FramebufferRenderbufferEXT(
       GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER,
       kServiceRenderbufferId))
       .Times(1)
+      .RetiresOnSaturation();
+  EXPECT_CALL(*gl_, GetError())
+      .WillOnce(Return(GL_NO_ERROR))
       .RetiresOnSaturation();
   SetupExpectationsForFramebufferAttachment(
       GL_STENCIL_BUFFER_BIT,  // clear bits
@@ -2542,6 +2568,54 @@ TEST_F(GLES2DecoderTest, FramebufferRenderbufferClearStencil) {
   EXPECT_EQ(error::kNoError, ExecuteCmd(stencil_cmd));
   EXPECT_EQ(error::kNoError, ExecuteCmd(stencil_mask_separate_cmd));
   EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
+}
+
+TEST_F(GLES2DecoderTest, IsBuffer) {
+  EXPECT_FALSE(DoIsBuffer(client_buffer_id_));
+  DoBindBuffer(GL_ARRAY_BUFFER, client_buffer_id_, kServiceBufferId);
+  EXPECT_TRUE(DoIsBuffer(client_buffer_id_));
+  DoDeleteBuffer(client_buffer_id_, kServiceBufferId);
+  EXPECT_FALSE(DoIsBuffer(client_buffer_id_));
+}
+
+TEST_F(GLES2DecoderTest, IsFramebuffer) {
+  EXPECT_FALSE(DoIsFramebuffer(client_framebuffer_id_));
+  DoBindFramebuffer(GL_FRAMEBUFFER, client_framebuffer_id_,
+                    kServiceFramebufferId);
+  EXPECT_TRUE(DoIsFramebuffer(client_framebuffer_id_));
+  DoDeleteFramebuffer(client_framebuffer_id_, kServiceFramebufferId);
+  EXPECT_FALSE(DoIsFramebuffer(client_framebuffer_id_));
+}
+
+TEST_F(GLES2DecoderTest, IsProgram) {
+  // IsProgram is true as soon as the program is created.
+  EXPECT_TRUE(DoIsProgram(client_program_id_));
+  DoDeleteProgram(client_program_id_, kServiceProgramId);
+  EXPECT_FALSE(DoIsProgram(client_program_id_));
+}
+
+TEST_F(GLES2DecoderTest, IsRenderbuffer) {
+  EXPECT_FALSE(DoIsRenderbuffer(client_renderbuffer_id_));
+  DoBindRenderbuffer(GL_RENDERBUFFER, client_renderbuffer_id_,
+                    kServiceRenderbufferId);
+  EXPECT_TRUE(DoIsRenderbuffer(client_renderbuffer_id_));
+  DoDeleteRenderbuffer(client_renderbuffer_id_, kServiceRenderbufferId);
+  EXPECT_FALSE(DoIsRenderbuffer(client_renderbuffer_id_));
+}
+
+TEST_F(GLES2DecoderTest, IsShader) {
+  // IsShader is true as soon as the program is created.
+  EXPECT_TRUE(DoIsShader(client_shader_id_));
+  DoDeleteShader(client_shader_id_, kServiceShaderId);
+  EXPECT_FALSE(DoIsShader(client_shader_id_));
+}
+
+TEST_F(GLES2DecoderTest, IsTexture) {
+  EXPECT_FALSE(DoIsTexture(client_texture_id_));
+  DoBindTexture(GL_TEXTURE_2D, client_texture_id_, kServiceTextureId);
+  EXPECT_TRUE(DoIsTexture(client_texture_id_));
+  DoDeleteTexture(client_texture_id_, kServiceTextureId);
+  EXPECT_FALSE(DoIsTexture(client_texture_id_));
 }
 
 #if 0  // Turn this test on once we allow GL_DEPTH_STENCIL_ATTACHMENT
@@ -2584,6 +2658,144 @@ TEST_F(GLES2DecoderTest, FramebufferRenderbufferClearDepthStencil) {
 }
 #endif
 
+TEST_F(GLES2DecoderWithShaderTest, VertexAttribPointer) {
+  SetupVertexBuffer();
+  static const GLenum types[] = {
+    GL_BYTE,
+    GL_UNSIGNED_BYTE,
+    GL_SHORT,
+    GL_UNSIGNED_SHORT,
+    GL_FLOAT,
+    GL_FIXED,
+    GL_INT,
+    GL_UNSIGNED_INT,
+  };
+  static const GLsizei sizes[] = {
+    1,
+    1,
+    2,
+    2,
+    4,
+    4,
+    4,
+    4,
+  };
+  static const GLuint indices[] = {
+    0,
+    1,
+    kNumVertexAttribs - 1,
+    kNumVertexAttribs,
+  };
+  static const GLsizei offset_mult[] = {
+    0,
+    0,
+    1,
+    1,
+    2,
+    1000,
+  };
+  static const GLsizei offset_offset[] = {
+    0,
+    1,
+    0,
+    1,
+    0,
+    0,
+  };
+  static const GLsizei stride_mult[] = {
+    -1,
+    0,
+    0,
+    1,
+    1,
+    2,
+    1000,
+  };
+  static const GLsizei stride_offset[] = {
+    0,
+    0,
+    1,
+    0,
+    1,
+    0,
+    0,
+  };
+  for (size_t tt = 0; tt < arraysize(types); ++tt) {
+    GLenum type = types[tt];
+    GLsizei num_bytes = sizes[tt];
+    for (size_t ii = 0; ii < arraysize(indices); ++ii) {
+      GLuint index = indices[ii];
+      for (GLint size = 0; size < 5; ++size) {
+        for (size_t oo = 0; oo < arraysize(offset_mult); ++oo) {
+          GLuint offset = num_bytes * offset_mult[oo] + offset_offset[oo];
+          for (size_t ss = 0; ss <= arraysize(stride_mult); ++ss) {
+            GLsizei stride = num_bytes * stride_mult[ss] + stride_offset[ss];
+            for (int normalize = 0; normalize < 2; ++normalize) {
+              bool index_good = index < static_cast<GLuint>(kNumVertexAttribs);
+              bool size_good = (size > 0 && size < 5);
+              bool offset_good = (offset % num_bytes == 0);
+              bool stride_good = (stride % num_bytes == 0) && stride >= 0 &&
+                                 stride <= 255;
+              bool type_good = (type != GL_INT && type != GL_UNSIGNED_INT &&
+                                type != GL_FIXED);
+              bool good = size_good && offset_good && stride_good &&
+                          type_good && index_good;
+              bool call = good && (type != GL_FIXED);
+              if (call) {
+                EXPECT_CALL(*gl_, VertexAttribPointer(
+                    index, size, type, normalize, stride,
+                    BufferOffset(offset)));
+              }
+              VertexAttribPointer cmd;
+              cmd.Init(index, size, type, normalize, stride, offset);
+              EXPECT_EQ(error::kNoError, ExecuteCmd(cmd));
+              if (good) {
+                EXPECT_EQ(GL_NO_ERROR, GetGLError());
+              } else if (size_good &&
+                         offset_good &&
+                         stride_good &&
+                         type_good &&
+                         !index_good) {
+                EXPECT_EQ(GL_INVALID_VALUE, GetGLError());
+              } else if (size_good &&
+                         offset_good &&
+                         stride_good &&
+                         !type_good &&
+                         index_good) {
+                EXPECT_EQ(GL_INVALID_ENUM, GetGLError());
+              } else if (size_good &&
+                         offset_good &&
+                         !stride_good &&
+                         type_good &&
+                         index_good) {
+                if (stride < 0 || stride > 255) {
+                  EXPECT_EQ(GL_INVALID_VALUE, GetGLError());
+                } else {
+                  EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
+                }
+              } else if (size_good &&
+                         !offset_good &&
+                         stride_good &&
+                         type_good &&
+                         index_good) {
+                EXPECT_EQ(GL_INVALID_OPERATION, GetGLError());
+              } else if (!size_good &&
+                         offset_good &&
+                         stride_good &&
+                         type_good &&
+                         index_good) {
+                EXPECT_EQ(GL_INVALID_VALUE, GetGLError());
+              } else {
+                EXPECT_NE(GL_NO_ERROR, GetGLError());
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 // TODO(gman): BufferData
 
 // TODO(gman): BufferDataImmediate
@@ -2614,9 +2826,5 @@ TEST_F(GLES2DecoderTest, FramebufferRenderbufferClearDepthStencil) {
 
 // TODO(gman): SwapBuffers
 
-// TODO(gman): VertexAttribPointer
-
 }  // namespace gles2
 }  // namespace gpu
-
-

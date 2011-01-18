@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -123,7 +123,12 @@ class PluginTest : public UITest {
   }
 };
 
+// http://crbug.com/68303
+#if defined(OS_MACOSX) || defined(OS_LINUX)
+TEST_F(PluginTest, DISABLED_Flash) {
+#else
 TEST_F(PluginTest, Flash) {
+#endif
   // Note: This does not work with the npwrapper on 64-bit Linux. Install the
   // native 64-bit Flash to run the test.
   // TODO(thestig) Update this list if we decide to only test against internal
@@ -147,7 +152,12 @@ class ClickToPlayPluginTest : public PluginTest {
   }
 };
 
+// http://crbug.com/68303
+#if defined(OS_MACOSX)
+TEST_F(ClickToPlayPluginTest, DISABLED_Flash) {
+#else
 TEST_F(ClickToPlayPluginTest, Flash) {
+#endif
   scoped_refptr<BrowserProxy> browser(automation()->GetBrowserWindow(0));
   ASSERT_TRUE(browser.get());
   ASSERT_TRUE(browser->SetDefaultContentSetting(CONTENT_SETTINGS_TYPE_PLUGINS,
@@ -164,7 +174,12 @@ TEST_F(ClickToPlayPluginTest, Flash) {
   WaitForFinish(action_max_timeout_ms(), true);
 }
 
+// http://crbug.com/68303
+#if defined(OS_MACOSX)
+TEST_F(ClickToPlayPluginTest, DISABLED_FlashDocument) {
+#else
 TEST_F(ClickToPlayPluginTest, FlashDocument) {
+#endif
   scoped_refptr<BrowserProxy> browser(automation()->GetBrowserWindow(0));
   ASSERT_TRUE(browser.get());
   ASSERT_TRUE(browser->SetDefaultContentSetting(CONTENT_SETTINGS_TYPE_PLUGINS,
@@ -200,11 +215,8 @@ TEST_F(PluginTest, FLAKY_Quicktime) {
   TestPlugin("quicktime.html", action_max_timeout_ms(), false);
 }
 
-// Disabled on Release bots - http://crbug.com/44662
-#if defined(NDEBUG)
-#define MediaPlayerNew DISABLED_MediaPlayerNew
-#endif
-TEST_F(PluginTest, MediaPlayerNew) {
+// Disabled - http://crbug.com/44662
+TEST_F(PluginTest, DISABLED_MediaPlayerNew) {
   TestPlugin("wmp_new.html", action_max_timeout_ms(), false);
 }
 
@@ -213,11 +225,8 @@ TEST_F(PluginTest, DISABLED_MediaPlayerOld) {
   TestPlugin("wmp_old.html", action_max_timeout_ms(), false);
 }
 
-#if defined(NDEBUG)
-#define Real DISABLED_Real
-#endif
-// Disabled on Release bots - http://crbug.com/44673
-TEST_F(PluginTest, Real) {
+// Disabled - http://crbug.com/44673
+TEST_F(PluginTest, DISABLED_Real) {
   TestPlugin("real.html", action_max_timeout_ms(), false);
 }
 
@@ -250,7 +259,7 @@ class PluginInstallerDownloadTest
       public testing::Test {
  public:
   // This class provides HTTP request context information for the downloads.
-  class UploadRequestContext : public URLRequestContext {
+  class UploadRequestContext : public net::URLRequestContext {
    public:
     UploadRequestContext() {
       Initialize();
@@ -294,6 +303,7 @@ class PluginInstallerDownloadTest
                                                http_auth_handler_factory_,
                                                network_delegate_,
                                                NULL),
+          NULL /* net_log */,
           net::HttpCache::DefaultBackend::InMemory(0));
     }
 

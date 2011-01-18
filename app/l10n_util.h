@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -80,7 +80,6 @@ bool IsValidLocaleSyntax(const std::string& locale);
 //
 
 // Pulls resource string from the string bundle and returns it.
-std::wstring GetString(int message_id);
 std::string GetStringUTF8(int message_id);
 string16 GetStringUTF16(int message_id);
 
@@ -100,45 +99,6 @@ string16 GetStringFUTF16(int message_id,
                          const string16& b,
                          const string16& c,
                          const string16& d);
-#if defined(WCHAR_T_IS_UTF16)
-inline std::wstring GetStringF(int message_id,
-                               const std::wstring& a) {
-  return GetStringFUTF16(message_id, a);
-}
-inline std::wstring GetStringF(int message_id,
-                               const std::wstring& a,
-                               const std::wstring& b) {
-  return GetStringFUTF16(message_id, a, b);
-}
-inline std::wstring GetStringF(int message_id,
-                               const std::wstring& a,
-                               const std::wstring& b,
-                               const std::wstring& c) {
-  return GetStringFUTF16(message_id, a, b, c);
-}
-inline std::wstring GetStringF(int message_id,
-                               const std::wstring& a,
-                               const std::wstring& b,
-                               const std::wstring& c,
-                               const std::wstring& d) {
-  return GetStringFUTF16(message_id, a, b, c, d);
-}
-#else
-std::wstring GetStringF(int message_id,
-                        const std::wstring& a);
-std::wstring GetStringF(int message_id,
-                        const std::wstring& a,
-                        const std::wstring& b);
-std::wstring GetStringF(int message_id,
-                        const std::wstring& a,
-                        const std::wstring& b,
-                        const std::wstring& c);
-std::wstring GetStringF(int message_id,
-                        const std::wstring& a,
-                        const std::wstring& b,
-                        const std::wstring& c,
-                        const std::wstring& d);
-#endif
 std::string GetStringFUTF8(int message_id,
                            const string16& a);
 std::string GetStringFUTF8(int message_id,
@@ -158,13 +118,6 @@ std::string GetStringFUTF8(int message_id,
 // vector based version returns offsets ordered by parameter. For example if
 // invoked with a and b offsets[0] gives the offset for a and offsets[1] the
 // offset of b regardless of where the parameters end up in the string.
-std::wstring GetStringF(int message_id,
-                        const std::wstring& a,
-                        size_t* offset);
-std::wstring GetStringF(int message_id,
-                        const std::wstring& a,
-                        const std::wstring& b,
-                        std::vector<size_t>* offsets);
 string16 GetStringFUTF16(int message_id,
                          const string16& a,
                          size_t* offset);
@@ -173,9 +126,9 @@ string16 GetStringFUTF16(int message_id,
                          const string16& b,
                          std::vector<size_t>* offsets);
 
-// Convenience formatters for a single number.
-std::wstring GetStringF(int message_id, int a);
-std::wstring GetStringF(int message_id, int64 a);
+// Convenience functions to get a string with a single number as a parameter.
+string16 GetStringFUTF16Int(int message_id, int a);
+string16 GetStringFUTF16Int(int message_id, int64 a);
 
 // Truncates the string to length characters. This breaks the string at
 // the first word break before length, adding the horizontal ellipsis
@@ -189,10 +142,6 @@ string16 ToLower(const string16& string);
 
 // Returns the upper case equivalent of string.
 string16 ToUpper(const string16& string);
-
-// In place sorting of std::wstring strings using collation rules for |locale|.
-void SortStrings(const std::string& locale,
-                 std::vector<std::wstring>* strings);
 
 // In place sorting of string16 strings using collation rules for |locale|.
 void SortStrings16(const std::string& locale,

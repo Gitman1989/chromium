@@ -98,6 +98,7 @@ TEST_F(RenderViewTest, MacTestCmdUp) {
   view_->OnSetEditCommandsForNextKeyEvent(
       EditCommands(1, EditCommand("moveToEndOfDocument", "")));
   SendNativeKeyEvent(NativeWebKeyboardEvent(arrowDownKeyDown));
+  ProcessPendingMessages();
   output = GetMainFrame()->contentAsText(kMaxOutputCharacters);
   EXPECT_EQ(kArrowDownScrollDown, UTF16ToASCII(output));
 
@@ -106,6 +107,7 @@ TEST_F(RenderViewTest, MacTestCmdUp) {
   view_->OnSetEditCommandsForNextKeyEvent(
       EditCommands(1, EditCommand("moveToBeginningOfDocument", "")));
   SendNativeKeyEvent(NativeWebKeyboardEvent(arrowUpKeyDown));
+  ProcessPendingMessages();
   output = GetMainFrame()->contentAsText(kMaxOutputCharacters);
   EXPECT_EQ(kArrowUpScrollUp, UTF16ToASCII(output));
 
@@ -121,6 +123,7 @@ TEST_F(RenderViewTest, MacTestCmdUp) {
   view_->OnSetEditCommandsForNextKeyEvent(
       EditCommands(1, EditCommand("moveToEndOfDocument", "")));
   SendNativeKeyEvent(NativeWebKeyboardEvent(arrowDownKeyDown));
+  ProcessPendingMessages();
   output = GetMainFrame()->contentAsText(kMaxOutputCharacters);
   EXPECT_EQ(kArrowDownNoScroll, UTF16ToASCII(output));
 
@@ -129,6 +132,7 @@ TEST_F(RenderViewTest, MacTestCmdUp) {
   view_->OnSetEditCommandsForNextKeyEvent(
       EditCommands(1, EditCommand("moveToBeginningOfDocument", "")));
   SendNativeKeyEvent(NativeWebKeyboardEvent(arrowUpKeyDown));
+  ProcessPendingMessages();
   output = GetMainFrame()->contentAsText(kMaxOutputCharacters);
   EXPECT_EQ(kArrowUpNoScroll, UTF16ToASCII(output));
 }

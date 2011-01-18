@@ -12,7 +12,6 @@
 #include "base/message_loop.h"
 #include "base/scoped_ptr.h"
 #include "base/time.h"
-#include "base/win_util.h"
 #include "chrome/common/geoposition.h"
 #include "chrome/browser/geolocation/win7_location_api_win.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -294,9 +293,8 @@ class GeolocationApiWin7Tests : public testing::Test {
   Win7LocationApi* CreateMock() {
     MockLocation* locator = new MockLocation();
     locator_ = locator;
-    return new Win7LocationApi(NULL,
-                               &MockPropVariantToDoubleFunction,
-                               locator);
+    return Win7LocationApi::CreateForTesting(&MockPropVariantToDoubleFunction,
+                                             locator);
   }
 
   scoped_ptr<Win7LocationApi> api_;

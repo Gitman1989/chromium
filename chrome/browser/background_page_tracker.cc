@@ -4,7 +4,9 @@
 
 #include "chrome/browser/background_page_tracker.h"
 
+#include <set>
 #include <string>
+#include <vector>
 
 #include "base/command_line.h"
 #include "base/utf_string_conversions.h"
@@ -17,7 +19,6 @@
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/notification_service.h"
 #include "chrome/common/notification_type.h"
@@ -165,7 +166,7 @@ void BackgroundPageTracker::Observe(NotificationType type,
       break;
     }
     case NotificationType::EXTENSION_UNLOADED: {
-      std::string id = Details<const Extension>(details)->id();
+      std::string id = Details<UnloadedExtensionInfo>(details)->extension->id();
       OnExtensionUnloaded(id);
       break;
     }

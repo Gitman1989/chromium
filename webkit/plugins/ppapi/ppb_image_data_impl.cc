@@ -11,13 +11,11 @@
 #include "base/scoped_ptr.h"
 #include "skia/ext/platform_canvas.h"
 #include "ppapi/c/pp_instance.h"
-#include "ppapi/c/pp_module.h"
 #include "ppapi/c/pp_resource.h"
 #include "ppapi/c/ppb_image_data.h"
 #include "ppapi/c/trusted/ppb_image_data_trusted.h"
 #include "third_party/skia/include/core/SkColorPriv.h"
 #include "webkit/plugins/ppapi/common.h"
-#include "webkit/plugins/ppapi/plugin_module.h"
 #include "webkit/plugins/ppapi/ppapi_plugin_instance.h"
 
 namespace webkit {
@@ -33,15 +31,15 @@ PP_Bool IsImageDataFormatSupported(PP_ImageDataFormat format) {
   return BoolToPPBool(PPB_ImageData_Impl::IsImageDataFormatSupported(format));
 }
 
-PP_Resource Create(PP_Module module_id,
+PP_Resource Create(PP_Instance instance_id,
                    PP_ImageDataFormat format,
                    const PP_Size* size,
                    PP_Bool init_to_zero) {
-  PluginModule* module = ResourceTracker::Get()->GetModule(module_id);
-  if (!module)
+  PluginInstance* instance = ResourceTracker::Get()->GetInstance(instance_id);
+  if (!instance)
     return 0;
 
-  scoped_refptr<PPB_ImageData_Impl> data(new PPB_ImageData_Impl(module));
+  scoped_refptr<PPB_ImageData_Impl> data(new PPB_ImageData_Impl(instance));
   if (!data->Init(format,
                   size->width,
                   size->height,
@@ -111,8 +109,8 @@ const PPB_ImageDataTrusted ppb_imagedata_trusted = {
 
 }  // namespace
 
-PPB_ImageData_Impl::PPB_ImageData_Impl(PluginModule* module)
-    : Resource(module),
+PPB_ImageData_Impl::PPB_ImageData_Impl(PluginInstance* instance)
+    : Resource(instance),
       format_(PP_IMAGEDATAFORMAT_BGRA_PREMUL),
       width_(0),
       height_(0) {
@@ -166,7 +164,7 @@ bool PPB_ImageData_Impl::Init(PP_ImageDataFormat format,
     return false;  // Prevent overflow of signed 32-bit ints.
 
   platform_image_.reset(
-      module()->GetSomeInstance()->delegate()->CreateImage2D(width, height));
+      instance()->delegate()->CreateImage2D(width, height));
   format_ = format;
   width_ = width;
   height_ = height;

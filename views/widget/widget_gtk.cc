@@ -12,13 +12,13 @@
 #include <vector>
 
 #include "app/drag_drop_types.h"
-#include "app/os_exchange_data.h"
-#include "app/os_exchange_data_provider_gtk.h"
 #include "base/auto_reset.h"
 #include "base/compiler_specific.h"
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
 #include "gfx/path.h"
+#include "ui/base/dragdrop/os_exchange_data.h"
+#include "ui/base/dragdrop/os_exchange_data_provider_gtk.h"
 #include "views/widget/default_theme_provider.h"
 #include "views/widget/drop_target_gtk.h"
 #include "views/widget/gtk_views_fixed.h"
@@ -28,6 +28,9 @@
 #include "views/widget/widget_delegate.h"
 #include "views/widget/widget_utils.h"
 #include "views/window/window_gtk.h"
+
+using ui::OSExchangeData;
+using ui::OSExchangeDataProviderGtk;
 
 namespace {
 
@@ -790,7 +793,7 @@ TooltipManager* WidgetGtk::GetTooltipManager() {
   return tooltip_manager_.get();
 }
 
-bool WidgetGtk::GetAccelerator(int cmd_id, menus::Accelerator* accelerator) {
+bool WidgetGtk::GetAccelerator(int cmd_id, ui::Accelerator* accelerator) {
   NOTIMPLEMENTED();
   return false;
 }
@@ -886,21 +889,21 @@ bool WidgetGtk::HandleKeyboardEvent(GdkEventKey* event) {
   // VKEY_MENU key release event. It ensures that VKEY_MENU accelerator can only
   // be activated when handling a VKEY_MENU key release event which is preceded
   // by an unhandled VKEY_MENU key press event.
-  if (key_code != app::VKEY_MENU || event->type != GDK_KEY_RELEASE)
+  if (key_code != ui::VKEY_MENU || event->type != GDK_KEY_RELEASE)
     should_handle_menu_key_release_ = false;
 
   if (event->type == GDK_KEY_PRESS) {
     // VKEY_MENU is triggered by key release event.
     // FocusManager::OnKeyEvent() returns false when the key has been consumed.
-    if (key_code != app::VKEY_MENU)
+    if (key_code != ui::VKEY_MENU)
       handled = !focus_manager_->OnKeyEvent(key);
     else
       should_handle_menu_key_release_ = true;
-  } else if (key_code == app::VKEY_MENU && should_handle_menu_key_release_ &&
+  } else if (key_code == ui::VKEY_MENU && should_handle_menu_key_release_ &&
              (key.GetFlags() & ~Event::EF_ALT_DOWN) == 0) {
     // Trigger VKEY_MENU when only this key is pressed and released, and both
     // press and release events are not handled by others.
-    Accelerator accelerator(app::VKEY_MENU, false, false, false);
+    Accelerator accelerator(ui::VKEY_MENU, false, false, false);
     handled = focus_manager_->ProcessAccelerator(accelerator);
   }
 
@@ -1170,7 +1173,7 @@ gboolean WidgetGtk::OnKeyEvent(GtkWidget* widget, GdkEventKey* event) {
   // VKEY_MENU key release event. It ensures that VKEY_MENU accelerator can only
   // be activated when handling a VKEY_MENU key release event which is preceded
   // by an unhandled VKEY_MENU key press event. See also HandleKeyboardEvent().
-  if (key.GetKeyCode() != app::VKEY_MENU || event->type != GDK_KEY_RELEASE)
+  if (key.GetKeyCode() != ui::VKEY_MENU || event->type != GDK_KEY_RELEASE)
     should_handle_menu_key_release_ = false;
 
   bool handled = false;

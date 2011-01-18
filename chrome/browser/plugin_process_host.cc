@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -48,7 +48,7 @@
 #endif
 
 #if defined(OS_MACOSX)
-#include "base/mac_util.h"
+#include "base/mac/mac_util.h"
 #include "chrome/common/plugin_carbon_interpose_constants_mac.h"
 #include "gfx/rect.h"
 #endif
@@ -59,14 +59,14 @@ static const char kDefaultPluginFinderURL[] =
 namespace {
 
 // Helper class that we pass to ResourceMessageFilter so that it can find the
-// right URLRequestContext for a request.
+// right net::URLRequestContext for a request.
 class PluginURLRequestContextOverride
     : public ResourceMessageFilter::URLRequestContextOverride {
  public:
   PluginURLRequestContextOverride() {
   }
 
-  virtual URLRequestContext* GetRequestContext(
+  virtual net::URLRequestContext* GetRequestContext(
       uint32 request_id, ResourceType::Type resource_type) {
     return CPBrowsingContextManager::GetInstance()->ToURLRequestContext(
         request_id);
@@ -148,22 +148,22 @@ PluginProcessHost::~PluginProcessHost() {
        window_index != plugin_fullscreen_windows_set_.end();
        window_index++) {
     if (BrowserThread::CurrentlyOn(BrowserThread::UI)) {
-      mac_util::ReleaseFullScreen(mac_util::kFullScreenModeHideAll);
+      base::mac::ReleaseFullScreen(base::mac::kFullScreenModeHideAll);
     } else {
       BrowserThread::PostTask(
           BrowserThread::UI, FROM_HERE,
-          NewRunnableFunction(mac_util::ReleaseFullScreen,
-                              mac_util::kFullScreenModeHideAll));
+          NewRunnableFunction(base::mac::ReleaseFullScreen,
+                              base::mac::kFullScreenModeHideAll));
     }
   }
   // If the plugin hid the cursor, reset that.
   if (!plugin_cursor_visible_) {
     if (BrowserThread::CurrentlyOn(BrowserThread::UI)) {
-      mac_util::SetCursorVisibility(true);
+      base::mac::SetCursorVisibility(true);
     } else {
       BrowserThread::PostTask(
         BrowserThread::UI, FROM_HERE,
-        NewRunnableFunction(mac_util::SetCursorVisibility,
+        NewRunnableFunction(base::mac::SetCursorVisibility,
                             true));
     }
   }
@@ -298,7 +298,8 @@ void PluginProcessHost::OnProcessLaunched() {
   }
 }
 
-void PluginProcessHost::OnMessageReceived(const IPC::Message& msg) {
+bool PluginProcessHost::OnMessageReceived(const IPC::Message& msg) {
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(PluginProcessHost, msg)
     IPC_MESSAGE_HANDLER(PluginProcessHostMsg_ChannelCreated, OnChannelCreated)
     IPC_MESSAGE_HANDLER(PluginProcessHostMsg_GetPluginFinderUrl,
@@ -327,8 +328,11 @@ void PluginProcessHost::OnMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(PluginProcessHostMsg_PluginSetCursorVisibility,
                         OnPluginSetCursorVisibility)
 #endif
-    IPC_MESSAGE_UNHANDLED_ERROR()
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
+
+  DCHECK(handled);
+  return handled;
 }
 
 void PluginProcessHost::OnChannelConnected(int32 peer_pid) {
@@ -376,7 +380,7 @@ void PluginProcessHost::OpenChannelToPlugin(Client* client) {
 void PluginProcessHost::OnGetCookies(uint32 request_context,
                                      const GURL& url,
                                      std::string* cookies) {
-  URLRequestContext* context = CPBrowsingContextManager::GetInstance()->
+  net::URLRequestContext* context = CPBrowsingContextManager::GetInstance()->
         ToURLRequestContext(request_context);
   // TODO(mpcomplete): remove fallback case when Gears support is prevalent.
   if (!context)

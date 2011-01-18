@@ -140,6 +140,8 @@ bool NaClProcessHost::LaunchSelLdr() {
 
   cmd_line->AppendSwitchASCII(switches::kProcessChannelID, channel_id());
 
+  SetCrashReporterCommandLine(cmd_line);
+
   // On Windows we might need to start the broker process to launch a new loader
 #if defined(OS_WIN)
   if (running_on_wow64_) {
@@ -282,8 +284,9 @@ void NaClProcessHost::SendStartMessage() {
   sockets_for_sel_ldr_.clear();
 }
 
-void NaClProcessHost::OnMessageReceived(const IPC::Message& msg) {
+bool NaClProcessHost::OnMessageReceived(const IPC::Message& msg) {
   NOTREACHED() << "Invalid message with type = " << msg.type();
+  return false;
 }
 
 bool NaClProcessHost::CanShutdown() {

@@ -2,10 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrameClient.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLRequest.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebView.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrameClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLRequest.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 
 #include "webkit/plugins/ppapi/ppapi_plugin_instance.h"
 #include "webkit/plugins/ppapi/ppb_url_request_info_impl.h"
@@ -45,11 +45,11 @@ namespace ppapi {
 
 class URLRequestInfoTest : public PpapiUnittest {
  public:
-  URLRequestInfoTest() : info_(new PPB_URLRequestInfo_Impl(module())) {
+  URLRequestInfoTest() : info_(new PPB_URLRequestInfo_Impl(instance())) {
   }
 
   static void SetUpTestCase() {
-    web_view_ = WebView::create(0, 0);
+    web_view_ = WebView::create(NULL, NULL, NULL);
     web_view_->initializeMainFrame(&web_frame_client_);
     WebURL web_url(GURL(""));
     WebURLRequest url_request;

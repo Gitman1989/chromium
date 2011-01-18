@@ -1,8 +1,10 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/profiles/profile.h"
+
+#include <string>
 
 #include "app/resource_bundle.h"
 #include "base/command_line.h"
@@ -29,7 +31,6 @@
 #include "chrome/browser/ui/find_bar/find_bar_state.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/json_pref_store.h"
 #include "chrome/common/notification_service.h"
 #include "chrome/common/pref_names.h"
@@ -38,6 +39,7 @@
 #include "grit/locale_settings.h"
 #include "net/base/transport_security_state.h"
 #include "webkit/database/database_tracker.h"
+
 #if defined(TOOLKIT_USES_GTK)
 #include "chrome/browser/gtk/gtk_theme_provider.h"
 #endif
@@ -68,7 +70,7 @@ void CleanupRequestContext(ChromeURLRequestContextGetter* context) {
     context->CleanupOnUIThread();
 }
 
-} // namespace
+}  // namespace
 
 Profile::Profile()
     : restored_last_session_(false),
@@ -110,6 +112,8 @@ void Profile::RegisterUserPrefs(PrefService* prefs) {
   // in user's profile for other platforms as well.
   prefs->RegisterStringPref(prefs::kApplicationLocale, "");
   prefs->RegisterStringPref(prefs::kApplicationLocaleBackup, "");
+  prefs->RegisterStringPref(prefs::kApplicationLocaleOverride, "");
+  prefs->RegisterStringPref(prefs::kApplicationLocaleAccepted, "");
 #endif
 }
 
@@ -196,7 +200,8 @@ class OffTheRecordProfileImpl : public Profile,
           NewRunnableMethod(appcache_service_.get(),
                             &ChromeAppCacheService::InitializeOnIOThread,
                             GetPath(), IsOffTheRecord(),
-                            make_scoped_refptr(GetHostContentSettingsMap())));
+                            make_scoped_refptr(GetHostContentSettingsMap()),
+                            false));
     }
     return appcache_service_;
   }
@@ -599,6 +604,12 @@ class OffTheRecordProfileImpl : public Profile,
   virtual PromoCounter* GetInstantPromoCounter() {
     return NULL;
   }
+
+#if defined(OS_CHROMEOS)
+  virtual void ChangeApplicationLocale(
+      const std::string& locale, bool keep_local) {
+  }
+#endif  // defined(OS_CHROMEOS)
 
   virtual PrefProxyConfigTracker* GetProxyConfigTracker() {
     return profile_->GetProxyConfigTracker();

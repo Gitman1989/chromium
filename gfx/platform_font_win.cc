@@ -12,7 +12,7 @@
 #include "base/logging.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
-#include "base/win_util.h"
+#include "base/win/win_util.h"
 #include "gfx/canvas_skia.h"
 #include "gfx/font.h"
 
@@ -69,7 +69,7 @@ PlatformFontWin::PlatformFontWin(NativeFont native_font) {
   InitWithCopyOfHFONT(native_font);
 }
 
-PlatformFontWin::PlatformFontWin(const std::wstring& font_name,
+PlatformFontWin::PlatformFontWin(const string16& font_name,
                                  int font_size) {
   InitWithFontNameAndSize(font_name, font_size);
 }
@@ -117,7 +117,7 @@ int PlatformFontWin::GetStyle() const {
   return font_ref_->style();
 }
 
-const std::wstring& PlatformFontWin::GetFontName() const {
+string16 PlatformFontWin::GetFontName() const {
   return font_ref_->font_name();
 }
 
@@ -150,7 +150,7 @@ void PlatformFontWin::InitWithCopyOfHFONT(HFONT hfont) {
   font_ref_ = CreateHFontRef(CreateFontIndirect(&font_info));
 }
 
-void PlatformFontWin::InitWithFontNameAndSize(const std::wstring& font_name,
+void PlatformFontWin::InitWithFontNameAndSize(const string16& font_name,
                                               int font_size) {
   HDC hdc = GetDC(NULL);
   long lf_height = -MulDiv(font_size, GetDeviceCaps(hdc, LOGPIXELSY), 72);
@@ -164,7 +164,7 @@ void PlatformFontWin::InitWithFontNameAndSize(const std::wstring& font_name,
 PlatformFontWin::HFontRef* PlatformFontWin::GetBaseFontRef() {
   if (base_font_ref_ == NULL) {
     NONCLIENTMETRICS metrics;
-    win_util::GetNonClientMetrics(&metrics);
+    base::win::GetNonClientMetrics(&metrics);
 
     if (adjust_font_callback)
       adjust_font_callback(&metrics.lfMessageFont);
@@ -235,7 +235,7 @@ PlatformFontWin::HFontRef::HFontRef(HFONT hfont,
 
   LOGFONT font_info;
   GetObject(hfont_, sizeof(LOGFONT), &font_info);
-  font_name_ = std::wstring(font_info.lfFaceName);
+  font_name_ = string16(font_info.lfFaceName);
 }
 
 PlatformFontWin::HFontRef::~HFontRef() {
@@ -261,7 +261,7 @@ PlatformFont* PlatformFont::CreateFromNativeFont(NativeFont native_font) {
 }
 
 // static
-PlatformFont* PlatformFont::CreateFromNameAndSize(const std::wstring& font_name,
+PlatformFont* PlatformFont::CreateFromNameAndSize(const string16& font_name,
                                                   int font_size) {
   return new PlatformFontWin(font_name, font_size);
 }

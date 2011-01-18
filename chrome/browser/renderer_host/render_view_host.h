@@ -19,13 +19,14 @@
 #include "chrome/common/view_types.h"
 #include "chrome/common/window_container_type.h"
 #include "net/base/load_states.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebConsoleMessage.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDragOperation.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPopupType.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebTextDirection.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebConsoleMessage.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDragOperation.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPopupType.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebTextDirection.h"
 #include "webkit/glue/webaccessibility.h"
 #include "webkit/glue/window_open_disposition.h"
 
+class ChildProcessSecurityPolicy;
 class FilePath;
 class GURL;
 class ListValue;
@@ -152,7 +153,7 @@ class RenderViewHost : public RenderWidgetHost {
   // Returns whether navigation messages are currently suspended for this
   // RenderViewHost.  Only true during a cross-site navigation, while waiting
   // for the onbeforeunload handler.
-  bool are_navigations_suspended() { return navigations_suspended_; }
+  bool are_navigations_suspended() const { return navigations_suspended_; }
 
   // Suspends (or unsuspends) any navigation messages from being sent from this
   // RenderViewHost.  This is called when a pending RenderViewHost is created
@@ -325,6 +326,12 @@ class RenderViewHost : public RenderWidgetHost {
   void MediaPlayerActionAt(const gfx::Point& location,
                            const WebKit::WebMediaPlayerAction& action);
 
+  // Notifies the renderer that the context menu has closed.
+  void ContextMenuClosed();
+
+  // Prints the node that's under the context menu.
+  void PrintNodeUnderContextMenu();
+
   // Copies the image at the specified point.
   void CopyImageAt(int x, int y);
 
@@ -349,10 +356,10 @@ class RenderViewHost : public RenderWidgetHost {
 
   // Returns a bitwise OR of bindings types that have been enabled for this
   // RenderView. See BindingsPolicy for details.
-  int enabled_bindings() { return enabled_bindings_; }
+  int enabled_bindings() const { return enabled_bindings_; }
 
   // See variable comment.
-  bool is_extension_process() { return is_extension_process_; }
+  bool is_extension_process() const { return is_extension_process_; }
   void set_is_extension_process(bool is_extension_process) {
     is_extension_process_ = is_extension_process;
   }
@@ -422,23 +429,6 @@ class RenderViewHost : public RenderWidgetHost {
   // set to false when creating a renderer-initiated window via window.open.
   void AllowScriptToClose(bool visible);
 
-  // Resets the stored AutoFill state.
-  void ResetAutoFillState(int query_id);
-
-  // Called by the AutoFillManager when the list of suggestions is ready.
-  void AutoFillSuggestionsReturned(const std::vector<string16>& values,
-                                   const std::vector<string16>& labels,
-                                   const std::vector<string16>& icons,
-                                   const std::vector<int>& unique_ids);
-
-  // Called by the AutocompleteHistoryManager when the list of suggestions is
-  // ready.
-  void AutocompleteSuggestionsReturned(
-      const std::vector<string16>& suggestions);
-
-  // Called by the AutoFillManager when the FormData has been filled out.
-  void AutoFillFormDataFilled(int query_id, const webkit_glue::FormData& form);
-
   // Notifies the Renderer that a move or resize of its containing window has
   // started (this is used to hide the autocomplete popups if any).
   void WindowMoveOrResizeStarted();
@@ -446,7 +436,7 @@ class RenderViewHost : public RenderWidgetHost {
   // RenderWidgetHost public overrides.
   virtual void Shutdown();
   virtual bool IsRenderView() const;
-  virtual void OnMessageReceived(const IPC::Message& msg);
+  virtual bool OnMessageReceived(const IPC::Message& msg);
   virtual void GotFocus();
   virtual void LostCapture();
   virtual void ForwardMouseEvent(const WebKit::WebMouseEvent& mouse_event);
@@ -522,7 +512,15 @@ class RenderViewHost : public RenderWidgetHost {
   void SearchBoxCancel();
   void SearchBoxResize(const gfx::Rect& search_box_bounds);
   void DetermineIfPageSupportsInstant(const string16& value,
-                                      bool verbatim);
+                                      bool verbatim,
+                                      int selection_start,
+                                      int selection_end);
+
+  // Send a notification to the V8 JavaScript engine to change its parameters
+  // while performing stress testing. |cmd| is one of the values defined by
+  // |ViewHostMsg_JavaScriptStressTestControl_Commands|, which is defined
+  // in render_messages.h.
+  void JavaScriptStressTestControl(int cmd, int param);
 
 #if defined(UNIT_TEST)
   // These functions shouldn't be necessary outside of testing.
@@ -537,6 +535,12 @@ class RenderViewHost : public RenderWidgetHost {
 
   bool is_waiting_for_unload_ack() { return is_waiting_for_unload_ack_; }
 #endif
+
+  // Checks that the given renderer can request |url|, if not it sets it to an
+  // empty url.
+  static void FilterURL(ChildProcessSecurityPolicy* policy,
+                        int renderer_id,
+                        GURL* url);
 
  protected:
   // RenderWidgetHost protected overrides.
@@ -572,28 +576,11 @@ class RenderViewHost : public RenderWidgetHost {
   void OnMsgScreenshot(const SkBitmap& bitmap);
   void OnMsgClose();
   void OnMsgRequestMove(const gfx::Rect& pos);
-  void OnMsgDidRedirectProvisionalLoad(int32 page_id,
-                                       const GURL& source_url,
-                                       const GURL& target_url);
   void OnMsgDidStartLoading();
   void OnMsgDidStopLoading();
   void OnMsgDidChangeLoadProgress(double load_progress);
   void OnMsgDocumentAvailableInMainFrame();
   void OnMsgDocumentOnLoadCompletedInMainFrame(int32 page_id);
-  void OnMsgDidLoadResourceFromMemoryCache(const GURL& url,
-                                           const std::string& frame_origin,
-                                           const std::string& main_frame_origin,
-                                           const std::string& security_info);
-  void OnMsgDidDisplayInsecureContent();
-  void OnMsgDidRunInsecureContent(const std::string& security_origin);
-  void OnMsgDidStartProvisionalLoadForFrame(int64 frame_id,
-                                            bool main_frame,
-                                            const GURL& url);
-  void OnMsgDidFailProvisionalLoadWithError(int64 frame_id,
-                                            bool main_frame,
-                                            int error_code,
-                                            const GURL& url,
-                                            bool showing_repost_interstitial);
   void OnMsgFindReply(int request_id,
                       int number_of_matches,
                       const gfx::Rect& selection_rect,
@@ -617,8 +604,6 @@ class RenderViewHost : public RenderWidgetHost {
   void OnMsgForwardMessageToExternalHost(const std::string& message,
                                          const std::string& origin,
                                          const std::string& target);
-  void OnMsgDocumentLoadedInFrame(int64 frame_id);
-  void OnMsgDidFinishLoad(int64 frame_id);
   void OnMsgGoToEntryAtOffset(int offset);
   void OnMsgSetTooltipText(const std::wstring& tooltip_text,
                            WebKit::WebTextDirection text_direction_hint);
@@ -636,13 +621,10 @@ class RenderViewHost : public RenderWidgetHost {
   void OnMsgShowModalHTMLDialog(const GURL& url, int width, int height,
                                 const std::string& json_arguments,
                                 IPC::Message* reply_msg);
-  void OnMsgFormsSeen(
-      const std::vector<webkit_glue::FormData>& forms);
   void OnMsgPasswordFormsFound(
       const std::vector<webkit_glue::PasswordForm>& forms);
   void OnMsgPasswordFormsVisible(
       const std::vector<webkit_glue::PasswordForm>& visible_forms);
-  void OnMsgFormSubmitted(const webkit_glue::FormData& forms);
   void OnMsgStartDragging(const WebDropData& drop_data,
                           WebKit::WebDragOperationsMask operations_allowed,
                           const SkBitmap& image,
@@ -683,19 +665,6 @@ class RenderViewHost : public RenderWidgetHost {
   void OnDidGetApplicationInfo(int32 page_id, const WebApplicationInfo& info);
   void OnInstallApplication(const WebApplicationInfo& info);
   void OnMsgShouldCloseACK(bool proceed);
-  void OnQueryFormFieldAutoFill(int request_id,
-                                const webkit_glue::FormData& form,
-                                const webkit_glue::FormField& field);
-  void OnDidShowAutoFillSuggestions();
-  void OnRemoveAutocompleteEntry(const string16& field_name,
-                                 const string16& value);
-  void OnShowAutoFillDialog();
-  void OnFillAutoFillFormData(int query_id,
-                              const webkit_glue::FormData& form,
-                              const webkit_glue::FormField& field,
-                              int unique_id);
-  void OnDidFillAutoFillFormData();
-
   void OnShowDesktopNotification(
       const ViewHostMsg_ShowNotification_Params& params);
   void OnCancelDesktopNotification(int notification_id);
@@ -729,9 +698,7 @@ class RenderViewHost : public RenderWidgetHost {
   void OnSetSuggestions(int32 page_id,
                         const std::vector<std::string>& suggestions);
   void OnInstantSupportDetermined(int32 page_id, bool result);
-  void OnDetectedPhishingSite(const GURL& phishing_url,
-                              double phishing_score,
-                              const SkBitmap& thumbnail);
+  void OnDetectedPhishingSite(const GURL& phishing_url, double phishing_score);
   void OnScriptEvalResponse(int id, const ListValue& result);
   void OnUpdateContentRestrictions(int restrictions);
   void OnPagesReadyForPreview(
@@ -814,15 +781,6 @@ class RenderViewHost : public RenderWidgetHost {
   // Whether this render view will get extension api bindings. This controls
   // what process type we use.
   bool is_extension_process_;
-
-  // TODO(isherman): Consider splitting these off into a helper class.
-  // AutoFill and Autocomplete suggestions.  We accumulate these separately and
-  // send them back to the renderer together.
-  std::vector<string16> autofill_values_;
-  std::vector<string16> autofill_labels_;
-  std::vector<string16> autofill_icons_;
-  std::vector<int> autofill_unique_ids_;
-  int autofill_query_id_;
 
   // Whether the accessibility tree should be saved, for unit testing.
   bool save_accessibility_tree_for_testing_;

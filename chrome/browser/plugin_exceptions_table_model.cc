@@ -5,12 +5,12 @@
 #include "chrome/browser/plugin_exceptions_table_model.h"
 
 #include "app/l10n_util.h"
-#include "app/table_model_observer.h"
 #include "base/auto_reset.h"
 #include "base/sys_string_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/common/notification_service.h"
 #include "grit/generated_resources.h"
+#include "ui/base/models/table_model_observer.h"
 
 PluginExceptionsTableModel::PluginExceptionsTableModel(
     HostContentSettingsMap* content_settings_map,
@@ -75,21 +75,21 @@ int PluginExceptionsTableModel::RowCount() {
   return settings_.size();
 }
 
-std::wstring PluginExceptionsTableModel::GetText(int row, int column_id) {
+string16 PluginExceptionsTableModel::GetText(int row, int column_id) {
   DCHECK_GE(row, 0);
   DCHECK_LT(row, static_cast<int>(settings_.size()));
   SettingsEntry& entry = settings_[row];
   switch (column_id) {
     case IDS_EXCEPTIONS_PATTERN_HEADER:
     case IDS_EXCEPTIONS_HOSTNAME_HEADER:
-      return UTF8ToWide(entry.pattern.AsString());
+      return UTF8ToUTF16(entry.pattern.AsString());
 
     case IDS_EXCEPTIONS_ACTION_HEADER:
       switch (entry.setting) {
         case CONTENT_SETTING_ALLOW:
-          return l10n_util::GetString(IDS_EXCEPTIONS_ALLOW_BUTTON);
+          return l10n_util::GetStringUTF16(IDS_EXCEPTIONS_ALLOW_BUTTON);
         case CONTENT_SETTING_BLOCK:
-          return l10n_util::GetString(IDS_EXCEPTIONS_BLOCK_BUTTON);
+          return l10n_util::GetStringUTF16(IDS_EXCEPTIONS_BLOCK_BUTTON);
         default:
           NOTREACHED();
       }
@@ -99,18 +99,18 @@ std::wstring PluginExceptionsTableModel::GetText(int row, int column_id) {
       NOTREACHED();
   }
 
-  return std::wstring();
+  return string16();
 }
 
 bool PluginExceptionsTableModel::HasGroups() {
   return true;
 }
 
-void PluginExceptionsTableModel::SetObserver(TableModelObserver* observer) {
+void PluginExceptionsTableModel::SetObserver(ui::TableModelObserver* observer) {
   observer_ = observer;
 }
 
-TableModel::Groups PluginExceptionsTableModel::GetGroups() {
+ui::TableModel::Groups PluginExceptionsTableModel::GetGroups() {
   return groups_;
 }
 
@@ -154,7 +154,7 @@ void PluginExceptionsTableModel::LoadSettings() {
                                       plugin,
                                       &otr_settings);
     }
-    std::wstring title = UTF16ToWide(plugins[i].GetGroupName());
+    string16 title = plugins[i].GetGroupName();
     for (HostContentSettingsMap::SettingsForOneType::iterator setting_it =
              settings.begin(); setting_it != settings.end(); ++setting_it) {
       SettingsEntry entry = {

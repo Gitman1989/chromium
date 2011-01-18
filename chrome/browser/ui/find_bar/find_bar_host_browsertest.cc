@@ -1,8 +1,7 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "app/keyboard_codes.h"
 #include "base/message_loop.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
@@ -20,14 +19,15 @@
 #include "chrome/test/in_process_browser_test.h"
 #include "chrome/test/ui_test_utils.h"
 #include "net/test/test_server.h"
+#include "ui/base/keycodes/keyboard_codes.h"
 
 #if defined(TOOLKIT_VIEWS)
-#include "chrome/browser/views/find_bar_host.h"
+#include "chrome/browser/ui/views/find_bar_host.h"
 #include "views/focus/focus_manager.h"
 #elif defined(TOOLKIT_GTK)
 #include "chrome/browser/gtk/slide_animator_gtk.h"
 #elif defined(OS_MACOSX)
-#include "chrome/browser/ui/cocoa/find_bar_bridge.h"
+#include "chrome/browser/ui/cocoa/find_bar/find_bar_bridge.h"
 #endif
 
 const std::string kSimplePage = "404_is_enough_for_us.html";
@@ -438,11 +438,15 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest, FindUnSelectableText) {
 
   int ordinal = 0;
   TabContents* tab = browser()->GetSelectedTabContents();
-  // The search string is present but doesn't qualify to be found
-  EXPECT_EQ(0, FindInPageWchar(tab, L"text",
-                               kFwd, kIgnoreCase, &ordinal));
-  // With zero results there should be no current selection.
-  EXPECT_EQ(0, ordinal);
+
+  int match_count =
+      FindInPageWchar(tab, L"text", kFwd, kIgnoreCase, &ordinal);
+  // TODO(finnur): These two values are currently 0 and 0 but will change to
+  // 1 and 1 when we merge down a fix for un-selectable text in patch from
+  // revision 75784 (https://bugs.webkit.org/show_bug.cgi?id=52367). Once the
+  // patch has been rolled into Chromium I'll change this back to check for 1
+  // explicitly (as opposed to using equality).
+  EXPECT_EQ(match_count, ordinal);
 }
 
 // Try to reproduce the crash seen in issue 1341577.
@@ -739,7 +743,7 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest,
           browser()->window()->GetNativeHandle());
 
   // See where Escape is registered.
-  views::Accelerator escape(app::VKEY_ESCAPE, false, false, false);
+  views::Accelerator escape(ui::VKEY_ESCAPE, false, false, false);
   views::AcceleratorTarget* old_target =
       focus_manager->GetCurrentTargetForAccelerator(escape);
   EXPECT_TRUE(old_target != NULL);

@@ -8,7 +8,7 @@
 #include "base/lock.h"
 #include "base/process_util.h"
 #include "base/string_util.h"
-#include "base/waitable_event.h"
+#include "base/synchronization/waitable_event.h"
 #include "build/build_config.h"
 #include "chrome/common/child_process.h"
 #include "chrome/common/plugin_messages.h"
@@ -190,23 +190,26 @@ bool PluginChannel::Send(IPC::Message* msg) {
   return result;
 }
 
-void PluginChannel::OnMessageReceived(const IPC::Message& msg) {
+bool PluginChannel::OnMessageReceived(const IPC::Message& msg) {
   if (log_messages_) {
     VLOG(1) << "received message @" << &msg << " on channel @" << this
             << " with type " << msg.type();
   }
-  PluginChannelBase::OnMessageReceived(msg);
+  return PluginChannelBase::OnMessageReceived(msg);
 }
 
-void PluginChannel::OnControlMessageReceived(const IPC::Message& msg) {
+bool PluginChannel::OnControlMessageReceived(const IPC::Message& msg) {
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(PluginChannel, msg)
     IPC_MESSAGE_HANDLER(PluginMsg_CreateInstance, OnCreateInstance)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(PluginMsg_DestroyInstance,
                                     OnDestroyInstance)
     IPC_MESSAGE_HANDLER(PluginMsg_GenerateRouteID, OnGenerateRouteID)
     IPC_MESSAGE_HANDLER(PluginMsg_ClearSiteData, OnClearSiteData)
-    IPC_MESSAGE_UNHANDLED_ERROR()
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
+  DCHECK(handled);
+  return handled;
 }
 
 void PluginChannel::OnCreateInstance(const std::string& mime_type,
@@ -250,8 +253,8 @@ int PluginChannel::GenerateRouteID() {
   return ++last_id;
 }
 
-void PluginChannel::OnClearSiteData(uint64 flags,
-                                    const std::string& domain,
+void PluginChannel::OnClearSiteData(const std::string& site,
+                                    uint64 flags,
                                     base::Time begin_time) {
   bool success = false;
   CommandLine* command_line = CommandLine::ForCurrentProcess();
@@ -261,10 +264,7 @@ void PluginChannel::OnClearSiteData(uint64 flags,
   if (plugin_lib.get()) {
     NPError err = plugin_lib->NP_Initialize();
     if (err == NPERR_NO_ERROR) {
-      scoped_refptr<webkit::npapi::PluginInstance> instance(
-          plugin_lib->CreateInstance(std::string()));
-
-      const char* domain_str = domain.empty() ? NULL : domain.c_str();
+      const char* site_str = site.empty() ? NULL : site.c_str();
       uint64 max_age;
       if (begin_time > base::Time()) {
         base::TimeDelta delta = base::Time::Now() - begin_time;
@@ -272,7 +272,7 @@ void PluginChannel::OnClearSiteData(uint64 flags,
       } else {
         max_age = kuint64max;
       }
-      err = instance->NPP_ClearSiteData(flags, domain_str, max_age);
+      err = plugin_lib->NP_ClearSiteData(site_str, flags, max_age);
       success = (err == NPERR_NO_ERROR);
     }
   }

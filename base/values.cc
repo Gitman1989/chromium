@@ -263,6 +263,12 @@ bool StringValue::Equals(const Value* other) const {
 
 ///////////////////// BinaryValue ////////////////////
 
+BinaryValue::~BinaryValue() {
+  DCHECK(buffer_);
+  if (buffer_)
+    delete[] buffer_;
+}
+
 // static
 BinaryValue* BinaryValue::Create(char* buffer, size_t size) {
   if (!buffer)
@@ -282,20 +288,6 @@ BinaryValue* BinaryValue::CreateWithCopiedBuffer(const char* buffer,
   return new BinaryValue(buffer_copy, size);
 }
 
-
-BinaryValue::BinaryValue(char* buffer, size_t size)
-  : Value(TYPE_BINARY),
-    buffer_(buffer),
-    size_(size) {
-  DCHECK(buffer_);
-}
-
-BinaryValue::~BinaryValue() {
-  DCHECK(buffer_);
-  if (buffer_)
-    delete[] buffer_;
-}
-
 Value* BinaryValue::DeepCopy() const {
   return CreateWithCopiedBuffer(buffer_, size_);
 }
@@ -309,6 +301,13 @@ bool BinaryValue::Equals(const Value* other) const {
   return !memcmp(buffer_, other_binary->buffer_, size_);
 }
 
+BinaryValue::BinaryValue(char* buffer, size_t size)
+  : Value(TYPE_BINARY),
+    buffer_(buffer),
+    size_(size) {
+  DCHECK(buffer_);
+}
+
 ///////////////////// DictionaryValue ////////////////////
 
 DictionaryValue::DictionaryValue()
@@ -317,44 +316,6 @@ DictionaryValue::DictionaryValue()
 
 DictionaryValue::~DictionaryValue() {
   Clear();
-}
-
-Value* DictionaryValue::DeepCopy() const {
-  DictionaryValue* result = new DictionaryValue;
-
-  for (ValueMap::const_iterator current_entry(dictionary_.begin());
-       current_entry != dictionary_.end(); ++current_entry) {
-    result->SetWithoutPathExpansion(current_entry->first,
-                                    current_entry->second->DeepCopy());
-  }
-
-  return result;
-}
-
-bool DictionaryValue::Equals(const Value* other) const {
-  if (other->GetType() != GetType())
-    return false;
-
-  const DictionaryValue* other_dict =
-      static_cast<const DictionaryValue*>(other);
-  key_iterator lhs_it(begin_keys());
-  key_iterator rhs_it(other_dict->begin_keys());
-  while (lhs_it != end_keys() && rhs_it != other_dict->end_keys()) {
-    Value* lhs;
-    Value* rhs;
-    if (*lhs_it != *rhs_it ||
-        !GetWithoutPathExpansion(*lhs_it, &lhs) ||
-        !other_dict->GetWithoutPathExpansion(*rhs_it, &rhs) ||
-        !lhs->Equals(rhs)) {
-      return false;
-    }
-    ++lhs_it;
-    ++rhs_it;
-  }
-  if (lhs_it != end_keys() || rhs_it != other_dict->end_keys())
-    return false;
-
-  return true;
 }
 
 bool DictionaryValue::HasKey(const std::string& key) const {
@@ -685,112 +646,42 @@ void DictionaryValue::MergeDictionary(const DictionaryValue* dictionary) {
   }
 }
 
-bool DictionaryValue::GetDifferingPathsHelper(
-    const std::string& path_prefix,
-    const DictionaryValue* other,
-    std::vector<std::string>* different_paths) const {
-  bool added_path = false;
-  std::map<std::string, Value*>::const_iterator current_this;
-  std::map<std::string, Value*>::const_iterator end_this;
-  current_this = dictionary_.begin();
-  end_this = dictionary_.end();
-  if (!other) {
-    // Recursively add all paths from the |this| dictionary, since they are
-    // not in |other|.
-    for (; current_this != end_this; ++current_this) {
-      std::string full_path_for_key(path_prefix.empty() ? current_this->first :
-                                     path_prefix + "." + current_this->first);
-      different_paths->push_back(full_path_for_key);
-      added_path = true;
-      if (current_this->second->IsType(Value::TYPE_DICTIONARY)) {
-        const DictionaryValue* dictionary_this =
-            static_cast<const DictionaryValue*>(current_this->second);
-        dictionary_this->GetDifferingPathsHelper(full_path_for_key,
-                                                 NULL,
-                                                 different_paths);
-      }
-    }
-  } else {
-    // Both the |this| and |other| dictionaries have entries. Iterate over
-    // both simultaneously. Paths that are in one but not the other are
-    // added to |different_paths| and DictionaryValues are processed
-    // recursively.
-    std::map<std::string, Value*>::const_iterator current_other =
-        other->dictionary_.begin();
-    std::map<std::string, Value*>::const_iterator end_other =
-        other->dictionary_.end();
-    while (current_this != end_this || current_other != end_other) {
-      const Value* recursion_this = NULL;
-      const Value* recursion_other = NULL;
-      const std::string* key_name = NULL;
-      bool current_value_known_equal = false;
-      if (current_this == end_this ||
-          (current_other != end_other &&
-              (current_other->first < current_this->first))) {
-        key_name = &current_other->first;
-        if (current_other->second->IsType(Value::TYPE_DICTIONARY))
-           recursion_this = current_other->second;
-        ++current_other;
-      } else {
-        key_name = &current_this->first;
-        if (current_other == end_other ||
-            current_this->first < current_other->first) {
-          if (current_this->second->IsType(Value::TYPE_DICTIONARY))
-            recursion_this = current_this->second;
-          ++current_this;
-        } else {
-          DCHECK(current_this->first == current_other->first);
-          if (current_this->second->IsType(Value::TYPE_DICTIONARY)) {
-            recursion_this = current_this->second;
-            if (current_other->second->IsType(Value::TYPE_DICTIONARY)) {
-              recursion_other = current_other->second;
-            }
-          } else {
-            if (current_other->second->IsType(Value::TYPE_DICTIONARY)) {
-              recursion_this = current_other->second;
-            } else {
-              current_value_known_equal =
-                 current_this->second->Equals(current_other->second);
-            }
-          }
-          ++current_this;
-          ++current_other;
-        }
-      }
-      const std::string& full_path_for_key(path_prefix.empty() ?
-          *key_name : path_prefix + "." + *key_name);
-      if (!current_value_known_equal)
-        different_paths->push_back(full_path_for_key);
-      if (recursion_this) {
-        const DictionaryValue* dictionary_this =
-            static_cast<const DictionaryValue*>(recursion_this);
-        bool subtree_changed = dictionary_this->GetDifferingPathsHelper(
-            full_path_for_key,
-            static_cast<const DictionaryValue*>(recursion_other),
-            different_paths);
-        if (subtree_changed) {
-          added_path = true;
-        } else {
-          // In order to maintain lexicographical sorting order, directory
-          // paths are pushed "optimistically" assuming that their subtree will
-          // contain differences. If in retrospect there were no differences
-          // in the subtree, the assumption was false and the dictionary path
-          // must be removed.
-          different_paths->pop_back();
-        }
-      } else {
-        added_path |= !current_value_known_equal;
-      }
-    }
+Value* DictionaryValue::DeepCopy() const {
+  DictionaryValue* result = new DictionaryValue;
+
+  for (ValueMap::const_iterator current_entry(dictionary_.begin());
+       current_entry != dictionary_.end(); ++current_entry) {
+    result->SetWithoutPathExpansion(current_entry->first,
+                                    current_entry->second->DeepCopy());
   }
-  return added_path;
+
+  return result;
 }
 
-void DictionaryValue::GetDifferingPaths(
-    const DictionaryValue* other,
-    std::vector<std::string>* different_paths) const {
-  different_paths->clear();
-  GetDifferingPathsHelper("", other, different_paths);
+bool DictionaryValue::Equals(const Value* other) const {
+  if (other->GetType() != GetType())
+    return false;
+
+  const DictionaryValue* other_dict =
+      static_cast<const DictionaryValue*>(other);
+  key_iterator lhs_it(begin_keys());
+  key_iterator rhs_it(other_dict->begin_keys());
+  while (lhs_it != end_keys() && rhs_it != other_dict->end_keys()) {
+    Value* lhs;
+    Value* rhs;
+    if (*lhs_it != *rhs_it ||
+        !GetWithoutPathExpansion(*lhs_it, &lhs) ||
+        !other_dict->GetWithoutPathExpansion(*rhs_it, &rhs) ||
+        !lhs->Equals(rhs)) {
+      return false;
+    }
+    ++lhs_it;
+    ++rhs_it;
+  }
+  if (lhs_it != end_keys() || rhs_it != other_dict->end_keys())
+    return false;
+
+  return true;
 }
 
 ///////////////////// ListValue ////////////////////

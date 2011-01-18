@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,7 +6,8 @@
 #include <atlcom.h>
 
 #include "base/scoped_comptr_win.h"
-#include "base/thread.h"
+#include "base/win/scoped_handle.h"
+#include "base/threading/thread.h"
 #include "chrome_frame/bho.h"
 //#include "chrome_frame/urlmon_moniker.h"
 #include "chrome_frame/test/test_server.h"
@@ -44,8 +45,8 @@ class UrlmonMonikerTest : public testing::Test {
 };
 
 TEST_F(UrlmonMonikerTest, MonikerPatch) {
-  EXPECT_EQ(true, MonikerPatch::Initialize());
-  EXPECT_EQ(true, MonikerPatch::Initialize());  // Should be ok to call twice.
+  EXPECT_TRUE(MonikerPatch::Initialize());
+  EXPECT_TRUE(MonikerPatch::Initialize());  // Should be ok to call twice.
   MonikerPatch::Uninitialize();
 }
 
@@ -82,14 +83,14 @@ class RunTestServer : public base::Thread {
  protected:
   scoped_ptr<test_server::SimpleWebServer> server_;
   test_server::SimpleResponse default_response_;
-  ScopedHandle ready_;
+  base::win::ScopedHandle ready_;
 };
 
 // Helper class for running tests that rely on the NavigationManager.
 class UrlmonMonikerTestManager {
  public:
   explicit UrlmonMonikerTestManager(const wchar_t* test_url) {
-    EXPECT_EQ(true, MonikerPatch::Initialize());
+    EXPECT_TRUE(MonikerPatch::Initialize());
   }
 
   ~UrlmonMonikerTestManager() {

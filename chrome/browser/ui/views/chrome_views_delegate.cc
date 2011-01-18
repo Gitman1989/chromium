@@ -1,10 +1,9 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/chrome_views_delegate.h"
+#include "chrome/browser/ui/views/chrome_views_delegate.h"
 
-#include "app/clipboard/clipboard.h"
 #include "base/scoped_ptr.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
@@ -12,6 +11,7 @@
 #include "chrome/browser/ui/views/accessibility_event_router_views.h"
 #include "chrome/browser/ui/window_sizer.h"
 #include "gfx/rect.h"
+#include "ui/base/clipboard/clipboard.h"
 
 #if defined(OS_WIN)
 #include "chrome/browser/app_icon_win.h"
@@ -20,7 +20,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // ChromeViewsDelegate, views::ViewsDelegate implementation:
 
-Clipboard* ChromeViewsDelegate::GetClipboard() const {
+ui::Clipboard* ChromeViewsDelegate::GetClipboard() const {
   return g_browser_process->clipboard();
 }
 

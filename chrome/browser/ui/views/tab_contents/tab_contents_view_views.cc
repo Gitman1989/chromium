@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,8 +13,8 @@
 #include "chrome/browser/tab_contents/interstitial_page.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/tab_contents/tab_contents_delegate.h"
-#include "chrome/browser/views/sad_tab_view.h"
-#include "chrome/browser/views/tab_contents/render_view_context_menu_views.h"
+#include "chrome/browser/ui/views/sad_tab_view.h"
+#include "chrome/browser/ui/views/tab_contents/render_view_context_menu_views.h"
 #include "gfx/canvas_skia_paint.h"
 #include "gfx/point.h"
 #include "gfx/rect.h"
@@ -130,11 +130,15 @@ void TabContentsViewViews::SetPageTitle(const std::wstring& title) {
   // TODO(anicolao): figure out if there's anything useful to do here
 }
 
-void TabContentsViewViews::OnTabCrashed() {
+void TabContentsViewViews::OnTabCrashed(base::TerminationStatus status,
+                                        int /* error_code */) {
   if (sad_tab_ != NULL)
     return;
 
-  sad_tab_.reset(new SadTabView(tab_contents()));
+  sad_tab_.reset(new SadTabView(
+      tab_contents(),
+      status == base::TERMINATION_STATUS_PROCESS_WAS_KILLED ?
+          SadTabView::KILLED : SadTabView::CRASHED));
   RemoveAllChildViews(true);
   AddChildView(sad_tab_.get());
   Layout();

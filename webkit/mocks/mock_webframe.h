@@ -6,16 +6,16 @@
 #define WEBKIT_MOCKS_MOCK_WEBFRAME_H_
 
 #include "testing/gmock/include/gmock/gmock.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDocument.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebHistoryItem.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebInputElement.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPerformance.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebRange.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebRect.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSecurityOrigin.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSize.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebHistoryItem.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputElement.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPerformance.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebRange.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebRect.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSecurityOrigin.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSize.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebString.h"
 #include "v8/include/v8.h"
 
 using WebKit::WebAnimationController;
@@ -29,6 +29,7 @@ using WebKit::WebFormElement;
 using WebKit::WebFrame;
 using WebKit::WebHistoryItem;
 using WebKit::WebInputElement;
+using WebKit::WebNode;
 using WebKit::WebPasswordAutocompleteListener;
 using WebKit::WebPerformance;
 using WebKit::WebRange;
@@ -266,8 +267,15 @@ class MockWebFrame : public WebKit::WebFrame {
   virtual bool selectWordAroundCaret() {
     return false;
   }
-  virtual int printBegin(const WebSize& pageSize, int printerDPI = 72,
+#if defined(WEBFRAME_PRINTBEGIN_TAKES_NODE)
+  virtual int printBegin(const WebSize& pageSize,
+                         const WebNode& constrainToNode,
+                         int printerDPI = 72,
                          bool* useBrowserOverlays = 0) {
+#else
+virtual int printBegin(const WebSize& pageSize, int printerDPI = 72,
+                         bool* useBrowserOverlays = 0) {
+#endif
     return 0;
   }
   virtual float getPrintPageShrink(int page) {

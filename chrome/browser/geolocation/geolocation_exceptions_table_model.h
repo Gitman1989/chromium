@@ -8,6 +8,7 @@
 
 #include <vector>
 
+#include "base/compiler_specific.h"
 #include "chrome/browser/geolocation/geolocation_content_settings_map.h"
 #include "chrome/browser/remove_rows_table_model.h"
 #include "chrome/common/content_settings.h"
@@ -37,10 +38,10 @@ class GeolocationExceptionsTableModel : public RemoveRowsTableModel {
   virtual void RemoveAll();
 
   // TableModel overrides:
-  virtual int RowCount();
-  virtual std::wstring GetText(int row, int column_id);
-  virtual void SetObserver(TableModelObserver* observer);
-  virtual int CompareValues(int row1, int row2, int column_id);
+  virtual int RowCount() OVERRIDE;
+  virtual string16 GetText(int row, int column_id) OVERRIDE;
+  virtual void SetObserver(ui::TableModelObserver* observer) OVERRIDE;
+  virtual int CompareValues(int row1, int row2, int column_id) OVERRIDE;
 
  private:
   void AddEntriesForOrigin(
@@ -53,7 +54,7 @@ class GeolocationExceptionsTableModel : public RemoveRowsTableModel {
   typedef std::vector<Entry> EntriesVector;
   EntriesVector entries_;
 
-  TableModelObserver* observer_;
+  ui::TableModelObserver* observer_;
 
   DISALLOW_COPY_AND_ASSIGN(GeolocationExceptionsTableModel);
 };

@@ -11,37 +11,39 @@
 
 #include "base/basictypes.h"
 #include "chrome/common/devtools_messages.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDevToolsAgentClient.h"
-
-namespace IPC {
-class Message;
-}
+#include "chrome/renderer/render_view_observer.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDevToolsAgentClient.h"
 
 namespace WebKit {
 class WebDevToolsAgent;
 }
 
-class RenderView;
 struct DevToolsMessageData;
 
 // DevToolsAgent belongs to the inspectable RenderView and provides Glue's
 // agents with the communication capabilities. All messages from/to Glue's
-// agents infrastructure are flowing through this comminucation agent.
+// agents infrastructure are flowing through this communication agent.
 // There is a corresponding DevToolsClient object on the client side.
-class DevToolsAgent : public WebKit::WebDevToolsAgentClient {
+class DevToolsAgent : public RenderViewObserver,
+                      public WebKit::WebDevToolsAgentClient {
  public:
-  DevToolsAgent(int routing_id, RenderView* view);
+  explicit DevToolsAgent(RenderView* render_view);
   virtual ~DevToolsAgent();
 
-  void OnNavigate();
+  // Returns agent instance for its host id.
+  static DevToolsAgent* FromHostId(int host_id);
 
-  // IPC message interceptor. Called on the Render thread.
+  WebKit::WebDevToolsAgent* GetWebAgent();
+
+ private:
+  friend class DevToolsAgentFilter;
+
+  // RenderView::Observer implementation.
   virtual bool OnMessageReceived(const IPC::Message& message);
 
   // WebDevToolsAgentClient implementation
   virtual void sendMessageToInspectorFrontend(const WebKit::WebString& data);
   virtual void sendDebuggerOutput(const WebKit::WebString& data);
-  virtual void sendDispatchToAPU(const WebKit::WebString& data);
 
   virtual int hostIdentifier();
   virtual void runtimeFeatureStateChanged(const WebKit::WebString& feature,
@@ -53,27 +55,16 @@ class DevToolsAgent : public WebKit::WebDevToolsAgentClient {
       createClientMessageLoop();
   virtual bool exposeV8DebuggerProtocol();
 
-  // Returns agent instance for its host id.
-  static DevToolsAgent* FromHostId(int host_id);
-
-  RenderView* render_view() { return render_view_; }
-
-  WebKit::WebDevToolsAgent* GetWebAgent();
-
- private:
-  friend class DevToolsAgentFilter;
-
   void OnAttach(const DevToolsRuntimeProperties& runtime_properties);
   void OnDetach();
   void OnFrontendLoaded();
   void OnDispatchOnInspectorBackend(const std::string& message);
   void OnInspectElement(int x, int y);
   void OnSetApuAgentEnabled(bool enabled);
+  void OnNavigate();
 
   static std::map<int, DevToolsAgent*> agent_for_routing_id_;
 
-  int routing_id_; //  View routing id that we can access from IO thread.
-  RenderView* render_view_;
   bool expose_v8_debugger_protocol_;
 
   DISALLOW_COPY_AND_ASSIGN(DevToolsAgent);

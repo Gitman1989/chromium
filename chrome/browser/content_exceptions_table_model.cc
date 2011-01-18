@@ -5,10 +5,10 @@
 #include "chrome/browser/content_exceptions_table_model.h"
 
 #include "app/l10n_util.h"
-#include "app/table_model_observer.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "grit/generated_resources.h"
+#include "ui/base/models/table_model_observer.h"
 
 ContentExceptionsTableModel::ContentExceptionsTableModel(
     HostContentSettingsMap* map,
@@ -100,23 +100,23 @@ int ContentExceptionsTableModel::RowCount() {
   return static_cast<int>(entries_.size() + off_the_record_entries_.size());
 }
 
-std::wstring ContentExceptionsTableModel::GetText(int row, int column_id) {
+string16 ContentExceptionsTableModel::GetText(int row, int column_id) {
   HostContentSettingsMap::PatternSettingPair entry = entry_at(row);
 
   switch (column_id) {
     case IDS_EXCEPTIONS_PATTERN_HEADER:
-      return UTF8ToWide(entry.first.AsString());
+      return UTF8ToUTF16(entry.first.AsString());
 
     case IDS_EXCEPTIONS_ACTION_HEADER:
       switch (entry.second) {
         case CONTENT_SETTING_ALLOW:
-          return l10n_util::GetString(IDS_EXCEPTIONS_ALLOW_BUTTON);
+          return l10n_util::GetStringUTF16(IDS_EXCEPTIONS_ALLOW_BUTTON);
         case CONTENT_SETTING_BLOCK:
-          return l10n_util::GetString(IDS_EXCEPTIONS_BLOCK_BUTTON);
+          return l10n_util::GetStringUTF16(IDS_EXCEPTIONS_BLOCK_BUTTON);
         case CONTENT_SETTING_ASK:
-          return l10n_util::GetString(IDS_EXCEPTIONS_ASK_BUTTON);
+          return l10n_util::GetStringUTF16(IDS_EXCEPTIONS_ASK_BUTTON);
         case CONTENT_SETTING_SESSION_ONLY:
-          return l10n_util::GetString(IDS_EXCEPTIONS_SESSION_ONLY_BUTTON);
+          return l10n_util::GetStringUTF16(IDS_EXCEPTIONS_SESSION_ONLY_BUTTON);
         default:
           NOTREACHED();
       }
@@ -126,9 +126,10 @@ std::wstring ContentExceptionsTableModel::GetText(int row, int column_id) {
       NOTREACHED();
   }
 
-  return std::wstring();
+  return string16();
 }
 
-void ContentExceptionsTableModel::SetObserver(TableModelObserver* observer) {
+void ContentExceptionsTableModel::SetObserver(
+    ui::TableModelObserver* observer) {
   observer_ = observer;
 }

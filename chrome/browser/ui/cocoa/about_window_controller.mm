@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,12 +8,13 @@
 #include "app/l10n_util_mac.h"
 #include "app/resource_bundle.h"
 #include "base/logging.h"
-#include "base/mac_util.h"
+#include "base/mac/mac_util.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "base/sys_string_conversions.h"
 #include "chrome/browser/browser_list.h"
 #include "chrome/browser/browser_window.h"
+#include "chrome/browser/google/google_util.h"
 #include "chrome/browser/platform_util.h"
 #import "chrome/browser/ui/cocoa/background_tile_view.h"
 #import "chrome/browser/ui/cocoa/keystone_glue.h"
@@ -100,7 +101,7 @@ void AttributedStringAppendHyperlink(NSMutableAttributedString* attr_str,
 @implementation AboutWindowController
 
 - (id)initWithProfile:(Profile*)profile {
-  NSString* nibPath = [mac_util::MainAppBundle() pathForResource:@"About"
+  NSString* nibPath = [base::mac::MainAppBundle() pathForResource:@"About"
                                                           ofType:@"nib"];
   if ((self = [super initWithWindowNibPath:nibPath owner:self])) {
     profile_ = profile;
@@ -128,7 +129,7 @@ void AttributedStringAppendHyperlink(NSMutableAttributedString* attr_str,
 static BOOL recentShownUserActionFailedStatus = NO;
 
 - (void)awakeFromNib {
-  NSBundle* bundle = mac_util::MainAppBundle();
+  NSBundle* bundle = base::mac::MainAppBundle();
   NSString* chromeVersion =
       [bundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
 
@@ -644,7 +645,7 @@ static BOOL recentShownUserActionFailedStatus = NO;
   // it the best we can to get all the information in (they actually do it
   // but created Labels and Links that they carefully place to make it appear
   // to be a paragraph of text).
-  // src/chrome/browser/views/about_chrome_view.cc AboutChromeView::Init()
+  // src/chrome/browser/ui/views/about_chrome_view.cc AboutChromeView::Init()
 
   NSMutableAttributedString* legal_block =
       [[[NSMutableAttributedString alloc] init] autorelease];
@@ -660,7 +661,9 @@ static BOOL recentShownUserActionFailedStatus = NO;
   NSString* kEndLinkChr = @"END_LINK_CHR";
   NSString* kEndLinkOss = @"END_LINK_OSS";
   // The CHR link should go to here
-  NSString* kChromiumProject = l10n_util::GetNSString(IDS_CHROMIUM_PROJECT_URL);
+  GURL url = google_util::AppendGoogleLocaleParam(
+      GURL(chrome::kChromiumProjectURL));
+  NSString* kChromiumProject = base::SysUTF8ToNSString(url.spec());
   // The OSS link should go to here
   NSString* kAcknowledgements =
       [NSString stringWithUTF8String:chrome::kAboutCreditsURL];

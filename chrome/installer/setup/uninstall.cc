@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -8,23 +8,28 @@
 
 #include "base/file_util.h"
 #include "base/path_service.h"
-#include "base/scoped_handle.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/registry.h"
+#include "base/win/scoped_handle.h"
 #include "base/win/windows_version.h"
 #include "chrome/common/result_codes.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths_internal.h"
 #include "chrome/installer/setup/install.h"
+#include "chrome/installer/setup/install_worker.h"
 #include "chrome/installer/setup/setup_constants.h"
 #include "chrome/installer/util/browser_distribution.h"
 #include "chrome/installer/util/channel_info.h"
 #include "chrome/installer/util/delete_after_reboot_helper.h"
+#include "chrome/installer/util/google_update_constants.h"
 #include "chrome/installer/util/helper.h"
 #include "chrome/installer/util/install_util.h"
+#include "chrome/installer/util/installation_state.h"
+#include "chrome/installer/util/installer_state.h"
 #include "chrome/installer/util/logging_installer.h"
+#include "chrome/installer/util/package_properties.h"
 #include "chrome/installer/util/shell_util.h"
 #include "chrome/installer/util/util_constants.h"
 
@@ -32,8 +37,68 @@
 #include "registered_dlls.h"  // NOLINT
 
 using base::win::RegKey;
-using installer::ChannelInfo;
 using installer::InstallStatus;
+
+namespace {
+
+// Makes appropriate changes to the Google Update "ap" value in the registry.
+// Specifically, removes the flags associated with this product ("-chrome" or
+// "-chromeframe[-CEEE][-readymode]") from the "ap" values for all other
+// installed products and for the multi-installer package.
+void ProcessGoogleUpdateItems(
+    const installer::InstallationState& original_state,
+    const installer::Product& product) {
+  const bool system_level = product.system_level();
+  BrowserDistribution* distribution = product.distribution();
+  const HKEY reg_root = system_level ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER;
+  const installer::ProductState* product_state =
+      original_state.GetProductState(system_level, distribution->GetType());
+  DCHECK(product_state != NULL);
+  installer::ChannelInfo channel_info;
+
+  // Remove product's flags from the channel value.
+  channel_info.set_value(product_state->channel().value());
+  const bool modified = distribution->SetChannelFlags(false, &channel_info);
+
+  // Apply the new channel value to all other products and to the multi package.
+  if (modified) {
+    BrowserDistribution::Type other_dist_type =
+        (distribution->GetType() == BrowserDistribution::CHROME_BROWSER) ?
+        BrowserDistribution::CHROME_FRAME :
+        BrowserDistribution::CHROME_BROWSER;
+    BrowserDistribution* other_dist =
+        BrowserDistribution::GetSpecificDistribution(other_dist_type,
+            installer::MasterPreferences::ForCurrentProcess());
+    scoped_ptr<WorkItemList>
+        update_list(WorkItem::CreateNoRollbackWorkItemList());
+
+    product_state = original_state.GetProductState(system_level,
+        other_dist_type);
+    if (installer::IsInstalledAsMulti(system_level, other_dist) &&
+        !product_state->channel().Equals(channel_info)) {
+      update_list->AddSetRegValueWorkItem(reg_root, other_dist->GetStateKey(),
+          google_update::kRegApField, channel_info.value(), true);
+    } else {
+      VLOG(1) << other_dist->GetApplicationName()
+              << "'s ap value is unexpectedly up to date.";
+    }
+
+    product_state = original_state.GetMultiPackageState(system_level);
+    DCHECK(product_state != NULL);
+    if (!product_state->channel().Equals(channel_info)) {
+      update_list->AddSetRegValueWorkItem(reg_root,
+          product.package().properties()->GetStateKey(),
+          google_update::kRegApField, channel_info.value(), true);
+    } else {
+      VLOG(1) << "Multi-install package's ap value is unexpectedly up to date.";
+    }
+
+    bool success = update_list->Do();
+    LOG_IF(ERROR, !success) << "Failed updating channel values.";
+  }
+}
+
+}  // namespace
 
 namespace installer {
 
@@ -82,7 +147,7 @@ void CloseChromeFrameHelperProcess() {
   DWORD pid = 0;
   ::GetWindowThreadProcessId(window, &pid);
   DCHECK_NE(pid, 0U);
-  ScopedHandle process(::OpenProcess(SYNCHRONIZE, FALSE, pid));
+  base::win::ScopedHandle process(::OpenProcess(SYNCHRONIZE, FALSE, pid));
   PLOG_IF(INFO, !process) << "Failed to open process: " << pid;
 
   bool kill = true;
@@ -135,8 +200,7 @@ bool CurrentUserHasDefaultBrowser(const Product& product) {
 // to remove the alternate desktop shortcut. Only one of them should be
 // present in a given install but at this point we don't know which one.
 void DeleteChromeShortcuts(const Product& product) {
-  if (product.distribution()->GetType() !=
-      BrowserDistribution::CHROME_BROWSER) {
+  if (!product.is_chrome()) {
     VLOG(1) << __FUNCTION__ " called for non-CHROME distribution";
     return;
   }
@@ -251,8 +315,7 @@ DeleteResult DeleteLocalState(const Product& product) {
   if (!file_util::Delete(user_local_state, true)) {
     LOG(ERROR) << "Failed to delete user profile dir: "
                << user_local_state.value();
-    if (product.distribution()->GetType() ==
-        BrowserDistribution::CHROME_FRAME) {
+    if (product.is_chrome_frame()) {
       ScheduleDirectoryForDeletion(user_local_state.value().c_str());
       result = DELETE_REQUIRES_REBOOT;
     } else {
@@ -279,7 +342,9 @@ bool MoveSetupOutOfInstallFolder(const Package& package,
   if (!file_util::CreateTemporaryFile(&temp_file)) {
     LOG(ERROR) << "Failed to create temporary file for setup.exe.";
   } else {
+    VLOG(1) << "Attempting to move setup to: " << temp_file.value();
     ret = file_util::Move(setup_exe, temp_file);
+    LOG_IF(ERROR, !ret) << "Failed to move setup to " << temp_file.value();
   }
   return ret;
 }
@@ -371,8 +436,7 @@ bool ShouldDeleteProfile(const CommandLine& cmd_line, InstallStatus status,
   // UI to prompt otherwise and the profile stores no useful data anyway)
   // unless they are managed by MSI. MSI uninstalls will explicitly include
   // the --delete-profile flag to distinguish them from MSI upgrades.
-  if (product.distribution()->GetType() !=
-      BrowserDistribution::CHROME_BROWSER && !product.IsMsi()) {
+  if (!product.is_chrome() && !product.IsMsi()) {
     should_delete = true;
   } else {
     should_delete =
@@ -478,11 +542,26 @@ const wchar_t kChromeExtProgId[] = L"ChromiumExt";
   }
 }
 
-InstallStatus UninstallChrome(const FilePath& setup_path,
-                              const Product& product,
-                              bool remove_all,
-                              bool force_uninstall,
-                              const CommandLine& cmd_line) {
+bool ProcessChromeFrameWorkItems(const FilePath& setup_path,
+                                 const Product& product,
+                                 const ProductState* product_state) {
+  if (!product.is_chrome_frame())
+    return false;
+
+  DCHECK(product_state != NULL);
+  scoped_ptr<WorkItemList> item_list(WorkItem::CreateWorkItemList());
+  AddChromeFrameWorkItems(false, setup_path, product_state->version(), product,
+                          item_list.get());
+  return item_list->Do();
+}
+
+InstallStatus UninstallProduct(const InstallationState& original_state,
+                               const InstallerState& installer_state,
+                               const FilePath& setup_path,
+                               const Product& product,
+                               bool remove_all,
+                               bool force_uninstall,
+                               const CommandLine& cmd_line) {
   InstallStatus status = installer::UNINSTALL_CONFIRMED;
   std::wstring suffix;
   if (!ShellUtil::GetUserSpecificDefaultBrowserSuffix(product.distribution(),
@@ -490,21 +569,9 @@ InstallStatus UninstallChrome(const FilePath& setup_path,
     suffix = L"";
 
   BrowserDistribution* browser_dist = product.distribution();
-  bool is_chrome = (browser_dist->GetType() ==
-                    BrowserDistribution::CHROME_BROWSER);
+  bool is_chrome = product.is_chrome();
 
-  VLOG(1) << "UninstallChrome: " << browser_dist->GetApplicationName();
-
-  // Stash away information about the channel which the product is currently
-  // installed on.  We'll need this later to determine if we should delete
-  // the binaries or not.
-  ChannelInfo channel_info;
-  {
-    HKEY root_key = product.system_level() ? HKEY_LOCAL_MACHINE :
-                                             HKEY_CURRENT_USER;
-    RegKey key(root_key, browser_dist->GetStateKey().c_str(), KEY_READ);
-    channel_info.Initialize(key);
-  }
+  VLOG(1) << "UninstallProduct: " << browser_dist->GetApplicationName();
 
   if (force_uninstall) {
     // Since --force-uninstall command line option is used, we are going to
@@ -543,9 +610,6 @@ InstallStatus UninstallChrome(const FilePath& setup_path,
     }
   }
 
-  // Get the version of installed Chrome (if any)
-  const Version* installed_version = product.GetInstalledVersion();
-
   // Chrome is not in use so lets uninstall Chrome by deleting various files
   // and registry entries. Here we will just make best effort and keep going
   // in case of errors.
@@ -576,6 +640,17 @@ InstallStatus UninstallChrome(const FilePath& setup_path,
   InstallStatus ret = installer::UNKNOWN_STATUS;
   DeleteChromeRegistrationKeys(product.distribution(), reg_root, suffix, ret);
 
+  // Get the state of the installed product (if any)
+  const ProductState* product_state =
+      original_state.GetProductState(installer_state.system_install(),
+                                     browser_dist->GetType());
+
+  if (!is_chrome)
+    ProcessChromeFrameWorkItems(setup_path, product, product_state);
+
+  if (product.package().multi_install())
+    ProcessGoogleUpdateItems(original_state, product);
+
   // For user level install also we end up creating some keys in HKLM if user
   // sets Chrome as default browser. So delete those as well (needs admin).
   if (remove_all && !product.system_level() &&
@@ -595,28 +670,36 @@ InstallStatus UninstallChrome(const FilePath& setup_path,
       std::wstring reg_path(installer::kMediaPlayerRegPath);
       file_util::AppendToPath(&reg_path, installer::kChromeExe);
       InstallUtil::DeleteRegistryKey(hklm_key, reg_path);
-      hklm_key.Close();
     }
 
-    // Unregister any dll servers that we may have registered for Chrome Frame
-    // and CEEE builds only.
-    // TODO(tommi): We should only do this when the folder itself is
-    // being removed and we know that the DLLs were previously registered.
-    // Simplest would be to always register them.
-    if (installed_version != NULL && !is_chrome) {
-      RegisterComDllList(product.package().path().Append(
-          UTF8ToWide(installed_version->GetString())), product.system_level(),
-          false, false);
+    // Unregister any dll servers that we may have registered for this
+    // product.
+    if (product_state != NULL) {
+      std::vector<FilePath> com_dll_list(browser_dist->GetComDllList());
+      FilePath dll_folder = product.package().path().Append(
+          UTF8ToWide(product_state->version().GetString()));
+
+      scoped_ptr<WorkItemList> unreg_work_item_list(
+          WorkItem::CreateWorkItemList());
+
+
+      AddRegisterComDllWorkItems(dll_folder,
+                                 com_dll_list,
+                                 product.system_level(),
+                                 false,  // Unregister
+                                 true,   // May fail
+                                 unreg_work_item_list.get());
+      unreg_work_item_list->Do();
     }
   }
 
   // Close any Chrome Frame helper processes that may be running.
-  if (product.distribution()->GetType() == BrowserDistribution::CHROME_FRAME) {
+  if (product.is_chrome_frame()) {
     VLOG(1) << "Closing the Chrome Frame helper process";
     CloseChromeFrameHelperProcess();
   }
 
-  if (installed_version == NULL)
+  if (product_state == NULL)
     return installer::UNINSTALL_SUCCESSFUL;
 
   // Finally delete all the files from Chrome folder after moving setup.exe
@@ -624,33 +707,37 @@ InstallStatus UninstallChrome(const FilePath& setup_path,
   bool delete_profile = ShouldDeleteProfile(cmd_line, status, product);
   ret = installer::UNINSTALL_SUCCESSFUL;
 
-  // In order to be able to remove the folder in which we're running, we
-  // need to move setup.exe out of the install folder.
-  // TODO(tommi): What if the temp folder is on a different volume?
-  MoveSetupOutOfInstallFolder(product.package(), setup_path,
-                              *installed_version);
-
-  FilePath backup_state_file(BackupLocalStateFile(
-      GetLocalStateFolder(product)));
-
   // When deleting files, we must make sure that we're either a "single"
   // (aka non-multi) installation or, in the case of multi, that no other
   // "multi" products share the binaries we are about to delete.
 
   bool can_delete_files;
-  if (channel_info.IsMultiInstall()) {
+  if (product.package().multi_install()) {
     can_delete_files =
         (product.package().GetMultiInstallDependencyCount() == 0);
     LOG(INFO) << (can_delete_files ? "Shared binaries will be deleted." :
                                      "Shared binaries still in use.");
+    PackageProperties* props = product.package().properties();
+    if (can_delete_files && props->ReceivesUpdates()) {
+      InstallUtil::DeleteRegistryKey(key, props->GetVersionKey());
+    }
   } else {
     can_delete_files = true;
   }
 
+  FilePath backup_state_file(BackupLocalStateFile(
+      GetLocalStateFolder(product)));
+
   DeleteResult delete_result = DELETE_SUCCEEDED;
-  if (can_delete_files)
+  if (can_delete_files) {
+    // In order to be able to remove the folder in which we're running, we
+    // need to move setup.exe out of the install folder.
+    // TODO(tommi): What if the temp folder is on a different volume?
+    MoveSetupOutOfInstallFolder(product.package(), setup_path,
+                                product_state->version());
     delete_result = DeleteFilesAndFolders(product.package(),
-                                          *installed_version);
+                                          product_state->version());
+  }
 
   if (delete_profile)
     DeleteLocalState(product);
@@ -663,7 +750,7 @@ InstallStatus UninstallChrome(const FilePath& setup_path,
 
   if (!force_uninstall) {
     VLOG(1) << "Uninstallation complete. Launching Uninstall survey.";
-    browser_dist->DoPostUninstallOperations(*installed_version,
+    browser_dist->DoPostUninstallOperations(product_state->version(),
         backup_state_file, distribution_data);
   }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -248,7 +248,7 @@ class ResourceLoaderBridge {
     ~SyncLoadResponse();
 
     // The response status.
-    URLRequestStatus status;
+    net::URLRequestStatus status;
 
     // The final URL of the response.  This may differ from the request URL in
     // the case of a server redirect.
@@ -308,7 +308,7 @@ class ResourceLoaderBridge {
 
     // Called when the response is complete.  This method signals completion of
     // the resource load.ff
-    virtual void OnCompletedRequest(const URLRequestStatus& status,
+    virtual void OnCompletedRequest(const net::URLRequestStatus& status,
                                     const std::string& security_info,
                                     const base::Time& completion_time) = 0;
   };

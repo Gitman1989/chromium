@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,15 +16,15 @@
 #include "base/metrics/histogram.h"
 #include "base/metrics/stats_table.h"
 #include "base/path_service.h"
-#include "base/platform_thread.h"
 #include "base/singleton.h"
 #include "base/stringprintf.h"
 #include "base/string_number_conversions.h"
 #include "base/string_piece.h"
 #include "base/string_util.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "base/tracked_objects.h"
 #include "base/utf_string_conversions.h"
+#include "base/values.h"
 #include "chrome/browser/about_flags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_thread.h"
@@ -36,21 +36,16 @@
 #include "chrome/browser/metrics/histogram_synchronizer.h"
 #include "chrome/browser/net/predictor_api.h"
 #include "chrome/browser/platform_util.h"
-#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/renderer_host/render_process_host.h"
 #include "chrome/browser/renderer_host/render_view_host.h"
-#include "chrome/browser/sync/profile_sync_service.h"
-#include "chrome/browser/sync/sync_ui_util.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/common/about_handler.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_version_info.h"
 #include "chrome/common/gpu_info.h"
 #include "chrome/common/jstemplate_builder.h"
 #include "chrome/common/net/gaia/google_service_auth_error.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/common/url_constants.h"
 #include "googleurl/src/gurl.h"
@@ -66,7 +61,7 @@
 
 #if defined(OS_WIN)
 #include "chrome/browser/enumerate_modules_model_win.h"
-#include "chrome/browser/views/about_ipc_dialog.h"
+#include "chrome/browser/ui/views/about_ipc_dialog.h"
 #elif defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/cros/network_library.h"
@@ -82,8 +77,6 @@
 #if defined(USE_TCMALLOC)
 #include "third_party/tcmalloc/chromium/src/google/malloc_extension.h"
 #endif
-
-using sync_api::SyncManager;
 
 using base::Time;
 using base::TimeDelta;
@@ -118,7 +111,6 @@ const char kHistogramsPath[] = "histograms";
 const char kMemoryRedirectPath[] = "memory-redirect";
 const char kMemoryPath[] = "memory";
 const char kStatsPath[] = "stats";
-const char kSyncPath[] = "sync";
 const char kTasksPath[] = "tasks";
 const char kTcmallocPath[] = "tcmalloc";
 const char kTermsPath[] = "terms";
@@ -127,6 +119,7 @@ const char kAboutPath[] = "about";
 // Not about:* pages, but included to make about:about look nicer
 const char kNetInternalsPath[] = "net-internals";
 const char kPluginsPath[] = "plugins";
+const char kSyncInternalsPath[] = "sync-internals";
 
 #if defined(OS_LINUX)
 const char kLinuxProxyConfigPath[] = "linux-proxy-config";
@@ -155,7 +148,7 @@ const char *kAllAboutPaths[] = {
   kNetInternalsPath,
   kPluginsPath,
   kStatsPath,
-  kSyncPath,
+  kSyncInternalsPath,
   kTasksPath,
   kTcmallocPath,
   kTermsPath,
@@ -291,7 +284,8 @@ std::string AboutAbout() {
     html.append(kAllAboutPaths[i]);
     html.append("</a>\n");
   }
-  const char *debug[] = { "crash", "hang", "shorthang", "gpucrash", "gpuhang" };
+  const char *debug[] = { "crash", "kill", "hang", "shorthang",
+                          "gpucrash", "gpuhang" };
   html.append("</ul><h2>For Debug</h2>");
   html.append("</ul><p>The following pages are for debugging purposes only. "
               "Because they crash or hang the renderer, they're not linked "
@@ -690,31 +684,6 @@ std::string AboutVersion(DictionaryValue* localized_strings) {
       version_html, localized_strings, "t" /* template root node id */);
 }
 
-
-
-std::string AboutSync() {
-  FilePath user_data_dir;
-  if (!PathService::Get(chrome::DIR_USER_DATA, &user_data_dir))
-    return std::string();
-  ProfileManager* profile_manager = g_browser_process->profile_manager();
-  Profile* profile = profile_manager->GetDefaultProfile(user_data_dir);
-  ProfileSyncService* service = profile->GetProfileSyncService();
-
-  DictionaryValue strings;
-  if (!service) {
-    strings.SetString("summary", "SYNC DISABLED");
-  } else {
-    sync_ui_util::ConstructAboutInformation(service, &strings);
-  }
-
-  static const base::StringPiece sync_html(
-      ResourceBundle::GetSharedInstance().GetRawDataResource(
-      IDR_ABOUT_SYNC_HTML));
-
-  return jstemplate_builder::GetTemplatesHtml(
-      sync_html, &strings , "t" /* template root node id */);
-}
-
 std::string VersionNumberToString(uint32 value) {
   int hi = (value >> 8) & 0xff;
   int low = value & 0xff;
@@ -803,8 +772,6 @@ void AboutSource::StartDataRequest(const std::string& path_raw,
   } else if (path == kSandboxPath) {
     response = AboutSandbox();
 #endif
-  } else if (path == kSyncPath) {
-    response = AboutSync();
   }
 
   FinishDataRequest(response, request_id);
@@ -836,7 +803,7 @@ void AboutMemoryHandler::BindProcessMetrics(DictionaryValue* data,
   data->SetInteger("comm_map", static_cast<int>(info->committed.mapped));
   data->SetInteger("comm_image", static_cast<int>(info->committed.image));
   data->SetInteger("pid", info->pid);
-  data->SetString("version", WideToUTF16Hack(info->version));
+  data->SetString("version", info->version);
   data->SetInteger("processes", info->num_processes);
 }
 
@@ -851,14 +818,16 @@ void AboutMemoryHandler::AppendProcess(ListValue* child_data,
   child_data->Append(child);
   BindProcessMetrics(child, info);
 
-  std::string child_label(ChildProcessInfo::GetTypeNameInEnglish(info->type));
+  std::string child_label(
+      ChildProcessInfo::GetFullTypeNameInEnglish(info->type,
+                                                 info->renderer_type));
   if (info->is_diagnostics)
     child_label.append(" (diagnostics)");
   child->SetString("child_name", child_label);
   ListValue* titles = new ListValue();
   child->Set("titles", titles);
   for (size_t i = 0; i < info->titles.size(); ++i)
-    titles->Append(new StringValue(WideToUTF16Hack(info->titles[i])));
+    titles->Append(new StringValue(info->titles[i]));
 }
 
 
@@ -897,15 +866,14 @@ void AboutMemoryHandler::OnDetailsAvailable() {
     }
     DictionaryValue* browser_data = new DictionaryValue();
     browsers->Append(browser_data);
-    browser_data->SetString("name",
-                            WideToUTF16Hack(browser_processes[index].name));
+    browser_data->SetString("name", browser_processes[index].name);
 
     BindProcessMetrics(browser_data, &aggregate);
 
     // We log memory info as we record it.
     if (log_string.length() > 0)
       log_string.append(L", ");
-    log_string.append(browser_processes[index].name);
+    log_string.append(UTF16ToWide(browser_processes[index].name));
     log_string.append(L", ");
     log_string.append(UTF8ToWide(
         base::Int64ToString(aggregate.working_set.priv)));
@@ -926,7 +894,7 @@ void AboutMemoryHandler::OnDetailsAvailable() {
   root.Set("child_data", child_data);
 
   ProcessData process = browser_processes[0];  // Chrome is the first browser.
-  root.SetString("current_browser_name", WideToUTF16Hack(process.name));
+  root.SetString("current_browser_name", process.name);
 
   for (size_t index = 0; index < process.processes.size(); index++) {
     if (process.processes[index].type == ChildProcessInfo::BROWSER_PROCESS)
@@ -1050,6 +1018,14 @@ bool WillHandleBrowserAboutURL(GURL* url, Profile* profile) {
     return true;
   }
 
+  // Rewrite about:sync-internals/* URLs (and about:sync, too, for
+  // legacy reasons) to chrome://sync-internals/*
+  if (StartsWithAboutSpecifier(*url, chrome::kAboutSyncInternalsURL) ||
+      StartsWithAboutSpecifier(*url, chrome::kAboutSyncURL)) {
+    *url = RemapAboutURL(chrome::kSyncViewInternalsURL, *url);
+    return true;
+  }
+
   // Rewrite about:plugins to chrome://plugins/.
   if (LowerCaseEqualsASCII(url->spec(), chrome::kAboutPluginsURL)) {
     *url = GURL(chrome::kChromeUIPluginsURL);
@@ -1079,14 +1055,8 @@ bool WillHandleBrowserAboutURL(GURL* url, Profile* profile) {
   if (chrome_about_handler::WillHandle(*url))
     return false;
 
-  // Anything else requires our special handler, make sure its initialized.
-  // We only need to register the AboutSource once and it is kept globally.
-  // There is currently no way to remove a data source.
-  static bool initialized = false;
-  if (!initialized) {
-    about_source = new AboutSource();
-    initialized = true;
-  }
+  // Anything else requires our special handler; make sure it's initialized.
+  InitializeAboutDataSource();
 
   // Special case about:memory to go through a redirect before ending up on
   // the final page. See GetAboutMemoryRedirectResponse above for why.
@@ -1102,6 +1072,16 @@ bool WillHandleBrowserAboutURL(GURL* url, Profile* profile) {
   about_url.append(url->path());
   *url = GURL(about_url);
   return true;
+}
+
+void InitializeAboutDataSource() {
+  // We only need to register the AboutSource once and it is kept globally.
+  // There is currently no way to remove a data source.
+  static bool initialized = false;
+  if (!initialized) {
+    about_source = new AboutSource();
+    initialized = true;
+  }
 }
 
 // This function gets called with the fixed-up chrome: URLs, so we have to

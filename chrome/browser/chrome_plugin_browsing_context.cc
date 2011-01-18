@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2008 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -23,17 +23,18 @@ CPBrowsingContextManager::~CPBrowsingContextManager() {
 }
 
 CPBrowsingContext CPBrowsingContextManager::Allocate(
-    URLRequestContext* context) {
+    net::URLRequestContext* context) {
   int32 map_id = map_.Add(context);
   return static_cast<CPBrowsingContext>(map_id);
 }
 
-URLRequestContext* CPBrowsingContextManager::ToURLRequestContext(
+net::URLRequestContext* CPBrowsingContextManager::ToURLRequestContext(
     CPBrowsingContext id) {
   return map_.Lookup(static_cast<int32>(id));
 }
 
-CPBrowsingContext CPBrowsingContextManager::Lookup(URLRequestContext* context) {
+CPBrowsingContext CPBrowsingContextManager::Lookup(
+    net::URLRequestContext* context) {
   ReverseMap::const_iterator it = reverse_map_.find(context);
   if (it == reverse_map_.end()) {
     CPBrowsingContext id = Allocate(context);
@@ -49,9 +50,10 @@ void CPBrowsingContextManager::Observe(NotificationType type,
                                        const NotificationDetails& details) {
   DCHECK(type == NotificationType::URL_REQUEST_CONTEXT_RELEASED);
 
-  URLRequestContext* context = Source<URLRequestContext>(source).ptr();
+  net::URLRequestContext* context =
+      Source<net::URLRequestContext>(source).ptr();
 
-  // Multiple CPBrowsingContexts may refer to the same URLRequestContext.
+  // Multiple CPBrowsingContexts may refer to the same net::URLRequestContext.
   for (Map::iterator it(&map_); !it.IsAtEnd(); it.Advance()) {
     if (it.GetCurrentValue() == context)
       map_.Remove(it.GetCurrentKey());

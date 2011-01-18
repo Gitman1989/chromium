@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -36,7 +36,7 @@ var OptionsPage = options.OptionsPage;
             ['Options_ContentSettings']);
       };
       $('privacyClearDataButton').onclick = function(event) {
-        OptionsPage.showOverlay('clearBrowserDataOverlay');
+        OptionsPage.showPageByName('clearBrowserDataPage');
         chrome.send('coreOptionsUserMetricsAction', ['Options_ClearData']);
       };
 
@@ -56,10 +56,10 @@ var OptionsPage = options.OptionsPage;
         OptionsPage.showPageByName('fontSettings');
         chrome.send('coreOptionsUserMetricsAction', ['Options_FontSettings']);
       };
-      $('defaultZoomLevel').onchange = function(event) {
-        chrome.send('defaultZoomLevelAction',
+      $('defaultFontSize').onchange = function(event) {
+        chrome.send('defaultFontSizeAction',
             [String(event.target.options[event.target.selectedIndex].value)]);
-      }
+      };
 
       if (cr.isWindows || cr.isMac) {
         $('certificatesManageButton').onclick = function(event) {
@@ -133,6 +133,12 @@ var OptionsPage = options.OptionsPage;
           chrome.send('showCloudPrintManagePage');
         };
       }
+
+      if ($('remotingSetupButton')) {
+        $('remotingSetupButton').onclick = function(event) {
+          chrome.send('showRemotingSetupDialog');
+        }
+      }
     }
   };
 
@@ -157,16 +163,29 @@ var OptionsPage = options.OptionsPage;
     }
   }
 
-  // Set the default zoom level selected item.
-  AdvancedOptions.SetDefaultZoomLevel = function(value) {
-    var selectCtl = $('defaultZoomLevel');
-    for (var i = 0; i < selectCtl.options.length; i++) {
-      if (selectCtl.options[i].value == value) {
-        selectCtl.selectedIndex = i;
-        return;
+  // Set the font size selected item.
+  AdvancedOptions.SetFontSize = function(fixed_font_size_value,
+      font_size_value) {
+    var selectCtl = $('defaultFontSize');
+    if (fixed_font_size_value == font_size_value) {
+      for (var i = 0; i < selectCtl.options.length; i++) {
+        if (selectCtl.options[i].value == font_size_value) {
+          selectCtl.selectedIndex = i;
+          if ($('Custom'))
+            selectCtl.remove($('Custom').index);
+          return;
+        }
       }
     }
-    selectCtl.selectedIndex = 4;  // 100%
+
+    // Add/Select Custom Option in the font size label list.
+    if (!$('Custom')) {
+      var option = new Option(localStrings.getString('fontSizeLabelCustom'),
+                              -1, false, true);
+      option.setAttribute("id", "Custom");
+      selectCtl.add(option);
+    }
+    $('Custom').selected = true;
   };
 
   // Set the download path.
@@ -222,10 +241,27 @@ var OptionsPage = options.OptionsPage;
     }
   };
 
-  AdvancedOptions.HideCloudPrintProxySection = function() {
+  AdvancedOptions.RemoveCloudPrintProxySection = function() {
     if (!cr.isChromeOS) {
-      $('cloud-print-proxy-section').style.display = 'none';
+      var proxySectionElm = $('cloud-print-proxy-section');
+      proxySectionElm.parentNode.removeChild(proxySectionElm);
     }
+  };
+
+  AdvancedOptions.SetRemotingStatus = function(enabled, status) {
+    if (enabled) {
+      $('remotingSetupButton').style.display = 'none';
+      $('remotingStopButton').style.display = 'inline';
+    } else {
+      $('remotingSetupButton').style.display = 'inline';
+      $('remotingStopButton').style.display = 'none';
+    }
+    $('remotingStatus').textContent = status;
+  };
+
+  AdvancedOptions.RemoveRemotingSection = function() {
+    var proxySectionElm = $('remoting-section');
+    proxySectionElm.parentNode.removeChild(proxySectionElm);
   };
 
   // Export

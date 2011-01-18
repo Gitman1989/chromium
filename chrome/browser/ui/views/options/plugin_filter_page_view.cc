@@ -1,11 +1,11 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/options/plugin_filter_page_view.h"
+#include "chrome/browser/ui/views/options/plugin_filter_page_view.h"
 
 #include "app/l10n_util.h"
-#include "chrome/browser/ui/browser.h"
+#include "base/utf_string_conversions.h"
 #include "chrome/browser/ui/options/show_options_url.h"
 #include "chrome/common/url_constants.h"
 #include "grit/generated_resources.h"
@@ -32,7 +32,7 @@ void PluginFilterPageView::InitControlLayout() {
   layout->AddPaddingRow(0, kUnrelatedControlVerticalSpacing);
 
   views::Link* plugins_page_link = new views::Link(
-      l10n_util::GetString(IDS_PLUGIN_SELECTIVE_DISABLE));
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_PLUGIN_SELECTIVE_DISABLE)));
   plugins_page_link->SetController(this);
 
   layout->StartRow(0, single_column_set_id);

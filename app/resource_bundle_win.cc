@@ -7,9 +7,8 @@
 #include <atlbase.h>
 
 #include "app/app_paths.h"
+#include "app/data_pack.h"
 #include "app/l10n_util.h"
-#include "base/data_pack.h"
-#include "base/debug_util.h"
 #include "base/debug/stack_trace.h"
 #include "base/file_util.h"
 #include "base/lock.h"
@@ -42,14 +41,6 @@ ResourceBundle::~ResourceBundle() {
   resources_data_ = NULL;
 }
 
-void ResourceBundle::UnloadLocaleResources() {
-  if (locale_resources_data_) {
-    BOOL rv = FreeLibrary(locale_resources_data_);
-    DCHECK(rv);
-    locale_resources_data_ = NULL;
-  }
-}
-
 void ResourceBundle::LoadCommonResources() {
   // As a convenience, set resources_data_ to the current resource module.
   DCHECK(NULL == resources_data_) << "common resources already loaded";
@@ -74,6 +65,14 @@ std::string ResourceBundle::LoadLocaleResources(
   DCHECK(locale_resources_data_ != NULL) <<
       "unable to load generated resources";
   return app_locale;
+}
+
+void ResourceBundle::UnloadLocaleResources() {
+  if (locale_resources_data_) {
+    BOOL rv = FreeLibrary(locale_resources_data_);
+    DCHECK(rv);
+    locale_resources_data_ = NULL;
+  }
 }
 
 // static

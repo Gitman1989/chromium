@@ -5,6 +5,7 @@
 #include "views/accessibility/view_accessibility.h"
 
 #include "app/view_prop.h"
+#include "views/controls/button/native_button.h"
 #include "views/widget/widget.h"
 #include "views/widget/widget_win.h"
 
@@ -81,6 +82,22 @@ STDMETHODIMP ViewAccessibility::accHitTest(
     child->pdispVal->AddRef();
   }
   return S_OK;
+}
+
+HRESULT ViewAccessibility::accDoDefaultAction(VARIANT var_id) {
+  if (!IsValidId(var_id))
+    return E_INVALIDARG;
+
+  if (view_->GetClassName() == views::NativeButton::kViewClassName) {
+    views::NativeButton* native_button =
+        static_cast<views::NativeButton*>(view_);
+    native_button->ButtonPressed();
+    return S_OK;
+  }
+
+  // The object does not support the method. This value is returned for
+  // controls that do not perform actions, such as edit fields.
+  return DISP_E_MEMBERNOTFOUND;
 }
 
 STDMETHODIMP ViewAccessibility::accLocation(
@@ -282,7 +299,7 @@ STDMETHODIMP ViewAccessibility::get_accDefaultAction(
   if (!view_)
     return E_FAIL;
 
-  std::wstring temp_action = view_->GetAccessibleDefaultAction();
+  string16 temp_action = view_->GetAccessibleDefaultAction();
 
   if (!temp_action.empty()) {
     *def_action = SysAllocString(temp_action.c_str());
@@ -347,7 +364,7 @@ STDMETHODIMP ViewAccessibility::get_accKeyboardShortcut(
   if (!view_)
     return E_FAIL;
 
-  std::wstring temp_key = view_->GetAccessibleKeyboardShortcut();
+  string16 temp_key = view_->GetAccessibleKeyboardShortcut();
 
   if (!temp_key.empty()) {
     *acc_key = SysAllocString(temp_key.c_str());
@@ -365,7 +382,7 @@ STDMETHODIMP ViewAccessibility::get_accName(VARIANT var_id, BSTR* name) {
   if (!view_)
     return E_FAIL;
 
-  std::wstring temp_name;
+  string16 temp_name;
 
   // Retrieve the current view's name.
   view_->GetAccessibleName(&temp_name);
@@ -457,7 +474,7 @@ STDMETHODIMP ViewAccessibility::get_accValue(VARIANT var_id, BSTR* value) {
     return E_FAIL;
 
   // Retrieve the current view's value.
-  std::wstring temp_value = view_->GetAccessibleValue();
+  string16 temp_value = view_->GetAccessibleValue();
 
   if (!temp_value.empty()) {
     // Return value retrieved.
@@ -534,10 +551,6 @@ void ViewAccessibility::SetState(VARIANT* msaa_state, views::View* view) {
 }
 
 // IAccessible functions not supported.
-
-HRESULT ViewAccessibility::accDoDefaultAction(VARIANT var_id) {
-  return E_NOTIMPL;
-}
 
 STDMETHODIMP ViewAccessibility::get_accSelection(VARIANT* selected) {
   if (selected)

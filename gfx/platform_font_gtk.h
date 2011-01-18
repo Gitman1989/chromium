@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -20,12 +20,15 @@ class PlatformFontGtk : public PlatformFont {
   PlatformFontGtk();
   explicit PlatformFontGtk(const Font& other);
   explicit PlatformFontGtk(NativeFont native_font);
-  PlatformFontGtk(const std::wstring& font_name,
+  PlatformFontGtk(const string16& font_name,
                   int font_size);
 
   // Converts |gfx_font| to a new pango font. Free the returned font with
   // pango_font_description_free().
   static PangoFontDescription* PangoFontFromGfxFont(const gfx::Font& gfx_font);
+
+  // Return the scale factor for fonts that account for DPI.
+  static float GetPangoScaleFactor();
 
   // Position as an offset from the height of the drawn text, used to draw
   // an underline. This is a negative number, so the underline would be
@@ -42,26 +45,23 @@ class PlatformFontGtk : public PlatformFont {
   virtual int GetStringWidth(const string16& text) const;
   virtual int GetExpectedTextWidth(int length) const;
   virtual int GetStyle() const;
-  virtual const std::wstring& GetFontName() const;
+  virtual string16 GetFontName() const;
   virtual int GetFontSize() const;
   virtual NativeFont GetNativeFont() const;
-
-  // Return the scale factor for fonts that account for DPI.
-  static float GetPangoScaleFactor();
 
  private:
   // Create a new instance of this object with the specified properties. Called
   // from DeriveFont.
   PlatformFontGtk(SkTypeface* typeface,
-                  const std::wstring& name,
+                  const string16& name,
                   int size,
                   int style);
   virtual ~PlatformFontGtk();
 
   // Initialize this object.
-  void InitWithNameAndSize(const std::wstring& font_name, int font_size);
+  void InitWithNameAndSize(const string16& font_name, int font_size);
   void InitWithTypefaceNameSizeAndStyle(SkTypeface* typeface,
-                                        const std::wstring& name,
+                                        const string16& name,
                                         int size,
                                         int style);
   void InitFromPlatformFont(const PlatformFontGtk* other);
@@ -86,7 +86,7 @@ class PlatformFontGtk : public PlatformFont {
 
   // Additional information about the face
   // Skia actually expects a family name and not a font name.
-  std::wstring font_family_;
+  string16 font_family_;
   int font_size_;
   int style_;
 

@@ -12,7 +12,6 @@
 #include "chrome/browser/chromeos/preferences.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/notification_type.h"
-#include "chrome/common/pref_names.h"
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
 #include "views/controls/button/checkbox.h"
@@ -76,14 +75,14 @@ int LanguagePinyinConfigView::GetDialogButtons() const {
 std::wstring LanguagePinyinConfigView::GetDialogButtonLabel(
     MessageBoxFlags::DialogButton button) const {
   if (button == MessageBoxFlags::DIALOGBUTTON_OK) {
-    return l10n_util::GetString(IDS_OK);
+    return UTF16ToWide(l10n_util::GetStringUTF16(IDS_OK));
   }
   return L"";
 }
 
 std::wstring LanguagePinyinConfigView::GetWindowTitle() const {
-  return l10n_util::GetString(
-      IDS_OPTIONS_SETTINGS_LANGUAGES_PINYIN_SETTINGS_TITLE);
+  return UTF16ToWide(l10n_util::GetStringUTF16(
+      IDS_OPTIONS_SETTINGS_LANGUAGES_PINYIN_SETTINGS_TITLE));
 }
 
 gfx::Size LanguagePinyinConfigView::GetPreferredSize() {
@@ -115,8 +114,8 @@ void LanguagePinyinConfigView::InitControlLayout() {
 
   for (size_t i = 0; i < language_prefs::kNumPinyinBooleanPrefs; ++i) {
     pinyin_boolean_checkboxes_[i] = new views::Checkbox(
-        l10n_util::GetString(
-            language_prefs::kPinyinBooleanPrefs[i].message_id));
+        UTF16ToWide(l10n_util::GetStringUTF16(
+            language_prefs::kPinyinBooleanPrefs[i].message_id)));
     pinyin_boolean_checkboxes_[i]->set_listener(this);
     pinyin_boolean_checkboxes_[i]->set_tag(i);
   }

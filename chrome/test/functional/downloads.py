@@ -10,12 +10,12 @@ import os
 import shutil
 import sys
 import tempfile
-import time
 import urllib
 
 import pyauto_functional  # Must be imported before pyauto
 import pyauto
 import pyauto_utils
+import test_utils
 
 
 class DownloadsTest(pyauto.PyUITest):
@@ -93,19 +93,6 @@ class DownloadsTest(pyauto.PyUITest):
     os.close(fd)
     logging.debug('Created temporary file %s of size %d' % (file_path, size))
     return file_path
-
-  def _CallFunctionWithNewTimeout(self, new_timeout, function):
-    """Sets the timeout to |new_timeout| and calls |function|.
-
-    This method resets the timeout before returning.
-    """
-    timeout_changer = pyauto.PyUITest.CmdExecutionTimeoutChanger(
-        self, new_timeout)
-    logging.info('Automation execution timeout has been changed to %d. '
-                 'If the timeout is large the test might appear to hang.'
-                 % new_timeout)
-    function()
-    del timeout_changer
 
   def _GetAllDownloadIDs(self):
     """Return a list of all download ids."""
@@ -222,8 +209,8 @@ class DownloadsTest(pyauto.PyUITest):
     self._DeleteAfterShutdown(downloaded_pkg)
     # Waiting for big file to download might exceed automation timeout.
     # Temporarily increase the automation timeout.
-    self._CallFunctionWithNewTimeout(4 * 60 * 1000,  # 4 min.
-                                     self.WaitForAllDownloadsToComplete)
+    test_utils.CallFunctionWithNewTimeout(self, 4 * 60 * 1000,  # 4 min.
+                                          self.WaitForAllDownloadsToComplete)
     # Verify that the file was correctly downloaded
     self.assertTrue(os.path.exists(downloaded_pkg),
                     'Downloaded file %s missing.' % downloaded_pkg)
@@ -382,8 +369,8 @@ class DownloadsTest(pyauto.PyUITest):
 
     # Waiting for big file to download might exceed automation timeout.
     # Temporarily increase the automation timeout.
-    self._CallFunctionWithNewTimeout(2 * 60 * 1000,  # 2 min.
-                                     self.WaitForAllDownloadsToComplete)
+    test_utils.CallFunctionWithNewTimeout(self, 2 * 60 * 1000,  # 2 min.
+                                          self.WaitForAllDownloadsToComplete)
 
     # Verify that the file was correctly downloaded after pause and resume.
     self.assertTrue(os.path.exists(downloaded_pkg),
@@ -456,6 +443,42 @@ class DownloadsTest(pyauto.PyUITest):
     self.assertTrue(self.WaitUntil(lambda path: not os.path.exists(path),
                                    args=[downloaded_pkg]))
 
+  def testAlwaysOpenFileType(self):
+    """Verify "Always Open Files of this Type" download option
+
+    If 'always open' option is set for any filetype, downloading that type of
+    file gets opened always after the download.
+    A cross-platform trick to verify it, by downloading a .zip file and
+    expecting it to get unzipped.  Just check if it got unzipped or not.
+    This way you won't have to worry about which application might 'open'
+    it.
+    """
+    if not self.IsMac():
+      logging.info('Don\'t have a standard way to test when a file "opened"')
+      logging.info('Bailing out')
+      return
+    file_path = os.path.join(self.DataDir(), 'downloads', 'a_zip_file.zip')
+    file_url = self.GetFileURLForPath(file_path)
+    downloaded_pkg = os.path.join(self.GetDownloadDirectory().value(),
+                                  os.path.basename(file_path))
+    os.path.exists(downloaded_pkg) and os.remove(downloaded_pkg)
+    self.DownloadAndWaitForStart(file_url)
+    self.WaitForAllDownloadsToComplete()
+    id = self._GetDownloadId()
+    self.PerformActionOnDownload(id, 'toggle_open_files_like_this')
+    # Retesting the flag we set
+    file_url2 = self.GetFileURLForDataPath(os.path.join('zip', 'test.zip'))
+    unzip_path = os.path.join(self.GetDownloadDirectory().value(),
+                              'test', 'foo')
+    os.path.exists(unzip_path) and pyauto_utils.RemovePath(unzip_path)
+    self.DownloadAndWaitForStart(file_url2)
+    self.WaitForAllDownloadsToComplete()
+    # When the downloaded zip gets 'opened', a_file.txt will become available.
+    self.assertTrue(self.WaitUntil(lambda: os.path.exists(unzip_path)),
+                    'Did not open the filetype')
+    os.path.exists(downloaded_pkg) and os.remove(downloaded_pkg)
+    os.path.exists(unzip_path) and pyauto_utils.RemovePath(unzip_path)
+
   def testExtendedAttributesOnMac(self):
     """Verify that Chrome sets the extended attributes on a file.
        This test is for mac only.
@@ -472,6 +495,66 @@ class DownloadsTest(pyauto.PyUITest):
     self.WaitForAllDownloadsToComplete()
     import xattr
     self.assertTrue('com.apple.quarantine' in xattr.listxattr(downloaded_pkg))
+
+  def testOpenWhenDone(self):
+    """Verify "Open When Done" download option.
+
+    Test creates a zip file on the fly and downloads it.
+    Set this option when file is downloading. Once file is downloaded,
+    verify that downloaded zip file is unzipped.
+    """
+    if not self.IsMac():
+      logging.info('Don\'t have a standard way to test when a file "opened"')
+      logging.info('Bailing out')
+      return
+    # Creating a temp zip file.
+    file_path = self._MakeFile(2**24)
+    file_url = self.GetFileURLForPath(file_path)
+    downloaded_pkg = os.path.join(self.GetDownloadDirectory().value(),
+                                  os.path.basename(file_path))
+    os.path.exists(downloaded_pkg) and os.remove(downloaded_pkg)
+    self.DownloadAndWaitForStart(file_url)
+    id = self._GetDownloadId()
+    self.PerformActionOnDownload(id, 'open')
+    self.WaitForAllDownloadsToComplete()
+    unzip_file_name = downloaded_pkg + '.cpgz'
+    # Verify that the file was correctly downloaded
+    self.assertTrue(self.WaitUntil(lambda: os.path.exists(unzip_file_name)),
+                    'Unzipped folder %s missing.' % unzip_file_name)
+    self.assertTrue(os.path.exists(downloaded_pkg),
+                    'Downloaded file %s missing.' % downloaded_pkg)
+    self.assertTrue(self._EqualFileContents(file_path, downloaded_pkg),
+                    'Downloaded file %s does not match original' %
+                      downloaded_pkg)
+    os.path.exists(file_path) and os.remove(file_path)
+    os.path.exists(downloaded_pkg) and os.remove(downloaded_pkg)
+    os.path.exists(unzip_file_name) and os.remove(unzip_file_name)
+
+  def testDownloadPercentage(self):
+    """Verify that during downloading, % values increases,
+       and once download is over, % value is 100"""
+    file_path = self._MakeFile(2**24)
+    file_url = self.GetFileURLForPath(file_path)
+    downloaded_pkg = os.path.join(self.GetDownloadDirectory().value(),
+                                  os.path.basename(file_path))
+    os.path.exists(downloaded_pkg) and os.remove(downloaded_pkg)
+    self.DownloadAndWaitForStart(file_url)
+    downloaded_pkg = os.path.join(self.GetDownloadDirectory().value(),
+                                  os.path.basename(file_path))
+    downloads = self.GetDownloadsInfo().Downloads()
+    old_percentage = downloads[0]['PercentComplete']
+    def _PercentInc():
+      percent = self.GetDownloadsInfo().Downloads()[0]['PercentComplete']
+      return old_percentage == 100 or percent > old_percentage,
+    self.assertTrue(self.WaitUntil(_PercentInc),
+        msg='Download percentage value is not increasing')
+    # Once download is completed, percentage is 100
+    self.WaitForAllDownloadsToComplete()
+    downloads = self.GetDownloadsInfo().Downloads()
+    self.assertEqual(downloads[0]['PercentComplete'], 100,
+        'Download percentage should be 100 after download completed')
+    os.path.exists(file_path) and os.remove(file_path)
+    os.path.exists(downloaded_pkg) and os.remove(downloaded_pkg)
 
   def testDownloadIncognitoAndRegular(self):
     """Download the same zip file in regular and incognito window and

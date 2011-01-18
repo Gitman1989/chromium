@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -21,14 +21,14 @@
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
 #include "base/path_service.h"
-#include "base/platform_thread.h"
+#include "base/threading/platform_thread.h"
 #include "base/process_util.h"
 #include "base/string_number_conversions.h"
 #include "base/string_piece.h"
 #include "base/string_split.h"
 #include "base/string_util.h"
 #include "base/sys_string_conversions.h"
-#include "base/thread_restrictions.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
@@ -100,6 +100,7 @@
 #include "net/spdy/spdy_session.h"
 #include "net/spdy/spdy_session_pool.h"
 #include "net/url_request/url_request.h"
+#include "net/url_request/url_request_throttler_manager.h"
 
 #if defined(USE_LINUX_BREAKPAD)
 #include "base/linux_util.h"
@@ -128,12 +129,12 @@
 #include <shellapi.h>
 
 #include "app/l10n_util_win.h"
-#include "app/win_util.h"
+#include "app/win/scoped_com_initializer.h"
 #include "chrome/browser/browser_trial.h"
 #include "chrome/browser/metrics/user_metrics.h"
 #include "chrome/browser/net/url_fixer_upper.h"
 #include "chrome/browser/rlz/rlz.h"
-#include "chrome/browser/views/user_data_dir_dialog.h"
+#include "chrome/browser/ui/views/user_data_dir_dialog.h"
 #include "chrome/common/sandbox_policy.h"
 #include "chrome/installer/util/helper.h"
 #include "chrome/installer/util/install_util.h"
@@ -151,7 +152,7 @@
 #endif
 
 #if defined(TOOLKIT_VIEWS)
-#include "chrome/browser/views/chrome_views_delegate.h"
+#include "chrome/browser/ui/views/chrome_views_delegate.h"
 #include "views/focus/accelerator_handler.h"
 #endif
 
@@ -165,7 +166,7 @@
 #include "chrome/browser/chromeos/login/screen_locker.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/chromeos/metrics_cros_settings_provider.h"
-#include "chrome/browser/views/browser_dialogs.h"
+#include "chrome/browser/ui/views/browser_dialogs.h"
 #endif
 
 #if defined(TOOLKIT_USES_GTK)
@@ -479,7 +480,7 @@ void BrowserMainParts::MainMessageLoopStart() {
 
 void BrowserMainParts::InitializeMainThread() {
   const char* kThreadName = "CrBrowserMain";
-  PlatformThread::SetName(kThreadName);
+  base::PlatformThread::SetName(kThreadName);
   main_message_loop().set_thread_name(kThreadName);
 
   // Register the main thread by instantiating it, but don't call any methods.
@@ -584,6 +585,11 @@ void InitializeNetworkOptions(const CommandLine& parsed_command_line) {
             switches::kMaxSpdySessionsPerDomain),
         &value);
     net::SpdySessionPool::set_max_sessions_per_domain(value);
+  }
+
+  if (parsed_command_line.HasSwitch(switches::kDisableEnforcedThrottling)) {
+    net::URLRequestThrottlerManager::GetInstance()->
+        set_enforce_throttling(false);
   }
 
   SetDnsCertProvenanceCheckerFactory(CreateChromeDnsCertProvenanceChecker);
@@ -1309,8 +1315,8 @@ int BrowserMain(const MainFunctionParams& parameters) {
 
       case ProcessSingleton::PROCESS_NOTIFIED:
 #if defined(OS_POSIX) && !defined(OS_MACOSX)
-        printf("%s\n", base::SysWideToNativeMB(
-                   l10n_util::GetString(IDS_USED_EXISTING_BROWSER)).c_str());
+        printf("%s\n", base::SysWideToNativeMB(UTF16ToWide(
+            l10n_util::GetStringUTF16(IDS_USED_EXISTING_BROWSER))).c_str());
 #endif
         return ResultCodes::NORMAL_EXIT;
 
@@ -1481,7 +1487,7 @@ int BrowserMain(const MainFunctionParams& parameters) {
       preconnect_enabled);
 
 #if defined(OS_WIN)
-  win_util::ScopedCOMInitializer com_initializer;
+  app::win::ScopedCOMInitializer com_initializer;
 
 #if defined(GOOGLE_CHROME_BUILD)
   // Init the RLZ library. This just binds the dll and schedules a task on the

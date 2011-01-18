@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,12 +13,15 @@
 #include "gfx/canvas.h"
 #include "gfx/canvas_skia.h"
 #include "gfx/insets.h"
+#include "grit/app_strings.h"
+#include "ui/base/clipboard/clipboard.h"
 #include "views/background.h"
 #include "views/border.h"
-#include "views/controls/textfield/native_textfield_gtk.h"
+#include "views/controls/menu/menu_2.h"
 #include "views/controls/textfield/textfield.h"
 #include "views/controls/textfield/textfield_views_model.h"
 #include "views/event.h"
+#include "views/views_delegate.h"
 
 namespace {
 
@@ -41,7 +44,7 @@ const int kCursorVisibleTimeMs = 800;
 const int kCursorInvisibleTimeMs = 500;
 
 // A switch to enable NativeTextfieldViews;
-const char kEnableViewsBasedTextfieldSwitch[] = "enable-textfield-view";
+const char kEnableViewsBasedTextfieldSwitch[] = "enable-textfield-views";
 }  // namespace
 
 namespace views {
@@ -57,13 +60,14 @@ NativeTextfieldViews::NativeTextfieldViews(Textfield* parent)
       insert_(true),
       is_cursor_visible_(false),
       ALLOW_THIS_IN_INITIALIZER_LIST(cursor_timer_(this)) {
-  SetFocusable(true);
   set_border(text_border_);
 
   // Multiline is not supported.
   DCHECK_NE(parent->style(), Textfield::STYLE_MULTILINE);
   // Lowercase is not supported.
   DCHECK_NE(parent->style(), Textfield::STYLE_LOWERCASE);
+
+  SetContextMenuController(this);
 }
 
 NativeTextfieldViews::~NativeTextfieldViews() {
@@ -73,11 +77,13 @@ NativeTextfieldViews::~NativeTextfieldViews() {
 // NativeTextfieldViews, View overrides:
 
 bool NativeTextfieldViews::OnMousePressed(const views::MouseEvent& e) {
-  RequestFocus();
-  size_t pos = FindCursorPosition(e.location());
-  if (model_->MoveCursorTo(pos, false)) {
-    UpdateCursorBoundsAndTextOffset();
-    SchedulePaint();
+  textfield_->RequestFocus();
+  if (e.IsLeftMouseButton()) {
+    size_t pos = FindCursorPosition(e.location());
+    if (model_->MoveCursorTo(pos, false)) {
+      UpdateCursorBoundsAndTextOffset();
+      SchedulePaint();
+    }
   }
   return true;
 }
@@ -96,52 +102,50 @@ void NativeTextfieldViews::OnMouseReleased(const views::MouseEvent& e,
 }
 
 bool NativeTextfieldViews::OnKeyPressed(const views::KeyEvent& e) {
-  Textfield::Controller* controller = textfield_->GetController();
-  bool handled = false;
-  if (controller) {
-    Textfield::Keystroke ks(&e);
-    handled = controller->HandleKeystroke(textfield_, ks);
-  }
-  return handled || HandleKeyEvent(e);
+  // OnKeyPressed/OnKeyReleased/WillGainFocus/DidGainFocus/WillLoseFocus
+  // will never be invoked on NativeTextfieldViews as it will never
+  // gain focus.
+  NOTREACHED();
+  return false;
 }
 
 bool NativeTextfieldViews::OnKeyReleased(const views::KeyEvent& e) {
-  return true;
+  NOTREACHED();
+  return false;
 }
 
 void NativeTextfieldViews::Paint(gfx::Canvas* canvas) {
-  text_border_->set_has_focus(HasFocus());
+  text_border_->set_has_focus(textfield_->HasFocus());
   PaintBackground(canvas);
   PaintTextAndCursor(canvas);
   if (textfield_->draw_border())
     PaintBorder(canvas);
 }
 
+void NativeTextfieldViews::DidChangeBounds(const gfx::Rect& previous,
+                                           const gfx::Rect& current) {
+  UpdateCursorBoundsAndTextOffset();
+}
+
 void NativeTextfieldViews::WillGainFocus() {
+  NOTREACHED();
 }
 
 void NativeTextfieldViews::DidGainFocus() {
-  is_cursor_visible_ = true;
-  SchedulePaint();
-  // Start blinking cursor.
-  MessageLoop::current()->PostDelayedTask(
-      FROM_HERE,
-      cursor_timer_.NewRunnableMethod(&NativeTextfieldViews::UpdateCursor),
-      kCursorVisibleTimeMs);
+  NOTREACHED();
 }
 
 void NativeTextfieldViews::WillLoseFocus() {
-  // Stop blinking cursor.
-  cursor_timer_.RevokeAll();
-  if (is_cursor_visible_) {
-    is_cursor_visible_ = false;
-    RepaintCursor();
-  }
+  NOTREACHED();
 }
 
-void NativeTextfieldViews::DidChangeBounds(const gfx::Rect& previous,
-                                          const gfx::Rect& current) {
-  UpdateCursorBoundsAndTextOffset();
+/////////////////////////////////////////////////////////////////
+// NativeTextfieldViews, views::ContextMenuController overrides:
+void NativeTextfieldViews::ShowContextMenu(View* source,
+                                           const gfx::Point& p,
+                                           bool is_mouse_gesture) {
+  InitContextMenuIfRequired();
+  context_menu_menu_->RunContextMenuAt(p);
 }
 
 /////////////////////////////////////////////////////////////////
@@ -225,13 +229,8 @@ void NativeTextfieldViews::UpdateIsPassword() {
 }
 
 void NativeTextfieldViews::UpdateEnabled() {
+  SetEnabled(textfield_->IsEnabled());
   SchedulePaint();
-}
-
-bool NativeTextfieldViews::IsPassword() {
-  // looks unnecessary. should we remove?
-  NOTREACHED();
-  return false;
 }
 
 gfx::Insets NativeTextfieldViews::CalculateInsets() {
@@ -258,8 +257,8 @@ void NativeTextfieldViews::UpdateVerticalMargins() {
   UpdateCursorBoundsAndTextOffset();
 }
 
-void NativeTextfieldViews::SetFocus() {
-  RequestFocus();
+bool NativeTextfieldViews::SetFocus() {
+  return false;
 }
 
 View* NativeTextfieldViews::GetView() {
@@ -273,6 +272,100 @@ gfx::NativeView NativeTextfieldViews::GetTestingHandle() const {
 
 bool NativeTextfieldViews::IsIMEComposing() const {
   return false;
+}
+
+bool NativeTextfieldViews::HandleKeyPressed(const views::KeyEvent& e) {
+  Textfield::Controller* controller = textfield_->GetController();
+  bool handled = false;
+  if (controller) {
+    handled = controller->HandleKeyEvent(textfield_, e);
+  }
+  return handled || HandleKeyEvent(e);
+}
+
+bool NativeTextfieldViews::HandleKeyReleased(const views::KeyEvent& e) {
+  return true;
+}
+
+void NativeTextfieldViews::HandleWillGainFocus() {
+}
+
+void NativeTextfieldViews::HandleDidGainFocus() {
+  is_cursor_visible_ = true;
+  SchedulePaint();
+  // Start blinking cursor.
+  MessageLoop::current()->PostDelayedTask(
+      FROM_HERE,
+      cursor_timer_.NewRunnableMethod(&NativeTextfieldViews::UpdateCursor),
+      kCursorVisibleTimeMs);
+}
+
+void NativeTextfieldViews::HandleWillLoseFocus() {
+  // Stop blinking cursor.
+  cursor_timer_.RevokeAll();
+  if (is_cursor_visible_) {
+    is_cursor_visible_ = false;
+    RepaintCursor();
+  }
+}
+
+/////////////////////////////////////////////////////////////////
+// NativeTextfieldViews, ui::SimpleMenuModel::Delegate overrides:
+
+bool NativeTextfieldViews::IsCommandIdChecked(int command_id) const {
+  return true;
+}
+
+bool NativeTextfieldViews::IsCommandIdEnabled(int command_id) const {
+  string16 result;
+  switch (command_id) {
+    case IDS_APP_CUT:
+      return model_->HasSelection();
+    case IDS_APP_COPY:
+      return model_->HasSelection();
+    case IDS_APP_PASTE:
+      views::ViewsDelegate::views_delegate->GetClipboard()
+          ->ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
+      return !result.empty();
+    case IDS_APP_DELETE:
+      return model_->HasSelection();
+    case IDS_APP_SELECT_ALL:
+      return true;
+    default:
+      NOTREACHED();
+      return false;
+  }
+}
+
+bool NativeTextfieldViews::GetAcceleratorForCommandId(int command_id,
+    ui::Accelerator* accelerator) {
+  return false;
+}
+
+void NativeTextfieldViews::ExecuteCommand(int command_id) {
+  bool text_changed = false;
+  switch (command_id) {
+    case IDS_APP_CUT:
+      text_changed = model_->Cut();
+      break;
+    case IDS_APP_COPY:
+      model_->Copy();
+      break;
+    case IDS_APP_PASTE:
+      text_changed = model_->Paste();
+      break;
+    case IDS_APP_DELETE:
+      text_changed = model_->Delete();
+      break;
+    case IDS_APP_SELECT_ALL:
+      SelectAll();
+      break;
+    default:
+      NOTREACHED() << "unknown command: " << command_id;
+      break;
+  }
+  if (text_changed)
+    PropagateTextChange();
 }
 
 // static
@@ -328,7 +421,7 @@ void NativeTextfieldViews::UpdateCursorBoundsAndTextOffset() {
 
   // TODO(oshima): bidi
   const gfx::Font& font = GetFont();
-  int full_width = font.GetStringWidth(UTF16ToWide(model_->GetVisibleText()));
+  int full_width = font.GetStringWidth(model_->GetVisibleText());
   cursor_bounds_ = model_->GetCursorBounds(font);
   cursor_bounds_.set_y(cursor_bounds_.y() + insets.top());
 
@@ -370,7 +463,8 @@ void NativeTextfieldViews::PaintTextAndCursor(gfx::Canvas* canvas) {
   int y = insets.top();
   int text_height = height() - insets.height();
   SkColor selection_color =
-      HasFocus() ? kFocusedSelectionColor : kUnfocusedSelectionColor;
+      textfield_->HasFocus() ?
+      kFocusedSelectionColor : kUnfocusedSelectionColor;
   SkColor text_color =
       textfield_->read_only() ? kReadonlyTextColor : GetTextColor();
 
@@ -381,17 +475,15 @@ void NativeTextfieldViews::PaintTextAndCursor(gfx::Canvas* canvas) {
     string16 text = model_->GetVisibleText((*iter).begin, (*iter).end);
     // TODO(oshima): This does not give the accurate position due to
     // kerning. Figure out how webkit does this with skia.
-    int width = GetFont().GetStringWidth(UTF16ToWide(text));
+    int width = GetFont().GetStringWidth(text);
 
     if ((*iter).selected) {
       canvas->FillRectInt(selection_color, x_offset, y, width, text_height);
-      canvas->DrawStringInt(
-          UTF16ToWide(text), GetFont(), kSelectedTextColor,
-          x_offset, y, width, text_height);
+      canvas->DrawStringInt(text, GetFont(), kSelectedTextColor,
+                            x_offset, y, width, text_height);
     } else {
-      canvas->DrawStringInt(
-          UTF16ToWide(text), GetFont(), text_color,
-          x_offset, y, width, text_height);
+      canvas->DrawStringInt(text, GetFont(), text_color,
+                            x_offset, y, width, text_height);
     }
     x_offset += width;
   }
@@ -411,47 +503,87 @@ void NativeTextfieldViews::PaintTextAndCursor(gfx::Canvas* canvas) {
 bool NativeTextfieldViews::HandleKeyEvent(const KeyEvent& key_event) {
   // TODO(oshima): handle IME.
   if (key_event.GetType() == views::Event::ET_KEY_PRESSED) {
-    app::KeyboardCode key_code = key_event.GetKeyCode();
+    ui::KeyboardCode key_code = key_event.GetKeyCode();
     // TODO(oshima): shift-tab does not work. Figure out why and fix.
-    if (key_code == app::VKEY_TAB)
+    if (key_code == ui::VKEY_TAB)
       return false;
     bool selection = key_event.IsShiftDown();
     bool control = key_event.IsControlDown();
     bool text_changed = false;
     bool cursor_changed = false;
     switch (key_code) {
-      case app::VKEY_A:
+      case ui::VKEY_A:
         if (control) {
           model_->SelectAll();
           cursor_changed = true;
         }
         break;
-      case app::VKEY_RIGHT:
+      case ui::VKEY_X:
+        if (control)
+          text_changed = model_->Cut();
+        break;
+      case ui::VKEY_C:
+        if (control)
+          model_->Copy();
+        break;
+      case ui::VKEY_V:
+        if (control)
+          text_changed = model_->Paste();
+        break;
+      case ui::VKEY_RIGHT:
         control ? model_->MoveCursorToNextWord(selection)
             : model_->MoveCursorRight(selection);
         cursor_changed = true;
         break;
-      case app::VKEY_LEFT:
+      case ui::VKEY_LEFT:
         control ? model_->MoveCursorToPreviousWord(selection)
             : model_->MoveCursorLeft(selection);
         cursor_changed = true;
         break;
-      case app::VKEY_END:
+      case ui::VKEY_END:
         model_->MoveCursorToEnd(selection);
         cursor_changed = true;
         break;
-      case app::VKEY_HOME:
+      case ui::VKEY_HOME:
         model_->MoveCursorToStart(selection);
         cursor_changed = true;
         break;
-      case app::VKEY_BACK:
+      case ui::VKEY_BACK:
+        if (!model_->HasSelection()) {
+          if (selection && control) {
+            // If both shift and control are pressed, then erase upto the
+            // beginning of the buffer in ChromeOS. In windows, do nothing.
+#if defined(OS_WIN)
+            break;
+#else
+            model_->MoveCursorToStart(true);
+#endif
+          } else if (control) {
+            // If only control is pressed, then erase the previous word.
+            model_->MoveCursorToPreviousWord(true);
+          }
+        }
         text_changed = model_->Backspace();
         cursor_changed = true;
         break;
-      case app::VKEY_DELETE:
+      case ui::VKEY_DELETE:
+        if (!model_->HasSelection()) {
+          if (selection && control) {
+            // If both shift and control are pressed, then erase upto the
+            // end of the buffer in ChromeOS. In windows, do nothing.
+#if defined(OS_WIN)
+            break;
+#else
+            model_->MoveCursorToEnd(true);
+#endif
+          } else if (control) {
+            // If only control is pressed, then erase the next word.
+            model_->MoveCursorToNextWord(true);
+          }
+        }
         text_changed = model_->Delete();
         break;
-      case app::VKEY_INSERT:
+      case ui::VKEY_INSERT:
         insert_ = !insert_;
         cursor_changed = true;
         break;
@@ -466,15 +598,16 @@ bool NativeTextfieldViews::HandleKeyEvent(const KeyEvent& key_event) {
         model_->Replace(print_char);
       text_changed = true;
     }
-    if (text_changed) {
-      textfield_->SyncText();
-      Textfield::Controller* controller = textfield_->GetController();
-      if (controller)
-        controller->ContentsChanged(textfield_, GetText());
+    if (text_changed)
+      PropagateTextChange();
+    if (cursor_changed) {
+      is_cursor_visible_ = true;
+      RepaintCursor();
     }
     if (text_changed || cursor_changed) {
       UpdateCursorBoundsAndTextOffset();
       SchedulePaint();
+      return true;
     }
   }
   return false;
@@ -483,113 +616,114 @@ bool NativeTextfieldViews::HandleKeyEvent(const KeyEvent& key_event) {
 char16 NativeTextfieldViews::GetPrintableChar(const KeyEvent& key_event) {
   // TODO(oshima): IME, i18n support.
   // This only works for UCS-2 characters.
-  app::KeyboardCode key_code = key_event.GetKeyCode();
-  bool shift = key_event.IsShiftDown() ^ key_event.IsCapsLockDown();
+  ui::KeyboardCode key_code = key_event.GetKeyCode();
+  bool shift = key_event.IsShiftDown();
+  bool upper = shift ^ key_event.IsCapsLockDown();
   // TODO(oshima): We should have a utility function
   // under app to convert a KeyboardCode to a printable character,
   // probably in keyboard_code_conversion{.h, _x
   switch (key_code) {
-    case app::VKEY_NUMPAD0:
+    case ui::VKEY_NUMPAD0:
       return '0';
-    case app::VKEY_NUMPAD1:
+    case ui::VKEY_NUMPAD1:
       return '1';
-    case app::VKEY_NUMPAD2:
+    case ui::VKEY_NUMPAD2:
       return '2';
-    case app::VKEY_NUMPAD3:
+    case ui::VKEY_NUMPAD3:
       return '3';
-    case app::VKEY_NUMPAD4:
+    case ui::VKEY_NUMPAD4:
       return '4';
-    case app::VKEY_NUMPAD5:
+    case ui::VKEY_NUMPAD5:
       return '5';
-    case app::VKEY_NUMPAD6:
+    case ui::VKEY_NUMPAD6:
       return '6';
-    case app::VKEY_NUMPAD7:
+    case ui::VKEY_NUMPAD7:
       return '7';
-    case app::VKEY_NUMPAD8:
+    case ui::VKEY_NUMPAD8:
       return '8';
-    case app::VKEY_NUMPAD9:
+    case ui::VKEY_NUMPAD9:
       return '9';
-    case app::VKEY_MULTIPLY:
+    case ui::VKEY_MULTIPLY:
       return '*';
-    case app::VKEY_ADD:
+    case ui::VKEY_ADD:
       return '+';
-    case app::VKEY_SUBTRACT:
+    case ui::VKEY_SUBTRACT:
       return '-';
-    case app::VKEY_DECIMAL:
+    case ui::VKEY_DECIMAL:
       return '.';
-    case app::VKEY_DIVIDE:
+    case ui::VKEY_DIVIDE:
       return '/';
-    case app::VKEY_SPACE:
+    case ui::VKEY_SPACE:
       return ' ';
-    case app::VKEY_0:
+    case ui::VKEY_0:
       return shift ? ')' : '0';
-    case app::VKEY_1:
+    case ui::VKEY_1:
       return shift ? '!' : '1';
-    case app::VKEY_2:
+    case ui::VKEY_2:
       return shift ? '@' : '2';
-    case app::VKEY_3:
+    case ui::VKEY_3:
       return shift ? '#' : '3';
-    case app::VKEY_4:
+    case ui::VKEY_4:
       return shift ? '$' : '4';
-    case app::VKEY_5:
+    case ui::VKEY_5:
       return shift ? '%' : '5';
-    case app::VKEY_6:
+    case ui::VKEY_6:
       return shift ? '^' : '6';
-    case app::VKEY_7:
+    case ui::VKEY_7:
       return shift ? '&' : '7';
-    case app::VKEY_8:
+    case ui::VKEY_8:
       return shift ? '*' : '8';
-    case app::VKEY_9:
+    case ui::VKEY_9:
       return shift ? '(' : '9';
 
-    case app::VKEY_A:
-    case app::VKEY_B:
-    case app::VKEY_C:
-    case app::VKEY_D:
-    case app::VKEY_E:
-    case app::VKEY_F:
-    case app::VKEY_G:
-    case app::VKEY_H:
-    case app::VKEY_I:
-    case app::VKEY_J:
-    case app::VKEY_K:
-    case app::VKEY_L:
-    case app::VKEY_M:
-    case app::VKEY_N:
-    case app::VKEY_O:
-    case app::VKEY_P:
-    case app::VKEY_Q:
-    case app::VKEY_R:
-    case app::VKEY_S:
-    case app::VKEY_T:
-    case app::VKEY_U:
-    case app::VKEY_V:
-    case app::VKEY_W:
-    case app::VKEY_X:
-    case app::VKEY_Y:
-    case app::VKEY_Z:
-      return (shift ? 'A' : 'a') + (key_code - app::VKEY_A);
-    case app::VKEY_OEM_1:
+    case ui::VKEY_A:
+    case ui::VKEY_B:
+    case ui::VKEY_C:
+    case ui::VKEY_D:
+    case ui::VKEY_E:
+    case ui::VKEY_F:
+    case ui::VKEY_G:
+    case ui::VKEY_H:
+    case ui::VKEY_I:
+    case ui::VKEY_J:
+    case ui::VKEY_K:
+    case ui::VKEY_L:
+    case ui::VKEY_M:
+    case ui::VKEY_N:
+    case ui::VKEY_O:
+    case ui::VKEY_P:
+    case ui::VKEY_Q:
+    case ui::VKEY_R:
+    case ui::VKEY_S:
+    case ui::VKEY_T:
+    case ui::VKEY_U:
+    case ui::VKEY_V:
+    case ui::VKEY_W:
+    case ui::VKEY_X:
+    case ui::VKEY_Y:
+    case ui::VKEY_Z:
+      return (upper ? 'A' : 'a') + (key_code - ui::VKEY_A);
+    case ui::VKEY_OEM_1:
       return shift ? ':' : ';';
-    case app::VKEY_OEM_PLUS:
+    case ui::VKEY_OEM_PLUS:
       return shift ? '+' : '=';
-    case app::VKEY_OEM_COMMA:
+    case ui::VKEY_OEM_COMMA:
       return shift ? '<' : ',';
-    case app::VKEY_OEM_MINUS:
+    case ui::VKEY_OEM_MINUS:
       return shift ? '_' : '-';
-    case app::VKEY_OEM_PERIOD:
+    case ui::VKEY_OEM_PERIOD:
       return shift ? '>' : '.';
-    case app::VKEY_OEM_2:
+    case ui::VKEY_OEM_2:
       return shift ? '?' : '/';
-    case app::VKEY_OEM_3:
+    case ui::VKEY_OEM_3:
       return shift ? '~' : '`';
-    case app::VKEY_OEM_4:
+    case ui::VKEY_OEM_4:
       return shift ? '}' : ']';
-    case app::VKEY_OEM_5:
+    case ui::VKEY_OEM_5:
       return shift ? '|' : '\\';
-    case app::VKEY_OEM_6:
+    case ui::VKEY_OEM_6:
       return shift ? '{' : '[';
-    case app::VKEY_OEM_7:
+    case ui::VKEY_OEM_7:
       return shift ? '"' : '\'';
     default:
       return 0;
@@ -600,7 +734,7 @@ size_t NativeTextfieldViews::FindCursorPosition(const gfx::Point& point) const {
   // TODO(oshima): BIDI/i18n support.
   gfx::Font font = GetFont();
   gfx::Insets insets = GetInsets();
-  std::wstring text = UTF16ToWide(model_->GetVisibleText());
+  string16 text = model_->GetVisibleText();
   int left = 0;
   int left_pos = 0;
   int right = font.GetStringWidth(text);
@@ -628,17 +762,25 @@ size_t NativeTextfieldViews::FindCursorPosition(const gfx::Point& point) const {
   return left_pos;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-// NativeTextfieldWrapper:
+void NativeTextfieldViews::PropagateTextChange() {
+  textfield_->SyncText();
+  Textfield::Controller* controller = textfield_->GetController();
+  if (controller)
+    controller->ContentsChanged(textfield_, GetText());
+}
 
-// static
-NativeTextfieldWrapper* NativeTextfieldWrapper::CreateWrapper(
-    Textfield* field) {
-  if (NativeTextfieldViews::IsTextfieldViewsEnabled()) {
-    return new NativeTextfieldViews(field);
-  } else {
-    return new NativeTextfieldGtk(field);
-  }
+void NativeTextfieldViews::InitContextMenuIfRequired() {
+  if (context_menu_menu_.get())
+    return;
+  context_menu_contents_.reset(new ui::SimpleMenuModel(this));
+  context_menu_contents_->AddItemWithStringId(IDS_APP_CUT, IDS_APP_CUT);
+  context_menu_contents_->AddItemWithStringId(IDS_APP_COPY, IDS_APP_COPY);
+  context_menu_contents_->AddItemWithStringId(IDS_APP_PASTE, IDS_APP_PASTE);
+  context_menu_contents_->AddItemWithStringId(IDS_APP_DELETE, IDS_APP_DELETE);
+  context_menu_contents_->AddSeparator();
+  context_menu_contents_->AddItemWithStringId(IDS_APP_SELECT_ALL,
+                                              IDS_APP_SELECT_ALL);
+  context_menu_menu_.reset(new Menu2(context_menu_contents_.get()));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -659,17 +801,17 @@ void NativeTextfieldViews::TextfieldBorder::Paint(
            SkIntToScalar(view.width()), SkIntToScalar(view.height()));
   SkScalar corners[8] = {
     // top-left
-    insets_.left(),
-    insets_.top(),
+    SkIntToScalar(insets_.left()),
+    SkIntToScalar(insets_.top()),
     // top-right
-    insets_.right(),
-    insets_.top(),
+    SkIntToScalar(insets_.right()),
+    SkIntToScalar(insets_.top()),
     // bottom-right
-    insets_.right(),
-    insets_.bottom(),
+    SkIntToScalar(insets_.right()),
+    SkIntToScalar(insets_.bottom()),
     // bottom-left
-    insets_.left(),
-    insets_.bottom(),
+    SkIntToScalar(insets_.left()),
+    SkIntToScalar(insets_.bottom()),
   };
   SkPath path;
   path.addRoundRect(rect, corners);
@@ -678,7 +820,7 @@ void NativeTextfieldViews::TextfieldBorder::Paint(
   paint.setFlags(SkPaint::kAntiAlias_Flag);
   // TODO(oshima): Copy what WebKit does for focused border.
   paint.setColor(has_focus_ ? kFocusedBorderColor : kDefaultBorderColor);
-  paint.setStrokeWidth(has_focus_ ? 2 : 1);
+  paint.setStrokeWidth(SkIntToScalar(has_focus_ ? 2 : 1));
 
   canvas->AsCanvasSkia()->drawPath(path, paint);
 }

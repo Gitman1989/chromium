@@ -23,8 +23,10 @@
 #include "ipc/ipc_channel_posix.h"
 #endif
 
-GpuChannel::GpuChannel(int renderer_id)
-    : renderer_id_(renderer_id) {
+GpuChannel::GpuChannel(GpuThread* gpu_thread, int renderer_id)
+    : gpu_thread_(gpu_thread),
+      renderer_id_(renderer_id) {
+  DCHECK(gpu_thread);
   const CommandLine* command_line = CommandLine::ForCurrentProcess();
   log_messages_ = command_line->HasSwitch(switches::kLogPluginMessages);
 }
@@ -38,19 +40,18 @@ void GpuChannel::OnChannelConnected(int32 peer_pid) {
   }
 }
 
-void GpuChannel::OnMessageReceived(const IPC::Message& message) {
+bool GpuChannel::OnMessageReceived(const IPC::Message& message) {
   if (log_messages_) {
     VLOG(1) << "received message @" << &message << " on channel @" << this
             << " with type " << message.type();
   }
 
-  if (message.routing_id() == MSG_ROUTING_CONTROL) {
-    OnControlMessageReceived(message);
-  } else {
-    // Fail silently if the GPU process has destroyed while the IPC message was
-    // en-route.
-    router_.RouteMessage(message);
-  }
+  if (message.routing_id() == MSG_ROUTING_CONTROL)
+    return OnControlMessageReceived(message);
+
+  // Fail silently if the GPU process has destroyed while the IPC message was
+  // en-route.
+  return router_.RouteMessage(message);
 }
 
 void GpuChannel::OnChannelError() {
@@ -79,9 +80,23 @@ void GpuChannel::AcceleratedSurfaceBuffersSwapped(
     return;
   stub->AcceleratedSurfaceBuffersSwapped(swap_buffers_count);
 }
+
+void GpuChannel::DidDestroySurface(int32 renderer_route_id) {
+  // Since acclerated views are created in the renderer process and then sent
+  // to the browser process during GPU channel construction, it is possible that
+  // this is called before a GpuCommandBufferStub for |renderer_route_id| was
+  // put into |stubs_|. Hence, do not walk |stubs_| here but instead remember
+  // all |renderer_route_id|s this was called for and use them later.
+  destroyed_renderer_routes_.insert(renderer_route_id);
+}
+
+bool GpuChannel::IsRenderViewGone(int32 renderer_route_id) {
+  return destroyed_renderer_routes_.count(renderer_route_id) > 0;
+}
 #endif
 
-void GpuChannel::OnControlMessageReceived(const IPC::Message& msg) {
+bool GpuChannel::OnControlMessageReceived(const IPC::Message& msg) {
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(GpuChannel, msg)
     IPC_MESSAGE_HANDLER(GpuChannelMsg_CreateViewCommandBuffer,
         OnCreateViewCommandBuffer)
@@ -93,8 +108,10 @@ void GpuChannel::OnControlMessageReceived(const IPC::Message& msg) {
         OnCreateVideoDecoder)
     IPC_MESSAGE_HANDLER(GpuChannelMsg_DestroyVideoDecoder,
         OnDestroyVideoDecoder)
-    IPC_MESSAGE_UNHANDLED_ERROR()
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
+  DCHECK(handled);
+  return handled;
 }
 
 int GpuChannel::GenerateRouteID() {
@@ -239,7 +256,7 @@ bool GpuChannel::Init() {
 }
 
 std::string GpuChannel::GetChannelName() {
-  return StringPrintf("%d.r%d", base::GetCurrentProcId(), renderer_id_);
+  return StringPrintf("%d.r%d.gpu", base::GetCurrentProcId(), renderer_id_);
 }
 
 #if defined(OS_POSIX)

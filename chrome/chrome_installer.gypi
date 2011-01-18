@@ -1,4 +1,4 @@
-# Copyright (c) 2010 The Chromium Authors. All rights reserved.
+# Copyright (c) 2011 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -87,6 +87,7 @@
             'installer/util/google_chrome_distribution_unittest.cc',
             'installer/util/google_update_settings_unittest.cc',
             'installer/util/helper_unittest.cc',
+            'installer/util/install_util_unittest.cc',
             'installer/util/installer_util_unittests.rc',
             'installer/util/installer_util_unittests_resource.h',
             'installer/util/language_selector_unittest.cc',
@@ -189,6 +190,7 @@
             '<(DEPTH)/ceee/ie/plugin/toolband/toolband.gyp:ceee_ie',
             '<(DEPTH)/ceee/installer_dll/ceee_installer_dll.gyp:ceee_installer_helper',
             '<(DEPTH)/chrome_frame/chrome_frame.gyp:npchrome_frame',
+            '<(DEPTH)/breakpad/breakpad.gyp:breakpad_handler',
           ],
           'include_dirs': [
             '<(DEPTH)',
@@ -202,8 +204,12 @@
           },
           'sources': [
             'installer/mini_installer/chrome.release',
+            'installer/setup/chrome_frame_ready_mode.cc',
+            'installer/setup/chrome_frame_ready_mode.h',
             'installer/setup/install.cc',
             'installer/setup/install.h',
+            'installer/setup/install_worker.cc',
+            'installer/setup/install_worker.h',
             'installer/setup/setup_main.cc',
             'installer/setup/setup.ico',
             'installer/setup/setup.rc',
@@ -307,13 +313,22 @@
             '<(DEPTH)/base/base.gyp:base_i18n',
             '<(DEPTH)/base/base.gyp:test_support_base',
             '<(DEPTH)/build/temp_gyp/googleurl.gyp:googleurl',
+            '<(DEPTH)/testing/gmock.gyp:gmock',
             '<(DEPTH)/testing/gtest.gyp:gtest',
           ],
           'include_dirs': [
             '<(DEPTH)',
           ],
+          # TODO(robertshield): Move the items marked with "Move to lib"
+          # below into a separate lib and then link both setup.exe and
+          # setup_unittests.exe against that.
           'sources': [
+            'installer/setup/install_worker.cc',    # Move to lib
+            'installer/setup/install_worker.h',     # Move to lib
+            'installer/setup/install_worker_unittest.cc',
             'installer/setup/run_all_unittests.cc',
+            'installer/setup/setup_constants.cc',   # Move to lib
+            'installer/setup/setup_constants.h',    # Move to lib
             'installer/setup/setup_util.cc',
             'installer/setup/setup_util_unittest.cc',
           ],

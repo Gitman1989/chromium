@@ -8,8 +8,8 @@
 #include "chrome/common/render_messages.h"
 #include "chrome/common/webmessageportchannel_impl.h"
 #include "chrome/common/worker_messages.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURL.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebWorkerClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURL.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebWorkerClient.h"
 
 using WebKit::WebCommonWorkerClient;
 using WebKit::WebMessagePortChannel;
@@ -84,10 +84,11 @@ void WebWorkerProxy::workerObjectDestroyed() {
 void WebWorkerProxy::clientDestroyed() {
 }
 
-void WebWorkerProxy::OnMessageReceived(const IPC::Message& message) {
+bool WebWorkerProxy::OnMessageReceived(const IPC::Message& message) {
   if (!client_)
-    return;
+    return false;
 
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(WebWorkerProxy, message)
     IPC_MESSAGE_HANDLER(ViewMsg_WorkerCreated, OnWorkerCreated)
     IPC_MESSAGE_HANDLER(WorkerMsg_PostMessage, OnPostMessage)
@@ -105,7 +106,9 @@ void WebWorkerProxy::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_FORWARD(WorkerHostMsg_WorkerContextDestroyed,
                         static_cast<WebCommonWorkerClient*>(client_),
                         WebCommonWorkerClient::workerContextDestroyed)
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
+  return handled;
 }
 
 void WebWorkerProxy::OnWorkerCreated() {

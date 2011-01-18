@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,10 +16,11 @@
 #include "net/url_request/url_request.h"
 
 class GURL;
-class URLRequestContext;
 class X509Certificate;
 
 namespace net {
+
+class URLRequestContext;
 
 // Implementation of ProxyScriptFetcher that downloads scripts using the
 // specified request context.
@@ -32,7 +33,7 @@ class ProxyScriptFetcherImpl : public ProxyScriptFetcher,
   // Note that while a request is in progress, we will be holding a reference
   // to |url_request_context|. Be careful not to create cycles between the
   // fetcher and the context; you can break such cycles by calling Cancel().
-  explicit ProxyScriptFetcherImpl(URLRequestContext* url_request_context);
+  explicit ProxyScriptFetcherImpl(net::URLRequestContext* url_request_context);
 
   virtual ~ProxyScriptFetcherImpl();
 
@@ -41,7 +42,7 @@ class ProxyScriptFetcherImpl : public ProxyScriptFetcher,
   virtual int Fetch(const GURL& url, string16* text,
                     CompletionCallback* callback);
   virtual void Cancel();
-  virtual URLRequestContext* GetRequestContext();
+  virtual net::URLRequestContext* GetRequestContext();
 
   // net::URLRequest::Delegate methods:
   virtual void OnAuthRequired(net::URLRequest* request,
@@ -79,7 +80,7 @@ class ProxyScriptFetcherImpl : public ProxyScriptFetcher,
   ScopedRunnableMethodFactory<ProxyScriptFetcherImpl> task_factory_;
 
   // The context used for making network requests.
-  URLRequestContext* url_request_context_;
+  net::URLRequestContext* url_request_context_;
 
   // Buffer that net::URLRequest writes into.
   enum { kBufSize = 4096 };

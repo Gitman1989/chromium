@@ -6,11 +6,11 @@
 
 #include <algorithm>
 
-#include "app/throb_animation.h"
 #include "app/resource_bundle.h"
 #include "base/logging.h"
 #include "base/utf_string_conversions.h"
 #include "gfx/canvas_skia.h"
+#include "ui/base/animation/throb_animation.h"
 #include "views/controls/button/button.h"
 #include "views/event.h"
 #include "grit/app_resources.h"
@@ -210,8 +210,8 @@ TextButton::~TextButton() {
 }
 
 void TextButton::SetText(const std::wstring& text) {
-  text_ = text;
-  SetAccessibleName(text);
+  text_ = WideToUTF16Hack(text);
+  SetAccessibleName(WideToUTF16Hack(text));
   UpdateTextSize();
 }
 
@@ -371,9 +371,9 @@ void TextButton::Paint(gfx::Canvas* canvas, bool for_drag) {
 #endif
     } else if (has_text_halo_) {
       canvas->AsCanvasSkia()->DrawStringWithHalo(
-          text_, font_, text_color, text_halo_color_, text_bounds.x(),
-          text_bounds.y(), text_bounds.width(), text_bounds.height(),
-          draw_string_flags);
+          text_, font_, text_color, text_halo_color_,
+          text_bounds.x(), text_bounds.y(), text_bounds.width(),
+          text_bounds.height(), draw_string_flags);
     } else {
       canvas->DrawStringInt(text_,
                             font_,
@@ -403,7 +403,7 @@ void TextButton::UpdateColor() {
 void TextButton::UpdateTextSize() {
   int width = 0, height = 0;
   gfx::CanvasSkia::SizeStringInt(
-      WideToUTF16Hack(text_), font_, &width, &height,
+      text_, font_, &width, &height,
       gfx::Canvas::NO_ELLIPSIS | PrefixTypeToCanvasType(prefix_type_));
 
   // Add 2 extra pixels to width and height when text halo is used.

@@ -14,22 +14,24 @@
 
 #include <string>
 
-#include "app/keyboard_codes.h"
 #include "base/basictypes.h"
+#include "base/string16.h"
+#include "gfx/font.h"
+#include "third_party/skia/include/core/SkColor.h"
+#include "ui/base/keycodes/keyboard_codes.h"
+#include "views/view.h"
+
 #if !defined(OS_LINUX)
 #include "base/logging.h"
 #endif
-#include "base/string16.h"
-#include "gfx/font.h"
-#include "views/view.h"
-#include "third_party/skia/include/core/SkColor.h"
-
 #ifdef UNIT_TEST
 #include "gfx/native_widget_types.h"
 #include "views/controls/textfield/native_textfield_wrapper.h"
 #endif
 
 namespace views {
+
+class KeyEvent;
 
 class NativeTextfieldWrapper;
 
@@ -38,50 +40,6 @@ class Textfield : public View {
  public:
   // The button's class name.
   static const char kViewClassName[];
-
-  // Keystroke provides a platform-dependent way to send keystroke events.
-  // Cross-platform code can use IsKeystrokeEnter/Escape to check for these
-  // two common key events.
-  // TODO(brettw) this should be cleaned up to be more cross-platform.
-  class Keystroke {
-   public:
-#if defined(OS_WIN)
-    const Keystroke(unsigned int m,
-              wchar_t k,
-              int r,
-              unsigned int f)
-        : message_(m),
-          key_(k),
-          repeat_count_(r),
-          flags_(f) {
-    }
-    unsigned int message() const { return message_; }
-    wchar_t key() const { return key_; }
-    int repeat_count() const { return repeat_count_; }
-    unsigned int flags() const { return flags_; }
-#else
-    explicit Keystroke(const KeyEvent* event)
-        : event_(event) {
-    }
-    const KeyEvent& key_event() const { return *event_;};
-    const GdkEventKey* event() const { return event_->native_event(); }
-#endif
-    app::KeyboardCode GetKeyboardCode() const;
-    bool IsControlHeld() const;
-    bool IsShiftHeld() const;
-
-   private:
-#if defined(OS_WIN)
-    unsigned int message_;
-    wchar_t key_;
-    int repeat_count_;
-    unsigned int flags_;
-#else
-    const KeyEvent* event_;
-#endif
-
-    DISALLOW_COPY_AND_ASSIGN(Keystroke);
-  };
 
   // This defines the callback interface for other code to be notified of
   // changes in the state of a text field.
@@ -94,8 +52,8 @@ class Textfield : public View {
     // This method is called to get notified about keystrokes in the edit.
     // This method returns true if the message was handled and should not be
     // processed further. If it returns false the processing continues.
-    virtual bool HandleKeystroke(Textfield* sender,
-                                 const Textfield::Keystroke& keystroke) = 0;
+    virtual bool HandleKeyEvent(Textfield* sender,
+                                const KeyEvent& key_event) = 0;
   };
 
   enum StyleFlags {
@@ -244,11 +202,16 @@ class Textfield : public View {
   virtual bool SkipDefaultKeyEventProcessing(const KeyEvent& e);
   virtual void SetEnabled(bool enabled);
   virtual void PaintFocusBorder(gfx::Canvas* canvas);
+  virtual bool OnKeyPressed(const views::KeyEvent& e);
+  virtual bool OnKeyReleased(const views::KeyEvent& e);
+  virtual void WillGainFocus();
+  virtual void DidGainFocus();
+  virtual void WillLoseFocus();
 
   // Accessibility accessors, overridden from View:
-  virtual AccessibilityTypes::Role GetAccessibleRole();
-  virtual AccessibilityTypes::State GetAccessibleState();
-  virtual std::wstring GetAccessibleValue();
+  virtual AccessibilityTypes::Role GetAccessibleRole() OVERRIDE;
+  virtual AccessibilityTypes::State GetAccessibleState() OVERRIDE;
+  virtual string16 GetAccessibleValue() OVERRIDE;
 
  protected:
   virtual void Focus();

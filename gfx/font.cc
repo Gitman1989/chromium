@@ -30,7 +30,7 @@ Font::Font(NativeFont native_font)
 Font::Font(PlatformFont* platform_font) : platform_font_(platform_font) {
 }
 
-Font::Font(const std::wstring& font_name, int font_size)
+Font::Font(const string16& font_name, int font_size)
     : platform_font_(PlatformFont::CreateFromNameAndSize(font_name,
                                                          font_size)) {
 }
@@ -58,8 +58,8 @@ int Font::GetAverageCharacterWidth() const {
   return platform_font_->GetAverageCharacterWidth();
 }
 
-int Font::GetStringWidth(const std::wstring& text) const {
-  return platform_font_->GetStringWidth(WideToUTF16Hack(text));
+int Font::GetStringWidth(const string16& text) const {
+  return platform_font_->GetStringWidth(text);
 }
 
 int Font::GetExpectedTextWidth(int length) const {
@@ -70,7 +70,7 @@ int Font::GetStyle() const {
   return platform_font_->GetStyle();
 }
 
-const std::wstring& Font::GetFontName() const {
+string16 Font::GetFontName() const {
   return platform_font_->GetFontName();
 }
 

@@ -47,8 +47,7 @@ PrefSetObserver* PrefSetObserver::CreateProxyPrefSetObserver(
     PrefService* pref_service,
     NotificationObserver* observer) {
   PrefSetObserver* pref_set = new PrefSetObserver(pref_service, observer);
-  pref_set->AddPref(prefs::kNoProxyServer);
-  pref_set->AddPref(prefs::kProxyAutoDetect);
+  pref_set->AddPref(prefs::kProxyMode);
   pref_set->AddPref(prefs::kProxyServer);
   pref_set->AddPref(prefs::kProxyPacUrl);
   pref_set->AddPref(prefs::kProxyBypassList);
@@ -67,6 +66,7 @@ PrefSetObserver* PrefSetObserver::CreateDefaultSearchPrefSetObserver(
   pref_set->AddPref(prefs::kDefaultSearchProviderSearchURL);
   pref_set->AddPref(prefs::kDefaultSearchProviderSuggestURL);
   pref_set->AddPref(prefs::kDefaultSearchProviderIconURL);
+  pref_set->AddPref(prefs::kDefaultSearchProviderInstantURL);
   pref_set->AddPref(prefs::kDefaultSearchProviderEncodings);
 
   return pref_set;

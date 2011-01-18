@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -65,14 +65,18 @@ std::wstring WindowCaptionFromPageTitle(std::wstring page_title) {
 #if defined(OS_MACOSX) || defined(OS_CHROMEOS)
   // On Mac or ChromeOS, we don't want to suffix the page title with
   // the application name.
-  if (page_title.empty())
-    return l10n_util::GetString(IDS_BROWSER_WINDOW_MAC_TAB_UNTITLED);
+  if (page_title.empty()) {
+    return UTF16ToWideHack(
+        l10n_util::GetStringUTF16(IDS_BROWSER_WINDOW_MAC_TAB_UNTITLED));
+  }
   return page_title;
 #else
   if (page_title.empty())
-    return l10n_util::GetString(IDS_PRODUCT_NAME);
+    return UTF16ToWideHack(l10n_util::GetStringUTF16(IDS_PRODUCT_NAME));
 
-  return l10n_util::GetStringF(IDS_BROWSER_WINDOW_TITLE_FORMAT, page_title);
+  return UTF16ToWideHack(
+      l10n_util::GetStringFUTF16(IDS_BROWSER_WINDOW_TITLE_FORMAT,
+                                 WideToUTF16Hack(page_title)));
 #endif
 }
 
@@ -415,7 +419,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, ConvertTabToAppShortcut) {
   // Normal tabs should accept load drops.
   EXPECT_TRUE(initial_tab->GetMutableRendererPrefs()->can_accept_load_drops);
 
-  // The tab in an aopp window should not.
+  // The tab in an app window should not.
   EXPECT_FALSE(app_tab->GetMutableRendererPrefs()->can_accept_load_drops);
 }
 
@@ -490,6 +494,44 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, TabClosingWhenRemovingExtension) {
   // There should only be one tab now.
   ASSERT_EQ(1, browser()->tab_count());
 }
+
+#if !defined(OS_MACOSX)
+// Open with --app-id=<id>, and see that an app window opens.
+IN_PROC_BROWSER_TEST_F(BrowserTest, AppIdSwitch) {
+  ASSERT_TRUE(test_server()->Start());
+
+  // Load an app.
+  host_resolver()->AddRule("www.example.com", "127.0.0.1");
+  ASSERT_TRUE(LoadExtension(test_data_dir_.AppendASCII("app/")));
+  const Extension* extension_app = GetExtension();
+
+  CommandLine command_line(CommandLine::NO_PROGRAM);
+  command_line.AppendSwitchASCII(switches::kAppId, extension_app->id());
+
+  BrowserInit::LaunchWithProfile launch(FilePath(), command_line);
+  ASSERT_TRUE(launch.OpenApplicationWindow(browser()->profile()));
+
+  // Check that the new browser has an app name.
+  // The launch should have created a new browser.
+  ASSERT_EQ(2u, BrowserList::GetBrowserCount(browser()->profile()));
+
+  // Find the new browser.
+  Browser* new_browser = NULL;
+  for (BrowserList::const_iterator i = BrowserList::begin();
+       i != BrowserList::end() && !new_browser; ++i) {
+    if (*i != browser())
+      new_browser = *i;
+  }
+  ASSERT_TRUE(new_browser);
+  ASSERT_TRUE(new_browser != browser());
+
+  // The browser's app_name should include the app's ID.
+  ASSERT_NE(
+      new_browser->app_name_.find(extension_app->id()),
+      std::string::npos) << new_browser->app_name_;
+
+}
+#endif
 
 #if defined(OS_WIN)
 // http://crbug.com/46198. On XP/Vista, the failure rate is 5 ~ 6%.
@@ -650,6 +692,11 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, OpenAppWindowLikeNtp) {
   ASSERT_TRUE(new_browser != browser());
 
   EXPECT_EQ(Browser::TYPE_APP, new_browser->type());
+
+  // The browser's app name should include the extension's id.
+  std::string app_name = new_browser->app_name_;
+  EXPECT_NE(app_name.find(extension_app->id()), std::string::npos)
+      << "Name " << app_name << " should contain id "<< extension_app->id();
 }
 #endif  // !defined(OS_MACOSX)
 

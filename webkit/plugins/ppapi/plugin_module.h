@@ -20,7 +20,6 @@
 
 class FilePath;
 class MessageLoop;
-typedef struct NPObject NPObject;
 struct PPB_Core;
 typedef void* NPIdentifier;
 
@@ -42,10 +41,8 @@ namespace webkit {
 namespace ppapi {
 
 class CallbackTracker;
-class ObjectVar;
 class PluginDelegate;
 class PluginInstance;
-class PluginObject;
 
 // Represents one plugin library loaded into one renderer. This library may
 // have multiple instances.
@@ -68,9 +65,13 @@ class PluginModule : public base::RefCounted<PluginModule>,
     PPP_ShutdownModuleFunc shutdown_module;  // Optional, may be NULL.
   };
 
-  // You must call one of the Init functions to create a module of the type
-  // you desire.
-  PluginModule();
+  // You must call one of the Init functions after the constructor to create a
+  // module of the type you desire.
+  //
+  // The module lifetime delegate is a non-owning pointer that must outlive
+  // all plugin modules. In practice it will be a global singleton that
+  // tracks which modules are alive.
+  PluginModule(PluginDelegate::ModuleLifetime* lifetime_delegate);
 
   ~PluginModule();
 
@@ -118,22 +119,6 @@ class PluginModule : public base::RefCounted<PluginModule>,
   void InstanceCreated(PluginInstance* instance);
   void InstanceDeleted(PluginInstance* instance);
 
-  // Tracks all live ObjectVar. This is so we can map between PluginModule +
-  // NPObject and get the ObjectVar corresponding to it. This Add/Remove
-  // function should be called by the ObjectVar when it is created and
-  // destroyed.
-  void AddNPObjectVar(ObjectVar* object_var);
-  void RemoveNPObjectVar(ObjectVar* object_var);
-
-  // Looks up a previously registered ObjectVar for the given NPObject and
-  // module. Returns NULL if there is no ObjectVar corresponding to the given
-  // NPObject for the given module. See AddNPObjectVar above.
-  ObjectVar* ObjectVarForNPObject(NPObject* np_object) const;
-
-  // Tracks all live PluginObjects.
-  void AddPluginObject(PluginObject* plugin_object);
-  void RemovePluginObject(PluginObject* plugin_object);
-
   scoped_refptr<CallbackTracker> GetCallbackTracker();
 
  private:
@@ -141,6 +126,8 @@ class PluginModule : public base::RefCounted<PluginModule>,
   // set and the plugin must not be out of process (we don't maintain
   // entrypoints in that case).
   bool InitializeModule();
+
+  PluginDelegate::ModuleLifetime* lifetime_delegate_;
 
   // Tracker for completion callbacks, used mainly to ensure that all callbacks
   // are properly aborted on module shutdown.
@@ -171,14 +158,6 @@ class PluginModule : public base::RefCounted<PluginModule>,
   // there are no more instances, this object should be deleted.
   typedef std::set<PluginInstance*> PluginInstanceSet;
   PluginInstanceSet instances_;
-
-  // Tracks all live ObjectVars used by this module so we can map NPObjects to
-  // the corresponding object. These are non-owning references.
-  typedef std::map<NPObject*, ObjectVar*> NPObjectToObjectVarMap;
-  NPObjectToObjectVarMap np_object_to_object_var_;
-
-  typedef std::set<PluginObject*> PluginObjectSet;
-  PluginObjectSet live_plugin_objects_;
 
   DISALLOW_COPY_AND_ASSIGN(PluginModule);
 };

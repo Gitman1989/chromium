@@ -1,6 +1,7 @@
-// Copyright (c) 2006-2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
 #ifndef CHROME_FRAME_TEST_CHROME_FRAME_AUTOMATION_MOCK_H_
 #define CHROME_FRAME_TEST_CHROME_FRAME_AUTOMATION_MOCK_H_
 
@@ -12,7 +13,6 @@
 #include "chrome_frame/chrome_frame_automation.h"
 #include "chrome_frame/chrome_frame_plugin.h"
 #include "chrome_frame/navigation_constraints.h"
-#include "chrome_frame/test/http_server.h"
 #include "chrome_frame/test/chrome_frame_test_utils.h"
 #include "chrome_frame/test/test_with_web_server.h"
 #include "chrome_frame/utils.h"
@@ -98,7 +98,7 @@ class AutomationMockDelegate
     QuitMessageLoop();
   }
 
-  virtual void OnLoad(int tab_handle, const GURL& url) {
+  virtual void OnLoad(const GURL& url) {
     if (url_ == url) {
       navigation_result_ = true;
     } else {
@@ -169,8 +169,8 @@ class AutomationMockNavigate
       : Base(caller_message_loop, launch_timeout, true, L"", L"", L"", false,
              false) {
   }
-  virtual void OnLoad(int tab_handle, const GURL& url) {
-    Base::OnLoad(tab_handle, url);
+  virtual void OnLoad(const GURL& url) {
+    Base::OnLoad(url);
     QuitMessageLoop();
   }
 };
@@ -187,14 +187,13 @@ class AutomationMockPostMessage
   bool postmessage_result() const {
     return postmessage_result_;
   }
-  virtual void OnLoad(int tab_handle, const GURL& url) {
-    Base::OnLoad(tab_handle, url);
+  virtual void OnLoad(const GURL& url) {
+    Base::OnLoad(url);
     if (navigation_result()) {
       automation()->ForwardMessageFromExternalHost("Test", "null", "*");
     }
   }
-  virtual void OnMessageFromChromeFrame(int tab_handle,
-                                        const std::string& message,
+  virtual void OnMessageFromChromeFrame(const std::string& message,
                                         const std::string& origin,
                                         const std::string& target) {
     postmessage_result_ = true;
@@ -220,18 +219,16 @@ class AutomationMockHostNetworkRequestStart
   bool request_start_result() const {
     return request_start_result_;
   }
-  virtual void OnRequestStart(int tab_handle, int request_id,
-                              const IPC::AutomationURLRequest& request) {
+  virtual void OnRequestStart(int request_id,
+                              const AutomationURLRequest& request) {
     request_start_result_ = true;
     QuitMessageLoop();
   }
-  virtual void OnLoad(int tab_handle, const GURL& url) {
-    Base::OnLoad(tab_handle, url);
+  virtual void OnLoad(const GURL& url) {
+    Base::OnLoad(url);
   }
  private:
   bool request_start_result_;
 };
 
-
 #endif  // CHROME_FRAME_TEST_CHROME_FRAME_AUTOMATION_MOCK_H_
-

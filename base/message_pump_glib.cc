@@ -1,4 +1,4 @@
-// Copyright (c) 2008 The Chromium Authors. All rights reserved.
+// Copyright (c) 2010 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,7 +12,7 @@
 
 #include "base/eintr_wrapper.h"
 #include "base/logging.h"
-#include "base/platform_thread.h"
+#include "base/threading/platform_thread.h"
 
 namespace {
 
@@ -177,8 +177,8 @@ void MessagePumpForUI::RunWithDispatcher(Delegate* delegate,
 #ifndef NDEBUG
   // Make sure we only run this on one thread.  GTK only has one message pump
   // so we can only have one UI loop per process.
-  static PlatformThreadId thread_id = PlatformThread::CurrentId();
-  DCHECK(thread_id == PlatformThread::CurrentId()) <<
+  static base::PlatformThreadId thread_id = base::PlatformThread::CurrentId();
+  DCHECK(thread_id == base::PlatformThread::CurrentId()) <<
       "Running MessagePumpForUI on two different threads; "
       "this is unsupported by GLib!";
 #endif
@@ -303,16 +303,15 @@ void MessagePumpForUI::RemoveObserver(Observer* observer) {
   observers_.RemoveObserver(observer);
 }
 
-MessagePumpForUI::Dispatcher* MessagePumpForUI::GetDispatcher() {
-  return state_ ? state_->dispatcher : NULL;
-}
-
-void MessagePumpForUI::WillProcessEvent(GdkEvent* event) {
-  FOR_EACH_OBSERVER(Observer, observers_, WillProcessEvent(event));
-}
-
-void MessagePumpForUI::DidProcessEvent(GdkEvent* event) {
-  FOR_EACH_OBSERVER(Observer, observers_, DidProcessEvent(event));
+void MessagePumpForUI::DispatchEvents(GdkEvent* event) {
+  WillProcessEvent(event);
+  if (state_ && state_->dispatcher) { // state_ may be null during tests.
+    if (!state_->dispatcher->Dispatch(event))
+      state_->should_quit = true;
+  } else {
+    gtk_main_do_event(event);
+  }
+  DidProcessEvent(event);
 }
 
 void MessagePumpForUI::Run(Delegate* delegate) {
@@ -344,15 +343,16 @@ void MessagePumpForUI::ScheduleDelayedWork(const TimeTicks& delayed_work_time) {
   ScheduleWork();
 }
 
-void MessagePumpForUI::DispatchEvents(GdkEvent* event) {
-  WillProcessEvent(event);
-  if (state_ && state_->dispatcher) { // state_ may be null during tests.
-    if (!state_->dispatcher->Dispatch(event))
-      state_->should_quit = true;
-  } else {
-    gtk_main_do_event(event);
-  }
-  DidProcessEvent(event);
+MessagePumpForUI::Dispatcher* MessagePumpForUI::GetDispatcher() {
+  return state_ ? state_->dispatcher : NULL;
+}
+
+void MessagePumpForUI::WillProcessEvent(GdkEvent* event) {
+  FOR_EACH_OBSERVER(Observer, observers_, WillProcessEvent(event));
+}
+
+void MessagePumpForUI::DidProcessEvent(GdkEvent* event) {
+  FOR_EACH_OBSERVER(Observer, observers_, DidProcessEvent(event));
 }
 
 // static

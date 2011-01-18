@@ -1,12 +1,12 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "base/command_line.h"
 #include "base/message_loop_proxy.h"
 #include "base/ref_counted.h"
-#include "base/thread.h"
-#include "base/waitable_event.h"
+#include "base/threading/thread.h"
+#include "base/synchronization/waitable_event.h"
 #include "chrome/common/net/url_request_context_getter.h"
 #include "chrome/service/service_process.h"
 #include "chrome/service/cloud_print/cloud_print_url_fetcher.h"
@@ -32,7 +32,7 @@ class TestURLRequestContextGetter : public URLRequestContextGetter {
           : io_message_loop_proxy_(io_message_loop_proxy) {
     g_request_context_getter_instances++;
   }
-  virtual URLRequestContext* GetURLRequestContext() {
+  virtual net::URLRequestContext* GetURLRequestContext() {
     if (!context_)
       context_ = new TestURLRequestContext();
     return context_;
@@ -49,7 +49,7 @@ class TestURLRequestContextGetter : public URLRequestContextGetter {
     g_request_context_getter_instances--;
   }
 
-  scoped_refptr<URLRequestContext> context_;
+  scoped_refptr<net::URLRequestContext> context_;
 };
 
 class TestCloudPrintURLFetcher : public CloudPrintURLFetcher {
@@ -78,7 +78,7 @@ class CloudPrintURLFetcherTest : public testing::Test,
   virtual CloudPrintURLFetcher::ResponseAction HandleRawResponse(
       const URLFetcher* source,
       const GURL& url,
-      const URLRequestStatus& status,
+      const net::URLRequestStatus& status,
       int response_code,
       const ResponseCookies& cookies,
       const std::string& data);
@@ -126,7 +126,7 @@ class CloudPrintURLFetcherBasicTest : public CloudPrintURLFetcherTest {
   virtual CloudPrintURLFetcher::ResponseAction HandleRawResponse(
       const URLFetcher* source,
       const GURL& url,
-      const URLRequestStatus& status,
+      const net::URLRequestStatus& status,
       int response_code,
       const ResponseCookies& cookies,
       const std::string& data);
@@ -199,7 +199,7 @@ CloudPrintURLFetcher::ResponseAction
 CloudPrintURLFetcherTest::HandleRawResponse(
     const URLFetcher* source,
     const GURL& url,
-    const URLRequestStatus& status,
+    const net::URLRequestStatus& status,
     int response_code,
     const ResponseCookies& cookies,
     const std::string& data) {
@@ -213,7 +213,7 @@ CloudPrintURLFetcher::ResponseAction
 CloudPrintURLFetcherBasicTest::HandleRawResponse(
     const URLFetcher* source,
     const GURL& url,
-    const URLRequestStatus& status,
+    const net::URLRequestStatus& status,
     int response_code,
     const ResponseCookies& cookies,
     const std::string& data) {
@@ -291,7 +291,8 @@ void CloudPrintURLFetcherRetryBackoffTest::OnRequestGiveUp() {
   io_message_loop_proxy()->PostTask(FROM_HERE, new MessageLoop::QuitTask());
 }
 
-TEST_F(CloudPrintURLFetcherBasicTest, HandleRawResponse) {
+// http://code.google.com/p/chromium/issues/detail?id=60426
+TEST_F(CloudPrintURLFetcherBasicTest, FLAKY_HandleRawResponse) {
   net::TestServer test_server(net::TestServer::TYPE_HTTP, FilePath(kDocRoot));
   ASSERT_TRUE(test_server.Start());
   SetHandleRawResponse(true);
@@ -300,7 +301,7 @@ TEST_F(CloudPrintURLFetcherBasicTest, HandleRawResponse) {
   MessageLoop::current()->Run();
 }
 
-// http://code.google.com/p/chromium/issues/detail?id=62758
+// http://code.google.com/p/chromium/issues/detail?id=60426
 TEST_F(CloudPrintURLFetcherBasicTest, FLAKY_HandleRawData) {
   net::TestServer test_server(net::TestServer::TYPE_HTTP, FilePath(kDocRoot));
   ASSERT_TRUE(test_server.Start());
@@ -330,7 +331,7 @@ TEST_F(CloudPrintURLFetcherOverloadTest, Protect) {
   net::URLRequestThrottlerManager::GetInstance()->EraseEntryForTests(url);
 }
 
-// http://code.google.com/p/chromium/issues/detail?id=62758
+// http://code.google.com/p/chromium/issues/detail?id=60426
 TEST_F(CloudPrintURLFetcherRetryBackoffTest, FLAKY_GiveUp) {
   net::TestServer test_server(net::TestServer::TYPE_HTTP, FilePath(kDocRoot));
   ASSERT_TRUE(test_server.Start());

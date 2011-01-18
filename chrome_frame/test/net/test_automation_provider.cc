@@ -48,19 +48,18 @@ TestAutomationProvider::~TestAutomationProvider() {
   g_provider_instance_ = NULL;
 }
 
-void TestAutomationProvider::OnMessageReceived(const IPC::Message& msg) {
+bool TestAutomationProvider::OnMessageReceived(const IPC::Message& msg) {
   if (automation_resource_message_filter_->OnMessageReceived(msg))
-    return;  // Message handled by the filter.
+    return true;  // Message handled by the filter.
 
-  __super::OnMessageReceived(msg);
+  return __super::OnMessageReceived(msg);
 }
 
 // IPC override to grab the tab handle.
 bool TestAutomationProvider::Send(IPC::Message* msg) {
   if (msg->type() == AutomationMsg_TabLoaded::ID) {
     DCHECK(tab_handle_ == -1) << "Currently only support one tab";
-    void* iter = NULL;
-    CHECK(msg->ReadInt(&iter, &tab_handle_));
+    tab_handle_ = msg->routing_id();
     DVLOG(1) << "Got tab handle: " << tab_handle_;
     DCHECK(tab_handle_ != -1 && tab_handle_ != 0);
     delegate_->OnInitialTabLoaded();
@@ -119,7 +118,7 @@ TestAutomationProvider* TestAutomationProvider::NewAutomationProvider(
     Profile* p, const std::string& channel,
     TestAutomationProviderDelegate* delegate) {
   TestAutomationProvider* automation = new TestAutomationProvider(p, delegate);
-  automation->ConnectToChannel(channel);
+  automation->InitializeChannel(channel);
   automation->SetExpectedTabCount(1);
   return automation;
 }

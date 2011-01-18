@@ -12,12 +12,9 @@
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 
-// static
-Version* Version::GetVersionFromString(const std::wstring& version_str) {
-  if (!IsStringASCII(version_str))
-    return NULL;
-  return GetVersionFromString(WideToUTF8(version_str));
-}
+Version::Version() : is_valid_(false) {}
+
+Version::~Version() {}
 
 // static
 Version* Version::GetVersionFromString(const std::string& version_str) {
@@ -29,10 +26,6 @@ Version* Version::GetVersionFromString(const std::string& version_str) {
   delete vers;
   return NULL;
 }
-
-Version::Version() : is_valid_(false) {}
-
-Version::~Version() {}
 
 Version* Version::Clone() const {
   DCHECK(is_valid_);

@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -25,8 +25,8 @@
 #include "base/platform_file.h"
 #include "base/stl_util-inl.h"
 #include "base/string_util.h"
-#include "base/thread.h"
-#include "base/thread_restrictions.h"
+#include "base/threading/thread.h"
+#include "base/threading/thread_restrictions.h"
 #include "chrome/browser/appcache/appcache_dispatcher_host.h"
 #include "chrome/browser/browser_child_process_host.h"
 #include "chrome/browser/browser_process.h"
@@ -44,6 +44,7 @@
 #include "chrome/browser/in_process_webkit/dom_storage_message_filter.h"
 #include "chrome/browser/in_process_webkit/indexed_db_dispatcher_host.h"
 #include "chrome/browser/io_thread.h"
+#include "chrome/browser/metrics/user_metrics.h"
 #include "chrome/browser/mime_registry_message_filter.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/plugin_service.h"
@@ -53,6 +54,7 @@
 #include "chrome/browser/renderer_host/database_message_filter.h"
 #include "chrome/browser/renderer_host/file_utilities_message_filter.h"
 #include "chrome/browser/renderer_host/pepper_file_message_filter.h"
+#include "chrome/browser/renderer_host/pepper_message_filter.h"
 #include "chrome/browser/renderer_host/render_message_filter.h"
 #include "chrome/browser/renderer_host/render_view_host.h"
 #include "chrome/browser/renderer_host/render_view_host_delegate.h"
@@ -94,7 +96,8 @@
 #include "webkit/plugins/plugin_switches.h"
 
 #if defined(OS_WIN)
-#include "app/win_util.h"
+#include <objbase.h>
+#include "app/win/win_util.h"
 #endif
 
 using WebKit::WebCache;
@@ -226,7 +229,7 @@ class VisitedLinkUpdater {
 namespace {
 
 // Helper class that we pass to ResourceMessageFilter so that it can find the
-// right URLRequestContext for a request.
+// right net::URLRequestContext for a request.
 class RendererURLRequestContextOverride
     : public ResourceMessageFilter::URLRequestContextOverride {
  public:
@@ -235,7 +238,7 @@ class RendererURLRequestContextOverride
         media_request_context_(profile->GetRequestContextForMedia()) {
   }
 
-  virtual URLRequestContext* GetRequestContext(
+  virtual net::URLRequestContext* GetRequestContext(
       uint32 request_id, ResourceType::Type resource_type) {
     URLRequestContextGetter* request_context = request_context_;
     // If the request has resource type of ResourceType::MEDIA, we use a request
@@ -449,6 +452,7 @@ void BrowserRenderProcessHost::CreateMessageFilters() {
       GeolocationDispatcherHost::New(
           id(), profile()->GetGeolocationPermissionContext()));
   channel_->AddFilter(new PepperFileMessageFilter(id(), profile()));
+  channel_->AddFilter(new PepperMessageFilter(profile()));
   channel_->AddFilter(new speech_input::SpeechInputDispatcherHost(id()));
   channel_->AddFilter(
       new SearchProviderInstallStateMessageFilter(id(), profile()));
@@ -500,8 +504,14 @@ bool BrowserRenderProcessHost::WaitForUpdateMsg(
   return widget_helper_->WaitForUpdateMsg(render_widget_id, max_delay, msg);
 }
 
-void BrowserRenderProcessHost::ReceivedBadMessage(uint32 msg_type) {
-  BadMessageTerminateProcess(msg_type, GetHandle());
+void BrowserRenderProcessHost::ReceivedBadMessage() {
+  if (run_renderer_in_process()) {
+    // In single process mode it is better if we don't suicide but just
+    // crash.
+    CHECK(false);
+  }
+  NOTREACHED();
+  base::KillProcess(GetHandle(), ResultCodes::KILLED_BAD_MESSAGE, false);
 }
 
 void BrowserRenderProcessHost::ViewCreated() {
@@ -708,6 +718,7 @@ void BrowserRenderProcessHost::PropagateBrowserCommandLineToRenderer(
     switches::kRemoteShellPort,
     switches::kEnablePepperTesting,
     switches::kAllowOutdatedPlugins,
+    switches::kNewChromeUISecurityModel,
     switches::kEnableRemoting,
     switches::kEnableClickToPlay,
     switches::kEnableResourceContentSettings,
@@ -777,26 +788,6 @@ void BrowserRenderProcessHost::InitExtensions() {
   std::vector<std::string> function_names;
   ExtensionFunctionDispatcher::GetAllFunctionNames(&function_names);
   Send(new ViewMsg_Extension_SetFunctionNames(function_names));
-}
-
-void BrowserRenderProcessHost::InitSpeechInput() {
-  bool enabled = true;
-  const CommandLine& command_line = *CommandLine::ForCurrentProcess();
-
-  if (command_line.HasSwitch(switches::kDisableSpeechInput)) {
-    enabled = false;
-#if defined(GOOGLE_CHROME_BUILD)
-  } else if (!command_line.HasSwitch(switches::kEnableSpeechInput)) {
-    // We need to evaluate whether IO is OK here. http://crbug.com/63335.
-    base::ThreadRestrictions::ScopedAllowIO allow_io;
-    // Official Chrome builds have speech input enabled by default only in the
-    // dev channel.
-    std::string channel = platform_util::GetVersionStringModifier();
-    enabled = (channel == "dev");
-#endif
-  }
-
-  Send(new ViewMsg_SpeechInput_SetFeatureEnabled(enabled));
 }
 
 void BrowserRenderProcessHost::SendUserScriptsUpdate(
@@ -903,7 +894,7 @@ TransportDIB* BrowserRenderProcessHost::MapTransportDIB(
     TransportDIB::Id dib_id) {
 #if defined(OS_WIN)
   // On Windows we need to duplicate the handle from the remote process
-  HANDLE section = win_util::GetSectionFromProcess(
+  HANDLE section = app::win::GetSectionFromProcess(
       dib_id.handle, GetHandle(), false /* read write */);
   return TransportDIB::Map(section);
 #elif defined(OS_MACOSX)
@@ -970,11 +961,11 @@ bool BrowserRenderProcessHost::Send(IPC::Message* msg) {
   return channel_->Send(msg);
 }
 
-void BrowserRenderProcessHost::OnMessageReceived(const IPC::Message& msg) {
+bool BrowserRenderProcessHost::OnMessageReceived(const IPC::Message& msg) {
   // If we're about to be deleted, we can no longer trust that our profile is
   // valid, so we ignore incoming messages.
   if (deleting_soon_)
-    return;
+    return false;
 
 #if defined(OS_CHROMEOS)
   // To troubleshoot crosbug.com/7327.
@@ -1007,9 +998,11 @@ void BrowserRenderProcessHost::OnMessageReceived(const IPC::Message& msg) {
     if (!msg_is_ok) {
       // The message had a handler, but its de-serialization failed.
       // We consider this a capital crime. Kill the renderer if we have one.
-      ReceivedBadMessage(msg.type());
+      LOG(ERROR) << "bad message " << msg.type() << " terminating renderer.";
+      UserMetrics::RecordAction(UserMetricsAction("BadMessageTerminate_BRPH"));
+      ReceivedBadMessage();
     }
-    return;
+    return true;
   }
 
   // Dispatch incoming messages to the appropriate RenderView/WidgetHost.
@@ -1022,9 +1015,9 @@ void BrowserRenderProcessHost::OnMessageReceived(const IPC::Message& msg) {
       reply->set_reply_error();
       Send(reply);
     }
-    return;
+    return true;
   }
-  listener->OnMessageReceived(msg);
+  return listener->OnMessageReceived(msg);
 }
 
 void BrowserRenderProcessHost::OnChannelConnected(int32 peer_pid) {
@@ -1032,18 +1025,6 @@ void BrowserRenderProcessHost::OnChannelConnected(int32 peer_pid) {
   Send(new ViewMsg_SetIPCLoggingEnabled(
       IPC::Logging::GetInstance()->Enabled()));
 #endif
-}
-
-// Static. This function can be called from any thread.
-void BrowserRenderProcessHost::BadMessageTerminateProcess(
-    uint32 msg_type, base::ProcessHandle process) {
-  LOG(ERROR) << "bad message " << msg_type << " terminating renderer.";
-  if (run_renderer_in_process()) {
-    // In single process mode it is better if we don't suicide but just crash.
-    CHECK(false);
-  }
-  NOTREACHED();
-  base::KillProcess(process, ResultCodes::KILLED_BAD_MESSAGE, false);
 }
 
 void BrowserRenderProcessHost::OnChannelError() {
@@ -1183,7 +1164,6 @@ void BrowserRenderProcessHost::OnProcessLaunched() {
 
   Send(new ViewMsg_SetIsIncognitoProcess(profile()->IsOffTheRecord()));
 
-  InitSpeechInput();
   InitVisitedLinks();
   InitUserScripts();
   InitExtensions();

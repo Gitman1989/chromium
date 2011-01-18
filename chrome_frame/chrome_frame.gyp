@@ -1,4 +1,4 @@
-# Copyright (c) 2010 The Chromium Authors. All rights reserved.
+# Copyright (c) 2011 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -222,6 +222,17 @@
             }],
           ],
         }],
+        ['OS=="win" and buildtype=="Official"', {
+          'configurations': {
+            'Release': {
+              'msvs_settings': {
+                'VCCLCompilerTool': {
+                  'WholeProgramOptimization': 'false',
+                },
+              },
+            },
+          },
+        },],
         ['OS=="win"', {
           'link_settings': {
             'libraries': [
@@ -258,6 +269,7 @@
       'dependencies': [
         '../base/base.gyp:test_support_base',
         '../build/temp_gyp/googleurl.gyp:googleurl',
+        '../chrome/chrome.gyp:chrome_gpu',
         '../chrome/chrome.gyp:chrome_version_header',
         '../chrome/chrome.gyp:common',
         '../chrome/chrome.gyp:utility',
@@ -291,8 +303,6 @@
         'test/chrome_frame_automation_mock.h',
         'test/delete_chrome_history_test.cc',
         'test/header_test.cc',
-        'test/http_server.cc',
-        'test/http_server.h',
         'test/ie_event_sink.cc',
         'test/ie_event_sink.h',
         'test/mock_ie_event_sink_actions.h',
@@ -350,7 +360,7 @@
             'Debug_Base': {
               'msvs_settings': {
                 'VCLinkerTool': {
-                  'LinkIncremental': '<(msvs_large_module_debug_link_mode)',
+                  'LinkIncremental': '<(msvs_debug_link_nonincremental)',
                 },
               },
             },
@@ -374,6 +384,7 @@
         '../base/base.gyp:base_i18n',
         '../base/base.gyp:test_support_base',
         '../build/temp_gyp/googleurl.gyp:googleurl',
+        '../chrome/chrome.gyp:chrome_gpu',
         '../chrome/chrome.gyp:common',
         '../chrome/chrome.gyp:browser',
         '../chrome/chrome.gyp:debugger',
@@ -421,7 +432,7 @@
             'Debug_Base': {
               'msvs_settings': {
                 'VCLinkerTool': {
-                  'LinkIncremental': '<(msvs_large_module_debug_link_mode)',
+                  'LinkIncremental': '<(msvs_debug_link_nonincremental)',
                 },
               },
             },
@@ -457,6 +468,7 @@
       'dependencies': [
         '../base/base.gyp:test_support_base',
         '../chrome/chrome.gyp:browser',
+        '../chrome/chrome.gyp:chrome_gpu',
         '../chrome/chrome.gyp:chrome_resources',
         '../chrome/chrome.gyp:debugger',
         '../chrome/chrome.gyp:renderer',
@@ -533,6 +545,7 @@
         '../base/base.gyp:base',
         '../base/base.gyp:test_support_base',
         '../chrome/chrome.gyp:browser',
+        '../chrome/chrome.gyp:chrome_gpu',
         '../chrome/chrome.gyp:debugger',
         '../chrome/chrome.gyp:renderer',
         '../chrome/chrome.gyp:test_support_common',
@@ -560,7 +573,10 @@
         'test/win_event_receiver.h',
         'chrome_tab.h',
         '../base/test/test_file_util_win.cc',
+        '../chrome/test/automation/proxy_launcher.cc',
+        '../chrome/test/automation/proxy_launcher.h',
         '../chrome/test/ui/ui_test.cc',
+        '../chrome/test/ui/ui_test.h',
         '../chrome/test/ui/ui_test_suite.cc',
         '../chrome/test/ui/ui_test_suite.h',
         '../chrome/test/chrome_process_util.cc',
@@ -617,8 +633,6 @@
         'test/chrome_frame_ui_test_utils.cc',
         'test/chrome_frame_ui_test_utils.h',
         'test/external_sites_test.cc',
-        'test/http_server.cc',
-        'test/http_server.h',
         'test/ie_event_sink.cc',
         'test/ie_event_sink.h',
         'test/mock_ie_event_sink_actions.h',
@@ -849,15 +863,17 @@
         'policy_settings.h',
         'protocol_sink_wrap.cc',
         'protocol_sink_wrap.h',
-        'ready_mode/internal/installation_state.h',
         'ready_mode/internal/ready_mode_state.h',
+        'ready_mode/internal/ready_mode_web_browser_adapter.cc',
+        'ready_mode/internal/ready_mode_web_browser_adapter.h',
         'ready_mode/internal/ready_prompt_content.cc',
         'ready_mode/internal/ready_prompt_content.h',
         'ready_mode/internal/ready_prompt_window.cc',
         'ready_mode/internal/ready_prompt_window.h',
         'ready_mode/internal/registry_ready_mode_state.cc',
         'ready_mode/internal/registry_ready_mode_state.h',
-        'ready_mode/ready_mode_manager.h',
+        'ready_mode/ready_mode.cc',
+        'ready_mode/ready_mode.h',
         'register_bho.rgs',
         'stream_impl.cc',
         'stream_impl.h',
@@ -1014,7 +1030,7 @@
             '<(SHARED_INTERMEDIATE_DIR)/chrome_frame/chrome_frame_resources.rc',
           ],
           'dependencies': [
-            '../breakpad/breakpad.gyp:breakpad_handler',
+            '../breakpad/breakpad.gyp:breakpad_handler_dll',
             '../chrome/chrome.gyp:automation',
             # Make the archive build happy.
             '../chrome/chrome.gyp:syncapi',

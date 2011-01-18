@@ -10,12 +10,43 @@
 #include "base/logging.h"
 #include "base/string16.h"
 #include "base/string_number_conversions.h"
+#include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/autofill/autofill_profile.h"
 #include "chrome/browser/autofill/credit_card.h"
+#include "chrome/browser/dom_ui/dom_ui_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/guid.h"
 #include "grit/generated_resources.h"
+#include "grit/webkit_resources.h"
+
+namespace {
+
+// Converts a credit card type to the appropriate resource ID of the CC icon.
+int CreditCardTypeToResourceID(const string16& type16) {
+  std::string type = UTF16ToUTF8(type16);
+  if (type == kAmericanExpressCard)
+    return IDR_AUTOFILL_CC_AMEX;
+  else if (type == kDinersCard)
+    return IDR_AUTOFILL_CC_DINERS;
+  else if (type == kDiscoverCard)
+    return IDR_AUTOFILL_CC_DISCOVER;
+  else if (type == kGenericCard)
+    return IDR_AUTOFILL_CC_GENERIC;
+  else if (type == kJCBCard)
+    return IDR_AUTOFILL_CC_JCB;
+  else if (type == kMasterCard)
+    return IDR_AUTOFILL_CC_MASTERCARD;
+  else if (type == kSoloCard)
+    return IDR_AUTOFILL_CC_SOLO;
+  else if (type == kVisaCard)
+    return IDR_AUTOFILL_CC_VISA;
+
+  NOTREACHED();
+  return 0;
+}
+
+}  // namespace
 
 AutoFillOptionsHandler::AutoFillOptionsHandler()
     : personal_data_(NULL) {
@@ -34,20 +65,14 @@ void AutoFillOptionsHandler::GetLocalizedValues(
 
   localized_strings->SetString("autoFillOptionsTitle",
       l10n_util::GetStringUTF16(IDS_AUTOFILL_OPTIONS_TITLE));
-  localized_strings->SetString("autoFillEnabled",
-      l10n_util::GetStringUTF16(IDS_OPTIONS_AUTOFILL_ENABLE));
-  localized_strings->SetString("addressesHeader",
+  localized_strings->SetString("autoFillAddresses",
       l10n_util::GetStringUTF16(IDS_AUTOFILL_ADDRESSES_GROUP_NAME));
-  localized_strings->SetString("creditCardsHeader",
+  localized_strings->SetString("autoFillCreditCards",
       l10n_util::GetStringUTF16(IDS_AUTOFILL_CREDITCARDS_GROUP_NAME));
-  localized_strings->SetString("addAddressButton",
+  localized_strings->SetString("autoFillAddAddress",
       l10n_util::GetStringUTF16(IDS_AUTOFILL_ADD_ADDRESS_BUTTON));
-  localized_strings->SetString("addCreditCardButton",
+  localized_strings->SetString("autoFillAddCreditCard",
       l10n_util::GetStringUTF16(IDS_AUTOFILL_ADD_CREDITCARD_BUTTON));
-  localized_strings->SetString("editButton",
-      l10n_util::GetStringUTF16(IDS_AUTOFILL_EDIT_BUTTON));
-  localized_strings->SetString("deleteButton",
-      l10n_util::GetStringUTF16(IDS_AUTOFILL_DELETE_BUTTON));
   localized_strings->SetString("helpButton",
       l10n_util::GetStringUTF16(IDS_AUTOFILL_HELP_LABEL));
   localized_strings->SetString("addAddressTitle",
@@ -64,8 +89,7 @@ void AutoFillOptionsHandler::GetLocalizedValues(
 }
 
 void AutoFillOptionsHandler::Initialize() {
-  personal_data_ =
-      dom_ui_->GetProfile()->GetOriginalProfile()->GetPersonalDataManager();
+  personal_data_ = dom_ui_->GetProfile()->GetPersonalDataManager();
   personal_data_->SetObserver(this);
 
   LoadAutoFillData();
@@ -73,28 +97,23 @@ void AutoFillOptionsHandler::Initialize() {
 
 void AutoFillOptionsHandler::RegisterMessages() {
   dom_ui_->RegisterMessageCallback(
-      "updateAddress",
-      NewCallback(this, &AutoFillOptionsHandler::UpdateAddress));
-
-  dom_ui_->RegisterMessageCallback(
-      "editAddress",
-      NewCallback(this, &AutoFillOptionsHandler::EditAddress));
-
-  dom_ui_->RegisterMessageCallback(
       "removeAddress",
       NewCallback(this, &AutoFillOptionsHandler::RemoveAddress));
-
-  dom_ui_->RegisterMessageCallback(
-      "updateCreditCard",
-      NewCallback(this, &AutoFillOptionsHandler::UpdateCreditCard));
-
-  dom_ui_->RegisterMessageCallback(
-      "editCreditCard",
-      NewCallback(this, &AutoFillOptionsHandler::EditCreditCard));
-
   dom_ui_->RegisterMessageCallback(
       "removeCreditCard",
       NewCallback(this, &AutoFillOptionsHandler::RemoveCreditCard));
+  dom_ui_->RegisterMessageCallback(
+      "loadAddressEditor",
+      NewCallback(this, &AutoFillOptionsHandler::LoadAddressEditor));
+  dom_ui_->RegisterMessageCallback(
+      "loadCreditCardEditor",
+      NewCallback(this, &AutoFillOptionsHandler::LoadCreditCardEditor));
+  dom_ui_->RegisterMessageCallback(
+      "setAddress",
+      NewCallback(this, &AutoFillOptionsHandler::SetAddress));
+  dom_ui_->RegisterMessageCallback(
+      "setCreditCard",
+      NewCallback(this, &AutoFillOptionsHandler::SetCreditCard));
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -157,30 +176,139 @@ void AutoFillOptionsHandler::LoadAutoFillData() {
   for (std::vector<AutoFillProfile*>::const_iterator i =
            personal_data_->web_profiles().begin();
        i != personal_data_->web_profiles().end(); ++i) {
-    DictionaryValue* address = new DictionaryValue();
-    address->SetString("label", (*i)->Label());
-    address->SetString("guid", (*i)->guid());
-    addresses.Append(address);
+    ListValue* entry = new ListValue();
+    entry->Append(new StringValue((*i)->guid()));
+    entry->Append(new StringValue((*i)->Label()));
+    addresses.Append(entry);
   }
 
-  dom_ui_->CallJavascriptFunction(L"AutoFillOptions.updateAddresses",
+  dom_ui_->CallJavascriptFunction(L"AutoFillOptions.setAddressList",
                                   addresses);
 
   ListValue credit_cards;
   for (std::vector<CreditCard*>::const_iterator i =
            personal_data_->credit_cards().begin();
        i != personal_data_->credit_cards().end(); ++i) {
-    DictionaryValue* credit_card = new DictionaryValue();
-    credit_card->SetString("label", (*i)->PreviewSummary());
-    credit_card->SetString("guid", (*i)->guid());
-    credit_cards.Append(credit_card);
+    ListValue* entry = new ListValue();
+    entry->Append(new StringValue((*i)->guid()));
+    entry->Append(new StringValue((*i)->PreviewSummary()));
+    int res = CreditCardTypeToResourceID((*i)->type());
+    entry->Append(
+        new StringValue(dom_ui_util::GetImageDataUrlFromResource(res)));
+    credit_cards.Append(entry);
   }
 
-  dom_ui_->CallJavascriptFunction(L"AutoFillOptions.updateCreditCards",
+  dom_ui_->CallJavascriptFunction(L"AutoFillOptions.setCreditCardList",
                                   credit_cards);
 }
 
-void AutoFillOptionsHandler::UpdateAddress(const ListValue* args) {
+void AutoFillOptionsHandler::RemoveAddress(const ListValue* args) {
+  DCHECK(personal_data_->IsDataLoaded());
+
+  std::string guid;
+  if (!args->GetString(0, &guid)) {
+    NOTREACHED();
+    return;
+  }
+
+  personal_data_->RemoveProfile(guid);
+}
+
+void AutoFillOptionsHandler::RemoveCreditCard(const ListValue* args) {
+  DCHECK(personal_data_->IsDataLoaded());
+
+  std::string guid;
+  if (!args->GetString(0, &guid)) {
+    NOTREACHED();
+    return;
+  }
+
+  personal_data_->RemoveCreditCard(guid);
+}
+
+void AutoFillOptionsHandler::LoadAddressEditor(const ListValue* args) {
+  DCHECK(personal_data_->IsDataLoaded());
+
+  std::string guid;
+  if (!args->GetString(0, &guid)) {
+    NOTREACHED();
+    return;
+  }
+
+  AutoFillProfile* profile = personal_data_->GetProfileByGUID(guid);
+  DCHECK(profile);
+
+  // TODO(jhawkins): This is hacky because we can't send DictionaryValue
+  // directly to CallJavascriptFunction().
+  ListValue addressList;
+  DictionaryValue* address = new DictionaryValue();
+  address->SetString("guid", profile->guid());
+  address->SetString("fullName",
+                     profile->GetFieldText(AutoFillType(NAME_FULL)));
+  address->SetString("companyName",
+                     profile->GetFieldText(AutoFillType(COMPANY_NAME)));
+  address->SetString("addrLine1",
+                     profile->GetFieldText(AutoFillType(ADDRESS_HOME_LINE1)));
+  address->SetString("addrLine2",
+                     profile->GetFieldText(AutoFillType(ADDRESS_HOME_LINE2)));
+  address->SetString("city",
+                     profile->GetFieldText(AutoFillType(ADDRESS_HOME_CITY)));
+  address->SetString("state",
+                     profile->GetFieldText(AutoFillType(ADDRESS_HOME_STATE)));
+  address->SetString("zipCode",
+                     profile->GetFieldText(AutoFillType(ADDRESS_HOME_ZIP)));
+  address->SetString("country",
+                     profile->GetFieldText(AutoFillType(ADDRESS_HOME_COUNTRY)));
+  address->SetString(
+      "phone",
+      profile->GetFieldText(AutoFillType(PHONE_HOME_WHOLE_NUMBER)));
+  address->SetString(
+      "fax",
+      profile->GetFieldText(AutoFillType(PHONE_FAX_WHOLE_NUMBER)));
+  address->SetString("email",
+                     profile->GetFieldText(AutoFillType(EMAIL_ADDRESS)));
+  addressList.Append(address);
+
+  dom_ui_->CallJavascriptFunction(L"AutoFillOptions.editAddress",
+                                  addressList);
+}
+
+void AutoFillOptionsHandler::LoadCreditCardEditor(const ListValue* args) {
+  DCHECK(personal_data_->IsDataLoaded());
+
+  std::string guid;
+  if (!args->GetString(0, &guid)) {
+    NOTREACHED();
+    return;
+  }
+
+  CreditCard* credit_card = personal_data_->GetCreditCardByGUID(guid);
+  DCHECK(credit_card);
+
+  // TODO(jhawkins): This is hacky because we can't send DictionaryValue
+  // directly to CallJavascriptFunction().
+  ListValue credit_card_list;
+  DictionaryValue* credit_card_data = new DictionaryValue();
+  credit_card_data->SetString("guid", credit_card->guid());
+  credit_card_data->SetString(
+      "nameOnCard",
+      credit_card->GetFieldText(AutoFillType(CREDIT_CARD_NAME)));
+  credit_card_data->SetString(
+      "creditCardNumber",
+      credit_card->GetFieldText(AutoFillType(CREDIT_CARD_NUMBER)));
+  credit_card_data->SetString(
+      "expirationMonth",
+      credit_card->GetFieldText(AutoFillType(CREDIT_CARD_EXP_MONTH)));
+  credit_card_data->SetString(
+      "expirationYear",
+      credit_card->GetFieldText(AutoFillType(CREDIT_CARD_EXP_4_DIGIT_YEAR)));
+  credit_card_list.Append(credit_card_data);
+
+  dom_ui_->CallJavascriptFunction(L"AutoFillOptions.editCreditCard",
+                                  credit_card_list);
+}
+
+void AutoFillOptionsHandler::SetAddress(const ListValue* args) {
   if (!personal_data_->IsDataLoaded())
     return;
 
@@ -224,71 +352,7 @@ void AutoFillOptionsHandler::UpdateAddress(const ListValue* args) {
   }
 }
 
-void AutoFillOptionsHandler::EditAddress(const ListValue* args) {
-  if (!personal_data_->IsDataLoaded())
-    return;
-
-  std::string guid;
-  if (!args->GetString(0, &guid)) {
-    NOTREACHED();
-    return;
-  }
-
-  AutoFillProfile* profile = personal_data_->GetProfileByGUID(guid);
-  if (!profile) {
-    NOTREACHED();
-    return;
-  }
-
-  // TODO(jhawkins): This is hacky because we can't send DictionaryValue
-  // directly to CallJavascriptFunction().
-  ListValue addressList;
-  DictionaryValue* address = new DictionaryValue();
-  address->SetString("guid", profile->guid());
-  address->SetString("fullName",
-                     profile->GetFieldText(AutoFillType(NAME_FULL)));
-  address->SetString("companyName",
-                     profile->GetFieldText(AutoFillType(COMPANY_NAME)));
-  address->SetString("addrLine1",
-                     profile->GetFieldText(AutoFillType(ADDRESS_HOME_LINE1)));
-  address->SetString("addrLine2",
-                     profile->GetFieldText(AutoFillType(ADDRESS_HOME_LINE2)));
-  address->SetString("city",
-                     profile->GetFieldText(AutoFillType(ADDRESS_HOME_CITY)));
-  address->SetString("state",
-                     profile->GetFieldText(AutoFillType(ADDRESS_HOME_STATE)));
-  address->SetString("zipCode",
-                     profile->GetFieldText(AutoFillType(ADDRESS_HOME_ZIP)));
-  address->SetString("country",
-                     profile->GetFieldText(AutoFillType(ADDRESS_HOME_COUNTRY)));
-  address->SetString(
-      "phone",
-      profile->GetFieldText(AutoFillType(PHONE_HOME_WHOLE_NUMBER)));
-  address->SetString(
-      "fax",
-      profile->GetFieldText(AutoFillType(PHONE_FAX_WHOLE_NUMBER)));
-  address->SetString("email",
-                     profile->GetFieldText(AutoFillType(EMAIL_ADDRESS)));
-  addressList.Append(address);
-
-  dom_ui_->CallJavascriptFunction(L"AutoFillOptions.editAddress",
-                                  addressList);
-}
-
-void AutoFillOptionsHandler::RemoveAddress(const ListValue* args) {
-  if (!personal_data_->IsDataLoaded())
-    return;
-
-  std::string guid;
-  if (!args->GetString(0, &guid)) {
-    NOTREACHED();
-    return;
-  }
-
-  personal_data_->RemoveProfile(guid);
-}
-
-void AutoFillOptionsHandler::UpdateCreditCard(const ListValue* args) {
+void AutoFillOptionsHandler::SetCreditCard(const ListValue* args) {
   if (!personal_data_->IsDataLoaded())
     return;
 
@@ -316,58 +380,4 @@ void AutoFillOptionsHandler::UpdateCreditCard(const ListValue* args) {
   } else {
     personal_data_->UpdateCreditCard(credit_card);
   }
-
-}
-
-void AutoFillOptionsHandler::EditCreditCard(const ListValue* args) {
-  if (!personal_data_->IsDataLoaded())
-      return;
-
-  std::string guid;
-  if (!args->GetString(0, &guid)) {
-    NOTREACHED();
-    return;
-  }
-
-  CreditCard* credit_card = personal_data_->GetCreditCardByGUID(guid);
-
-  if (!credit_card) {
-    NOTREACHED();
-    return;
-  }
-
-  // TODO(jhawkins): This is hacky because we can't send DictionaryValue
-  // directly to CallJavascriptFunction().
-  ListValue credit_card_list;
-  DictionaryValue* credit_card_data = new DictionaryValue();
-  credit_card_data->SetString("guid", credit_card->guid());
-  credit_card_data->SetString(
-      "nameOnCard",
-      credit_card->GetFieldText(AutoFillType(CREDIT_CARD_NAME)));
-  credit_card_data->SetString(
-      "creditCardNumber",
-      credit_card->GetFieldText(AutoFillType(CREDIT_CARD_NUMBER)));
-  credit_card_data->SetString(
-      "expirationMonth",
-      credit_card->GetFieldText(AutoFillType(CREDIT_CARD_EXP_MONTH)));
-  credit_card_data->SetString(
-      "expirationYear",
-      credit_card->GetFieldText(AutoFillType(CREDIT_CARD_EXP_4_DIGIT_YEAR)));
-  credit_card_list.Append(credit_card_data);
-
-  dom_ui_->CallJavascriptFunction(L"AutoFillOptions.editCreditCard",
-                                  credit_card_list);
-}
-
-void AutoFillOptionsHandler::RemoveCreditCard(const ListValue* args) {
-  if (!personal_data_->IsDataLoaded())
-    return;
-
-  std::string guid;
-  if (!args->GetString(0, &guid)) {
-    NOTREACHED();
-    return;
-  }
-
-  personal_data_->RemoveCreditCard(guid);
 }

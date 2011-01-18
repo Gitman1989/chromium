@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -12,6 +12,7 @@
 
 #include <windows.h>
 
+#include "base/file_path.h"
 #include "base/logging.h"
 
 GoogleChromeDistribution::GoogleChromeDistribution(
@@ -100,8 +101,9 @@ std::wstring GoogleChromeDistribution::GetVersionKey() {
   return std::wstring();
 }
 
-void GoogleChromeDistribution::UpdateDiffInstallStatus(bool system_install,
-      bool incremental_install, installer::InstallStatus install_status) {
+void GoogleChromeDistribution::UpdateInstallStatus(bool system_install,
+    bool incremental_install, bool multi_install,
+    installer::InstallStatus install_status) {
   NOTREACHED();
 }
 
@@ -117,7 +119,7 @@ void GoogleChromeDistribution::InactiveUserToastExperiment(int flavor,
 }
 
 bool GoogleChromeDistribution::ExtractUninstallMetricsFromFile(
-    const std::wstring& file_path, std::wstring* uninstall_metrics_string) {
+    const FilePath& file_path, std::wstring* uninstall_metrics_string) {
   NOTREACHED();
   return false;
 }
@@ -134,3 +136,9 @@ bool GoogleChromeDistribution::BuildUninstallMetricsString(
   return false;
 }
 
+bool GoogleChromeDistribution::SetChannelFlags(
+    bool set,
+    installer::ChannelInfo* channel_info) {
+  NOTREACHED();
+  return false;
+}

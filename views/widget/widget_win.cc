@@ -1,19 +1,19 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "views/widget/widget_win.h"
 
-#include "app/keyboard_code_conversion_win.h"
 #include "app/l10n_util_win.h"
 #include "app/system_monitor.h"
 #include "app/view_prop.h"
-#include "app/win_util.h"
+#include "app/win/hwnd_util.h"
+#include "app/win/win_util.h"
 #include "base/string_util.h"
-#include "base/win_util.h"
 #include "gfx/canvas_skia.h"
 #include "gfx/native_theme_win.h"
 #include "gfx/path.h"
+#include "ui/base/keycodes/keyboard_code_conversion_win.h"
 #include "views/accessibility/view_accessibility.h"
 #include "views/controls/native_control_win.h"
 #include "views/focus/focus_util_win.h"
@@ -78,7 +78,7 @@ WidgetWin* WidgetWin::GetWidget(HWND hwnd) {
   //                 WindowImpl).
   if (!WindowImpl::IsWindowImpl(hwnd))
     return NULL;
-  return reinterpret_cast<WidgetWin*>(win_util::GetWindowUserData(hwnd));
+  return reinterpret_cast<WidgetWin*>(app::win::GetWindowUserData(hwnd));
 }
 
 // static
@@ -239,6 +239,8 @@ void WidgetWin::GetBounds(gfx::Rect* out, bool including_frame) const {
 }
 
 void WidgetWin::SetBounds(const gfx::Rect& bounds) {
+  if (IsZoomed())
+    ShowWindow(SW_SHOWNOACTIVATE);
   SetWindowPos(NULL, bounds.x(), bounds.y(), bounds.width(), bounds.height(),
                SWP_NOACTIVATE | SWP_NOZORDER);
 }
@@ -389,7 +391,7 @@ bool WidgetWin::IsVisible() const {
 }
 
 bool WidgetWin::IsActive() const {
-  return win_util::IsWindowActive(hwnd());
+  return app::win::IsWindowActive(hwnd());
 }
 
 bool WidgetWin::IsAccessibleWidget() const {
@@ -408,7 +410,7 @@ void WidgetWin::GenerateMousePressedForView(View* view,
   ProcessMousePressed(point_in_widget.ToPOINT(), MK_LBUTTON, false, false);
 }
 
-bool WidgetWin::GetAccelerator(int cmd_id, menus::Accelerator* accelerator) {
+bool WidgetWin::GetAccelerator(int cmd_id, ui::Accelerator* accelerator) {
   return false;
 }
 
@@ -661,8 +663,9 @@ void WidgetWin::OnInitMenuPopup(HMENU menu,
 }
 
 void WidgetWin::OnKeyDown(TCHAR c, UINT rep_cnt, UINT flags) {
-  KeyEvent event(Event::ET_KEY_PRESSED, app::KeyboardCodeForWindowsKeyCode(c),
-                 KeyEvent::GetKeyStateFlags(), rep_cnt, flags);
+  KeyEvent event(Event::ET_KEY_PRESSED, ui::KeyboardCodeForWindowsKeyCode(c),
+                 KeyEvent::GetKeyStateFlags(), rep_cnt, flags,
+                 WM_KEYDOWN);
   RootView* root_view = GetFocusedViewRootView();
   if (!root_view)
     root_view = root_view_.get();
@@ -671,8 +674,9 @@ void WidgetWin::OnKeyDown(TCHAR c, UINT rep_cnt, UINT flags) {
 }
 
 void WidgetWin::OnKeyUp(TCHAR c, UINT rep_cnt, UINT flags) {
-  KeyEvent event(Event::ET_KEY_RELEASED, app::KeyboardCodeForWindowsKeyCode(c),
-                 KeyEvent::GetKeyStateFlags(), rep_cnt, flags);
+  KeyEvent event(Event::ET_KEY_RELEASED, ui::KeyboardCodeForWindowsKeyCode(c),
+                 KeyEvent::GetKeyStateFlags(), rep_cnt, flags,
+                 WM_KEYUP);
   RootView* root_view = GetFocusedViewRootView();
   if (!root_view)
     root_view = root_view_.get();
@@ -1105,7 +1109,7 @@ Window* WidgetWin::GetWindowImpl(HWND hwnd) {
   HWND parent = hwnd;
   while (parent) {
     WidgetWin* widget =
-        reinterpret_cast<WidgetWin*>(win_util::GetWindowUserData(parent));
+        reinterpret_cast<WidgetWin*>(app::win::GetWindowUserData(parent));
     if (widget && widget->is_window_)
       return static_cast<WindowWin*>(widget);
     parent = ::GetParent(parent);

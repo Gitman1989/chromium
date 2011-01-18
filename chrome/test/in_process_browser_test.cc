@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -42,11 +42,11 @@
 #include "sandbox/src/dep.h"
 
 #if defined(OS_MACOSX)
-#include "base/mac_util.h"
+#include "base/mac/mac_util.h"
 #endif
 
 #if defined(OS_WIN)
-#include "chrome/browser/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #endif
 
 namespace {
@@ -78,7 +78,7 @@ InProcessBrowserTest::InProcessBrowserTest()
       tab_closeable_state_watcher_enabled_(false),
       original_single_process_(false) {
 #if defined(OS_MACOSX)
-  mac_util::SetOverrideAmIBundled(true);
+  base::mac::SetOverrideAmIBundled(true);
 #endif
 
   // Before we run the browser, we have to hack the path to the exe to match
@@ -88,12 +88,7 @@ InProcessBrowserTest::InProcessBrowserTest()
   FilePath chrome_path;
   CHECK(PathService::Get(base::FILE_EXE, &chrome_path));
   chrome_path = chrome_path.DirName();
-#if defined(OS_WIN)
   chrome_path = chrome_path.Append(chrome::kBrowserProcessExecutablePath);
-#elif defined(OS_POSIX)
-  chrome_path = chrome_path.Append(
-      WideToASCII(chrome::kBrowserProcessExecutablePath));
-#endif
   CHECK(PathService::Override(base::FILE_EXE, chrome_path));
 
   test_server_.reset(new net::TestServer(
@@ -279,6 +274,14 @@ Browser* InProcessBrowserTest::CreateBrowser(Profile* profile) {
   return browser;
 }
 
+Browser* InProcessBrowserTest::CreateIncognitoBrowser() {
+  // Create a new browser with using the incognito profile.
+  Browser* incognito =
+      Browser::Create(browser()->profile()->GetOffTheRecordProfile());
+  InitializeBrowser(incognito);
+  return incognito;
+}
+
 Browser* InProcessBrowserTest::CreateBrowserForPopup(Profile* profile) {
   Browser* browser = Browser::CreateForType(Browser::TYPE_POPUP, profile);
   InitializeBrowser(browser);
@@ -327,6 +330,9 @@ void InProcessBrowserTest::RunTestOnMainThreadLoop() {
   // Pump any pending events that were created as a result of creating a
   // browser.
   MessageLoopForUI::current()->RunAllPending();
+
+  SetUpOnMainThread();
+  pool.Recycle();
 
   RunTestOnMainThread();
   pool.Recycle();

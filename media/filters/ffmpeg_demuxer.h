@@ -27,7 +27,7 @@
 
 #include "base/callback.h"
 #include "base/gtest_prod_util.h"
-#include "base/waitable_event.h"
+#include "base/synchronization/waitable_event.h"
 #include "media/base/buffers.h"
 #include "media/base/filters.h"
 #include "media/base/media_format.h"
@@ -121,7 +121,7 @@ class FFmpegDemuxerStream : public DemuxerStream, public AVStreamProvider {
 class FFmpegDemuxer : public Demuxer,
                       public FFmpegURLProtocol {
  public:
-  FFmpegDemuxer();
+  explicit FFmpegDemuxer(MessageLoop* message_loop);
   virtual ~FFmpegDemuxer();
 
   // Posts a task to perform additional demuxing.
@@ -143,6 +143,9 @@ class FFmpegDemuxer : public Demuxer,
   virtual bool SetPosition(int64 position);
   virtual bool GetSize(int64* size_out);
   virtual bool IsStreaming();
+
+  // Provide access to FFmpegDemuxerStream.
+  MessageLoop* message_loop();
 
  private:
   // Only allow a factory to create this class.
@@ -186,6 +189,8 @@ class FFmpegDemuxer : public Demuxer,
 
   // Signal that read has completed, and |size| bytes have been read.
   virtual void SignalReadCompleted(size_t size);
+
+  MessageLoop* message_loop_;
 
   // FFmpeg context handle.
   AVFormatContext* format_context_;

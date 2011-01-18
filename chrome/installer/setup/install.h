@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -17,9 +17,13 @@
 #include "chrome/installer/util/util_constants.h"
 
 class DictionaryValue;
+class FilePath;
+class WorkItemList;
 
 namespace installer {
 
+class InstallationState;
+class InstallerState;
 class Package;
 
 // This function installs or updates a new version of Chrome. It returns
@@ -39,19 +43,15 @@ class Package;
 //
 // Note: since caller unpacks Chrome to install_temp_path\source, the caller
 // is responsible for cleaning up install_temp_path.
-installer::InstallStatus InstallOrUpdateChrome(
+InstallStatus InstallOrUpdateProduct(
+    const InstallationState& original_state,
+    const InstallerState& installer_state,
     const FilePath& setup_path, const FilePath& archive_path,
     const FilePath& install_temp_path, const FilePath& prefs_path,
     const installer::MasterPreferences& prefs, const Version& new_version,
     const Package& package);
 
-// Registers or unregisters COM DLLs in a specific folder as declared in
-// kDllsToRegister.
-// TODO(robertshield): What if the list of old dlls and new ones isn't
-// the same?  I think we should start storing the list of DLLs somewhere as
-// part of the installation data.
-bool RegisterComDllList(const FilePath& dll_folder, bool system_level,
-                        bool do_register, bool rollback_on_failure);
+
 
 }  // namespace installer
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,6 +12,7 @@
 #include "chrome/browser/download/download_file.h"
 #include "chrome/browser/renderer_host/global_request_id.h"
 #include "chrome/browser/renderer_host/resource_handler.h"
+#include "chrome/browser/safe_browsing/safe_browsing_service.h"
 
 class DownloadFileManager;
 class ResourceDispatcherHost;
@@ -22,7 +23,8 @@ class URLRequest;
 }  // namespace net
 
 // Forwards data to the download thread.
-class DownloadResourceHandler : public ResourceHandler {
+class DownloadResourceHandler : public ResourceHandler,
+                                public SafeBrowsingService::Client {
  public:
   DownloadResourceHandler(ResourceDispatcherHost* rdh,
                           int render_process_host_id,
@@ -54,7 +56,7 @@ class DownloadResourceHandler : public ResourceHandler {
   virtual bool OnReadCompleted(int request_id, int* bytes_read);
 
   virtual bool OnResponseCompleted(int request_id,
-                                   const URLRequestStatus& status,
+                                   const net::URLRequestStatus& status,
                                    const std::string& security_info);
   virtual void OnRequestClosed();
 
@@ -70,16 +72,38 @@ class DownloadResourceHandler : public ResourceHandler {
   std::string DebugString() const;
 
  private:
+  // Enumerate for histogramming purposes.  DO NOT CHANGE THE
+  // ORDERING OF THESE VALUES.
+  enum SBStatsType {
+    DOWNLOAD_URL_CHECKS_TOTAL,
+    DOWNLOAD_URL_CHECKS_CANCELED,
+    DOWNLOAD_URL_CHECKS_MALWARE,
+
+    // Memory space for histograms is determined by the max.  ALWAYS
+    // ADD NEW VALUES BEFORE THIS ONE.
+    DOWNLOAD_URL_CHECKS_MAX
+  };
+
   ~DownloadResourceHandler();
 
   void StartPauseTimer();
+
+  void StartDownloadUrlCheck();
+
+  // Called when the result of checking a download URL is known.
+  void OnDownloadUrlCheckResult(const GURL& url,
+                                SafeBrowsingService::UrlCheckResult result);
+
+  // A helper function that updates UMA for download url checks.
+  static void UpdateDownloadUrlCheckStats(SBStatsType stat_type);
 
   int download_id_;
   GlobalRequestID global_id_;
   int render_view_id_;
   scoped_refptr<net::IOBuffer> read_buffer_;
   std::string content_disposition_;
-  GURL url_;
+  GURL url_; // final URL from which we're downloading.
+  GURL original_url_; // original URL before any redirection by the server.
   int64 content_length_;
   DownloadFileManager* download_file_manager_;
   net::URLRequest* request_;
@@ -89,6 +113,8 @@ class DownloadResourceHandler : public ResourceHandler {
   ResourceDispatcherHost* rdh_;
   bool is_paused_;
   base::OneShotTimer<DownloadResourceHandler> pause_timer_;
+  bool url_check_pending_;
+  base::TimeTicks download_start_time_;  // used to collect stats.
 
   static const int kReadBufSize = 32768;  // bytes
   static const size_t kLoadsToWrite = 100;  // number of data buffers queued

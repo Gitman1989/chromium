@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,6 +11,7 @@
 #include "base/singleton.h"
 #include "base/string_split.h"
 #include "base/string_util.h"
+#include "chrome/browser/autofill/autofill_manager.h"
 #include "chrome/browser/browser_list.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/prefs/pref_service.h"
@@ -279,7 +280,7 @@ void TranslateManager::Observe(NotificationType type,
 
 void TranslateManager::OnURLFetchComplete(const URLFetcher* source,
                                           const GURL& url,
-                                          const URLRequestStatus& status,
+                                          const net::URLRequestStatus& status,
                                           int response_code,
                                           const ResponseCookies& cookies,
                                           const std::string& data) {
@@ -287,7 +288,8 @@ void TranslateManager::OnURLFetchComplete(const URLFetcher* source,
   DCHECK(translate_script_request_pending_);
   translate_script_request_pending_ = false;
   bool error =
-      (status.status() != URLRequestStatus::SUCCESS || response_code != 200);
+      (status.status() != net::URLRequestStatus::SUCCESS ||
+       response_code != 200);
 
   if (!error) {
     base::StringPiece str = ResourceBundle::GetSharedInstance().
@@ -510,6 +512,12 @@ void TranslateManager::DoTranslatePage(TabContents* tab,
   tab->language_state().set_translation_pending(true);
   tab->render_view_host()->TranslatePage(entry->page_id(), translate_script,
                                          source_lang, target_lang);
+
+  // Ideally we'd have a better way to uniquely identify form control elements,
+  // but we don't have that yet.  So before start translation, we clear the
+  // current form and re-parse it in AutoFillManager first to get the new
+  // labels.
+  tab->autofill_manager()->Reset();
 }
 
 void TranslateManager::PageTranslated(TabContents* tab,

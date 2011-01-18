@@ -6,12 +6,9 @@
 
 #include <algorithm>
 
-#include "app/clipboard/clipboard.h"
-#include "app/clipboard/scoped_clipboard_writer.h"
-#include "app/keyboard_codes.h"
 #include "app/l10n_util.h"
 #include "app/l10n_util_win.h"
-#include "app/win_util.h"
+#include "app/win/win_util.h"
 #include "base/i18n/rtl.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
@@ -19,10 +16,15 @@
 #include "gfx/native_theme_win.h"
 #include "grit/app_strings.h"
 #include "skia/ext/skia_utils_win.h"
+#include "ui/base/clipboard/clipboard.h"
+#include "ui/base/clipboard/scoped_clipboard_writer.h"
+#include "ui/base/keycodes/keyboard_codes.h"
+#include "ui/base/keycodes/keyboard_code_conversion_win.h"
 #include "views/controls/label.h"
 #include "views/controls/menu/menu_win.h"
 #include "views/controls/menu/menu_2.h"
 #include "views/controls/native/native_view_host.h"
+#include "views/controls/textfield/native_textfield_views.h"
 #include "views/controls/textfield/textfield.h"
 #include "views/focus/focus_manager.h"
 #include "views/focus/focus_util_win.h"
@@ -274,10 +276,11 @@ void NativeTextfieldWin::UpdateVerticalMargins() {
   NOTIMPLEMENTED();
 }
 
-void NativeTextfieldWin::SetFocus() {
+bool NativeTextfieldWin::SetFocus() {
   // Focus the associated HWND.
   //container_view_->Focus();
   ::SetFocus(m_hWnd);
+  return true;
 }
 
 View* NativeTextfieldWin::GetView() {
@@ -302,8 +305,25 @@ bool NativeTextfieldWin::IsIMEComposing() const {
   return composition_size > 0;
 }
 
+bool NativeTextfieldWin::HandleKeyPressed(const views::KeyEvent& e) {
+  return false;
+}
+
+bool NativeTextfieldWin::HandleKeyReleased(const views::KeyEvent& e) {
+  return false;
+}
+
+void NativeTextfieldWin::HandleWillGainFocus() {
+}
+
+void NativeTextfieldWin::HandleDidGainFocus() {
+}
+
+void NativeTextfieldWin::HandleWillLoseFocus() {
+}
+
 ////////////////////////////////////////////////////////////////////////////////
-// NativeTextfieldWin, menus::SimpleMenuModel::Delegate implementation:
+// NativeTextfieldWin, ui::SimpleMenuModel::Delegate implementation:
 
 bool NativeTextfieldWin::IsCommandIdChecked(int command_id) const {
   return false;
@@ -323,18 +343,18 @@ bool NativeTextfieldWin::IsCommandIdEnabled(int command_id) const {
 }
 
 bool NativeTextfieldWin::GetAcceleratorForCommandId(int command_id,
-    menus::Accelerator* accelerator) {
+    ui::Accelerator* accelerator) {
   // The standard Ctrl-X, Ctrl-V and Ctrl-C are not defined as accelerators
   // anywhere so we need to check for them explicitly here.
   switch (command_id) {
     case IDS_APP_CUT:
-      *accelerator = views::Accelerator(app::VKEY_X, false, true, false);
+      *accelerator = views::Accelerator(ui::VKEY_X, false, true, false);
       return true;
     case IDS_APP_COPY:
-      *accelerator = views::Accelerator(app::VKEY_C, false, true, false);
+      *accelerator = views::Accelerator(ui::VKEY_C, false, true, false);
       return true;
     case IDS_APP_PASTE:
-      *accelerator = views::Accelerator(app::VKEY_V, false, true, false);
+      *accelerator = views::Accelerator(ui::VKEY_V, false, true, false);
       return true;
   }
   return container_view_->GetWidget()->GetAccelerator(command_id, accelerator);
@@ -375,13 +395,13 @@ void NativeTextfieldWin::InitializeAccessibilityInfo() {
   // Set the accessible name by getting the label text.
   View* parent = textfield_->GetParent();
   int label_index = parent->GetChildIndex(textfield_) - 1;
-  if (label_index  >= 0) {
+  if (label_index >= 0) {
     // Try to find the name of this text field.
     // We expect it to be a Label preceeding this view (if it exists).
-    std::wstring name;
-    View* label_view = parent->GetChildViewAt(label_index );
-    if (label_view ->GetClassName() == Label::kViewClassName &&
-        label_view ->GetAccessibleName(&name)) {
+    string16 name;
+    View* label_view = parent->GetChildViewAt(label_index);
+    if (label_view->GetClassName() == Label::kViewClassName &&
+        label_view->GetAccessibleName(&name)) {
       hr = pAccPropServices->SetHwndPropStr(m_hWnd, OBJID_CLIENT,
           CHILDID_SELF, PROPID_ACC_NAME, name.c_str());
     }
@@ -445,7 +465,8 @@ void NativeTextfieldWin::OnCopy() {
   const std::wstring text(GetSelectedText());
 
   if (!text.empty() && ViewsDelegate::views_delegate) {
-    ScopedClipboardWriter scw(ViewsDelegate::views_delegate->GetClipboard());
+    ui::ScopedClipboardWriter scw(
+        ViewsDelegate::views_delegate->GetClipboard());
     scw.WriteText(text);
   }
 }
@@ -644,7 +665,7 @@ void NativeTextfieldWin::OnLButtonDown(UINT keys, const CPoint& point) {
   // double_click_time_ from the current message's time even if the timer has
   // wrapped in between.
   const bool is_triple_click = tracking_double_click_ &&
-      win_util::IsDoubleClick(double_click_point_, point,
+      app::win::IsDoubleClick(double_click_point_, point,
                               GetCurrentMessage()->time - double_click_time_);
   tracking_double_click_ = false;
 
@@ -826,13 +847,13 @@ void NativeTextfieldWin::OnPaste() {
   if (textfield_->read_only() || !ViewsDelegate::views_delegate)
     return;
 
-  Clipboard* clipboard = ViewsDelegate::views_delegate->GetClipboard();
-  if (!clipboard->IsFormatAvailable(Clipboard::GetPlainTextWFormatType(),
-                                    Clipboard::BUFFER_STANDARD))
+  ui::Clipboard* clipboard = ViewsDelegate::views_delegate->GetClipboard();
+  if (!clipboard->IsFormatAvailable(ui::Clipboard::GetPlainTextWFormatType(),
+                                    ui::Clipboard::BUFFER_STANDARD))
     return;
 
   std::wstring clipboard_str;
-  clipboard->ReadText(Clipboard::BUFFER_STANDARD, &clipboard_str);
+  clipboard->ReadText(ui::Clipboard::BUFFER_STANDARD, &clipboard_str);
   if (!clipboard_str.empty()) {
     std::wstring collapsed(CollapseWhitespace(clipboard_str, false));
     if (textfield_->style() & Textfield::STYLE_LOWERCASE)
@@ -876,14 +897,36 @@ void NativeTextfieldWin::HandleKeystroke(UINT message,
   Textfield::Controller* controller = textfield_->GetController();
   bool handled = false;
   if (controller) {
-    handled = controller->HandleKeystroke(textfield_,
-        Textfield::Keystroke(message, key, repeat_count, flags));
+    Event::EventType type;
+    switch (message) {
+      case WM_KEYDOWN:
+      case WM_SYSKEYDOWN:
+      case WM_CHAR:
+      case WM_SYSCHAR:
+        type = Event::ET_KEY_PRESSED;
+        break;
+      case WM_KEYUP:
+      case WM_SYSKEYUP:
+        type = Event::ET_KEY_RELEASED;
+        break;
+      default:
+        NOTREACHED() << "Unknown message:" << message;
+        // Passing through to avoid crash on release build.
+        type = Event::ET_KEY_PRESSED;
+    }
+    KeyEvent key_event(type,
+                       ui::KeyboardCodeForWindowsKeyCode(key),
+                       KeyEvent::GetKeyStateFlags(),
+                       repeat_count,
+                       flags,
+                       message);
+    handled = controller->HandleKeyEvent(textfield_, key_event);
   }
 
   if (!handled) {
     OnBeforePossibleChange();
 
-    if (key == app::VKEY_HOME || key == app::VKEY_END) {
+    if (key == ui::VKEY_HOME || key == ui::VKEY_END) {
       // DefWindowProc() might reset the keyboard layout when it receives a
       // keydown event for VKEY_HOME or VKEY_END. When the window was created
       // with WS_EX_LAYOUTRTL and the current keyboard layout is not a RTL one,
@@ -1057,7 +1100,7 @@ ITextDocument* NativeTextfieldWin::GetTextObjectModel() const {
 void NativeTextfieldWin::BuildContextMenu() {
   if (context_menu_contents_.get())
     return;
-  context_menu_contents_.reset(new menus::SimpleMenuModel(this));
+  context_menu_contents_.reset(new ui::SimpleMenuModel(this));
   context_menu_contents_->AddItemWithStringId(IDS_APP_UNDO, IDS_APP_UNDO);
   context_menu_contents_->AddSeparator();
   context_menu_contents_->AddItemWithStringId(IDS_APP_CUT, IDS_APP_CUT);
@@ -1075,7 +1118,11 @@ void NativeTextfieldWin::BuildContextMenu() {
 // static
 NativeTextfieldWrapper* NativeTextfieldWrapper::CreateWrapper(
     Textfield* field) {
-  return new NativeTextfieldWin(field);
+  if (NativeTextfieldViews::IsTextfieldViewsEnabled()) {
+    return new NativeTextfieldViews(field);
+  } else {
+    return new NativeTextfieldWin(field);
+  }
 }
 
 }  // namespace views

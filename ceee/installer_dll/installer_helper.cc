@@ -46,7 +46,8 @@ InstallerHelperModule::InstallerHelperModule() {
       logfile_path,
       logging::LOG_TO_BOTH_FILE_AND_SYSTEM_DEBUG_LOG,
       logging::LOCK_LOG_FILE,
-      logging::APPEND_TO_OLD_LOG_FILE);
+      logging::APPEND_TO_OLD_LOG_FILE,
+      logging::DISABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
 }
 
 InstallerHelperModule _AtlModule;
@@ -298,7 +299,7 @@ STDAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID* ppv) {
 //
 // This is not the actual entrypoint; see the macro right below this
 // function, which keeps us safe from ever forgetting to check for
-// the --enable-ceee flag.
+// the --ceee flag.
 STDAPI DllRegisterServerImpl(void) {
   HRESULT hr = _AtlModule.DllRegisterServer(FALSE);
 
@@ -351,7 +352,7 @@ CEEE_DEFINE_DLL_REGISTER_SERVER()
 
 // Removes entries from the system registry.
 STDAPI DllUnregisterServer(void) {
-  // We always allow unregistration, even if no --enable-ceee install flag.
+  // We always allow unregistration, even if no --ceee install flag.
   //
   // We also always unregister Firefox components, regardless of whether the
   // --enable-ff-ceee flag is set; unregistration is idempotent.

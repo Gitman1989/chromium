@@ -15,7 +15,7 @@
 #include "base/scoped_ptr.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
-#include "base/thread_restrictions.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/values.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/automation/automation_provider.h"
@@ -146,7 +146,7 @@ DictionaryValue* InitialLoadObserver::GetTimingInformation() const {
 
 void InitialLoadObserver::ConditionMet() {
   registrar_.RemoveAll();
-  automation_->Send(new AutomationMsg_InitialLoadsComplete(0));
+  automation_->OnInitialLoadsComplete();
 }
 
 NewTabUILoadObserver::NewTabUILoadObserver(AutomationProvider* automation)
@@ -164,7 +164,7 @@ void NewTabUILoadObserver::Observe(NotificationType type,
   if (type == NotificationType::INITIAL_NEW_TAB_UI_LOAD) {
     Details<int> load_time(details);
     automation_->Send(
-        new AutomationMsg_InitialNewTabUILoadComplete(0, *load_time.ptr()));
+        new AutomationMsg_InitialNewTabUILoadComplete(*load_time.ptr()));
   } else {
     NOTREACHED();
   }
@@ -550,8 +550,6 @@ ExtensionUnloadNotificationObserver::ExtensionUnloadNotificationObserver()
     : did_receive_unload_notification_(false) {
   registrar_.Add(this, NotificationType::EXTENSION_UNLOADED,
                  NotificationService::AllSources());
-  registrar_.Add(this, NotificationType::EXTENSION_UNLOADED_DISABLED,
-                 NotificationService::AllSources());
 }
 
 ExtensionUnloadNotificationObserver::~ExtensionUnloadNotificationObserver() {
@@ -560,8 +558,7 @@ ExtensionUnloadNotificationObserver::~ExtensionUnloadNotificationObserver() {
 void ExtensionUnloadNotificationObserver::Observe(
     NotificationType type, const NotificationSource& source,
     const NotificationDetails& details) {
-  if (type.value == NotificationType::EXTENSION_UNLOADED ||
-      type.value == NotificationType::EXTENSION_UNLOADED_DISABLED) {
+  if (type.value == NotificationType::EXTENSION_UNLOADED) {
     did_receive_unload_notification_ = true;
   } else {
     NOTREACHED();
@@ -826,6 +823,7 @@ void ExecuteBrowserCommandObserver::Observe(
     AutomationMsg_WindowExecuteCommand::WriteReplyParams(reply_message_,
                                                          true);
     automation_->Send(reply_message_);
+    reply_message_ = NULL;
     delete this;
   } else {
     NOTREACHED();
@@ -1393,7 +1391,8 @@ void PageSnapshotTaker::OnDomOperationCompleted(const std::string& json) {
     // Don't actually start the thumbnail generator, this leads to crashes on
     // Mac, crbug.com/62986. Instead, just hook the generator to the
     // RenderViewHost manually.
-    render_view_->set_painting_observer(generator);
+
+    generator->MonitorRenderer(render_view_, true);
     generator->AskForSnapshot(render_view_, false, callback,
                               entire_page_size_, entire_page_size_);
   }
@@ -1433,7 +1432,7 @@ NTPInfoObserver::NTPInfoObserver(
         : automation_(automation),
           reply_message_(reply_message),
           consumer_(consumer),
-          request_(NULL),
+          request_(0),
           ntp_info_(new DictionaryValue) {
   top_sites_ = automation_->profile()->GetTopSites();
   if (!top_sites_) {

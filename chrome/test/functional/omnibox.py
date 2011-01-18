@@ -3,6 +3,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import glob
 import os
 import re
 import shutil
@@ -276,6 +277,55 @@ class OmniboxTest(pyauto.PyUITest):
     search_term = split_title[len(split_title) - 1]
     partial_title = self._GetOmniboxMatchesFor(search_term, windex=windex)
     self._VerifyHasBookmarkResult(partial_title)
+
+  def _GotContentHistory(self, search_text, url):
+    """Determines if omnibox returns a previously visited page for given
+       search text
+    """
+    # Omnibox doesn't change results if searching the same text repeatedly.
+    # So setting '' in omnibox before the next repeated search.
+    self.SetOmniboxText('')
+    matches = self._GetOmniboxMatchesFor(search_text)
+    matches_description = [x for x in matches if x['destination_url'] == url]
+    return 1 == len(matches_description)
+
+  def testContentHistory(self):
+    """Verify omnibox results when entering page content
+
+    Test verifies that visited page shows up in omnibox on entering page
+    content.
+    """
+    url = self.GetFileURLForPath(
+        os.path.join(self.DataDir(), 'find_in_page', 'largepage.html'))
+    self.NavigateToURL(url)
+    self.assertTrue(self.WaitUntil(
+        lambda: self._GotContentHistory('British throne', url)))
+
+  def _GotHistoryPageOption(self, search_text):
+    """Determines if omnibox returns an 'open history page' option for given
+       search text"""
+    # Omnibox doesn't change results if searching the same text repeatedly.
+    # So setting '' in omnibox before the next repeated search.
+    self.SetOmniboxText('')
+    matches = self._GetOmniboxMatchesFor(search_text)
+    matches_description = [x for x in matches if x['type'] ==
+                           'open-history-page']
+    return len(matches_description) != 0
+
+  def testRecentPageHistory(self):
+    """Verify that omnibox shows recent history option in the visited
+       url list."""
+    search_text = 'file'
+    sites = glob.glob(os.path.join(self.DataDir(), 'find_in_page', '*.html'))
+    for site in sites:
+      self.NavigateToURL(self.GetFileURLForPath(site))
+    # Using max timeout as 120 seconds, since expected page only shows up
+    # after > 60 seconds on some machines and default timeout is less than that.
+    # TODO (Nirnimesh): design an api using which we can push history changes to
+    # omnibox results.
+    self.assertTrue(self.WaitUntil(
+        lambda: self._GotHistoryPageOption(search_text),
+        timeout=120))
 
   def _VerifyHasBookmarkResult(self, matches):
     """Verify that we have a bookmark result."""

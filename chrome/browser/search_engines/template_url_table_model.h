@@ -6,9 +6,13 @@
 #define CHROME_BROWSER_SEARCH_ENGINES_TEMPLATE_URL_TABLE_MODEL_H_
 #pragma once
 
-#include "app/table_model.h"
+#include <string>
+#include <vector>
+
+#include "base/compiler_specific.h"
 #include "base/string16.h"
 #include "chrome/browser/search_engines/template_url_model_observer.h"
+#include "ui/base/models/table_model.h"
 
 class ModelEntry;
 class SkBitmap;
@@ -26,7 +30,7 @@ class TemplateURLModel;
 // the favicon. The entries in the model are sorted such that non-generated
 // appear first (grouped together) and are followed by generated keywords.
 
-class TemplateURLTableModel : public TableModel,
+class TemplateURLTableModel : public ui::TableModel,
                                      TemplateURLModelObserver {
  public:
   explicit TemplateURLTableModel(TemplateURLModel* template_url_model);
@@ -37,14 +41,14 @@ class TemplateURLTableModel : public TableModel,
   // if the TemplateURLModel wasn't initially loaded and has been loaded.
   void Reload();
 
-  // TableModel overrides.
-  virtual int RowCount();
-  virtual std::wstring GetText(int row, int column);
-  virtual SkBitmap GetIcon(int row);
-  virtual void SetObserver(TableModelObserver* observer);
-  virtual bool HasGroups();
-  virtual Groups GetGroups();
-  virtual int GetGroupID(int row);
+  // ui::TableModel overrides.
+  virtual int RowCount() OVERRIDE;
+  virtual string16 GetText(int row, int column) OVERRIDE;
+  virtual SkBitmap GetIcon(int row) OVERRIDE;
+  virtual void SetObserver(ui::TableModelObserver* observer) OVERRIDE;
+  virtual bool HasGroups() OVERRIDE;
+  virtual Groups GetGroups() OVERRIDE;
+  virtual int GetGroupID(int row) OVERRIDE;
 
   // Removes the entry at the specified index.
   void Remove(int index);
@@ -94,7 +98,7 @@ class TemplateURLTableModel : public TableModel,
   // TemplateURLModelObserver notification.
   virtual void OnTemplateURLModelChanged();
 
-  TableModelObserver* observer_;
+  ui::TableModelObserver* observer_;
 
   // The entries.
   std::vector<ModelEntry*> entries_;

@@ -4,7 +4,6 @@
 
 #include "chrome/browser/chromeos/options/language_hangul_config_view.h"
 
-#include "app/combobox_model.h"
 #include "app/l10n_util.h"
 #include "base/string16.h"
 #include "base/utf_string_conversions.h"
@@ -17,6 +16,7 @@
 #include "chrome/common/pref_names.h"
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
+#include "ui/base/models/combobox_model.h"
 #include "views/controls/button/checkbox.h"
 #include "views/controls/label.h"
 #include "views/grid_layout.h"
@@ -26,7 +26,7 @@
 namespace chromeos {
 
 // The combobox model for the list of hangul keyboards.
-class HangulKeyboardComboboxModel : public ComboboxModel {
+class HangulKeyboardComboboxModel : public ui::ComboboxModel {
  public:
   HangulKeyboardComboboxModel() {
     for (size_t i = 0; i < language_prefs::kNumHangulKeyboardNameIDPairs;
@@ -38,12 +38,12 @@ class HangulKeyboardComboboxModel : public ComboboxModel {
     }
   }
 
-  // Implements ComboboxModel interface.
+  // Implements ui::ComboboxModel interface.
   virtual int GetItemCount() {
     return static_cast<int>(layouts_.size());
   }
 
-  // Implements ComboboxModel interface.
+  // Implements ui::ComboboxModel interface.
   virtual string16 GetItemAt(int index) {
     if (index < 0 || index > GetItemCount()) {
       LOG(ERROR) << "Index is out of bounds: " << index;
@@ -111,14 +111,14 @@ int LanguageHangulConfigView::GetDialogButtons() const {
 std::wstring LanguageHangulConfigView::GetDialogButtonLabel(
     MessageBoxFlags::DialogButton button) const {
   if (button == MessageBoxFlags::DIALOGBUTTON_OK) {
-    return l10n_util::GetString(IDS_OK);
+    return UTF16ToWide(l10n_util::GetStringUTF16(IDS_OK));
   }
   return L"";
 }
 
 std::wstring LanguageHangulConfigView::GetWindowTitle() const {
-  return l10n_util::GetString(
-      IDS_OPTIONS_SETTINGS_LANGUAGES_HANGUL_SETTINGS_TITLE);
+  return UTF16ToWide(l10n_util::GetStringUTF16(
+      IDS_OPTIONS_SETTINGS_LANGUAGES_HANGUL_SETTINGS_TITLE));
 }
 
 gfx::Size LanguageHangulConfigView::GetPreferredSize() {
@@ -150,8 +150,8 @@ void LanguageHangulConfigView::InitControlLayout() {
   layout->StartRow(0, kColumnSetId);
 
   // Settings for the Hangul IME.
-  layout->AddView(new views::Label(
-      l10n_util::GetString(IDS_OPTIONS_SETTINGS_KEYBOARD_LAYOUT_TEXT)));
+  layout->AddView(new views::Label(UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_OPTIONS_SETTINGS_KEYBOARD_LAYOUT_TEXT))));
 
   hangul_keyboard_combobox_
       = new views::Combobox(hangul_keyboard_combobox_model_.get());

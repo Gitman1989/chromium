@@ -1,18 +1,19 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/find_bar_host.h"
+#include "chrome/browser/ui/views/find_bar_host.h"
 
-#include "app/keyboard_codes.h"
+#include <algorithm>
+
 #include "chrome/browser/renderer_host/render_view_host.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/tab_contents/tab_contents_view.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/find_bar_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "ui/base/keycodes/keyboard_codes.h"
 #include "views/focus/external_focus_tracker.h"
 #include "views/focus/view_storage.h"
 #include "views/widget/root_view.h"
@@ -39,22 +40,22 @@ FindBarHost::FindBarHost(BrowserView* browser_view)
 FindBarHost::~FindBarHost() {
 }
 
-bool FindBarHost::MaybeForwardKeystrokeToWebpage(
-    const views::Textfield::Keystroke& key_stroke) {
-  if (!ShouldForwardKeystrokeToWebpageNative(key_stroke)) {
+bool FindBarHost::MaybeForwardKeyEventToWebpage(
+    const views::KeyEvent& key_event) {
+  if (!ShouldForwardKeyEventToWebpageNative(key_event)) {
     // Native implementation says not to forward these events.
     return false;
   }
 
-  switch (key_stroke.GetKeyboardCode()) {
-    case app::VKEY_DOWN:
-    case app::VKEY_UP:
-    case app::VKEY_PRIOR:
-    case app::VKEY_NEXT:
+  switch (key_event.GetKeyCode()) {
+    case ui::VKEY_DOWN:
+    case ui::VKEY_UP:
+    case ui::VKEY_PRIOR:
+    case ui::VKEY_NEXT:
       break;
-    case app::VKEY_HOME:
-    case app::VKEY_END:
-      if (key_stroke.IsControlHeld())
+    case ui::VKEY_HOME:
+    case ui::VKEY_END:
+      if (key_event.IsControlDown())
         break;
     // Fall through.
     default:
@@ -70,7 +71,7 @@ bool FindBarHost::MaybeForwardKeystrokeToWebpage(
   // Make sure we don't have a text field element interfering with keyboard
   // input. Otherwise Up and Down arrow key strokes get eaten. "Nom Nom Nom".
   render_view_host->ClearFocusedNode();
-  NativeWebKeyboardEvent event = GetKeyboardEvent(contents, key_stroke);
+  NativeWebKeyboardEvent event = GetKeyboardEvent(contents, key_event);
   render_view_host->ForwardKeyboardEvent(event);
   return true;
 }
@@ -164,11 +165,11 @@ FindBarTesting* FindBarHost::GetFindBarTesting() {
 // FindBarWin, views::AcceleratorTarget implementation:
 
 bool FindBarHost::AcceleratorPressed(const views::Accelerator& accelerator) {
-  app::KeyboardCode key = accelerator.GetKeyCode();
-  if (key == app::VKEY_RETURN && accelerator.IsCtrlDown()) {
+  ui::KeyboardCode key = accelerator.GetKeyCode();
+  if (key == ui::VKEY_RETURN && accelerator.IsCtrlDown()) {
     // Ctrl+Enter closes the Find session and navigates any link that is active.
     find_bar_controller_->EndFindSession(FindBarController::kActivateSelection);
-  } else if (key == app::VKEY_ESCAPE) {
+  } else if (key == ui::VKEY_ESCAPE) {
     // This will end the Find session and hide the window, causing it to loose
     // focus and in the process unregister us as the handler for the Escape
     // accelerator through the FocusWillChange event.
@@ -288,13 +289,13 @@ void FindBarHost::RegisterAccelerators() {
   DropdownBarHost::RegisterAccelerators();
 
   // Register for Ctrl+Return.
-  views::Accelerator escape(app::VKEY_RETURN, false, true, false);
+  views::Accelerator escape(ui::VKEY_RETURN, false, true, false);
   focus_manager()->RegisterAccelerator(escape, this);
 }
 
 void FindBarHost::UnregisterAccelerators() {
   // Unregister Ctrl+Return.
-  views::Accelerator escape(app::VKEY_RETURN, false, true, false);
+  views::Accelerator escape(ui::VKEY_RETURN, false, true, false);
   focus_manager()->UnregisterAccelerator(escape, this);
 
   DropdownBarHost::UnregisterAccelerators();

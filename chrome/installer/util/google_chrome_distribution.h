@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -16,6 +16,7 @@
 #include "chrome/installer/util/util_constants.h"
 
 class DictionaryValue;
+class FilePath;
 
 class GoogleChromeDistribution : public BrowserDistribution {
  public:
@@ -65,8 +66,9 @@ class GoogleChromeDistribution : public BrowserDistribution {
 
   virtual std::wstring GetVersionKey();
 
-  virtual void UpdateDiffInstallStatus(bool system_install,
-      bool incremental_install, installer::InstallStatus install_status);
+  virtual void UpdateInstallStatus(bool system_install,
+      bool incremental_install, bool multi_install,
+      installer::InstallStatus install_status);
 
   virtual void LaunchUserExperiment(installer::InstallStatus status,
       const Version& version,
@@ -80,6 +82,8 @@ class GoogleChromeDistribution : public BrowserDistribution {
       const installer::Product& installation);
 
   const std::wstring& product_guid() { return product_guid_; }
+
+  virtual bool SetChannelFlags(bool set, installer::ChannelInfo* channel_info);
 
  protected:
   void set_product_guid(const std::wstring& guid) { product_guid_ = guid; }
@@ -99,11 +103,11 @@ class GoogleChromeDistribution : public BrowserDistribution {
   // Returns true if uninstall_metrics has been successfully populated with
   // the uninstall metrics, false otherwise.
   virtual bool ExtractUninstallMetricsFromFile(
-      const std::wstring& file_path, std::wstring* uninstall_metrics);
+      const FilePath& file_path, std::wstring* uninstall_metrics);
 
   // Extracts uninstall metrics from the given JSON value.
   virtual bool ExtractUninstallMetrics(const DictionaryValue& root,
-      std::wstring* uninstall_metrics);
+                                       std::wstring* uninstall_metrics);
 
   // Given a DictionaryValue containing a set of uninstall metrics,
   // this builds a URL parameter list of all the contained metrics.

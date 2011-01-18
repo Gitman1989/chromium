@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,6 +16,10 @@
 #include "ipc/ipc_switches.h"
 #include "printing/native_metafile.h"
 #include "printing/page_range.h"
+
+#if defined(OS_WIN)
+#include "base/win/scoped_handle.h"
+#endif
 
 ServiceUtilityProcessHost::ServiceUtilityProcessHost(
     Client* client, base::MessageLoopProxy* client_message_loop_proxy)
@@ -50,7 +54,7 @@ bool ServiceUtilityProcessHost::StartRenderPDFPagesToMetafile(
   if (!StartProcess(false, scratch_metafile_dir_->path()))
     return false;
 
-  ScopedHandle pdf_file(
+  base::win::ScopedHandle pdf_file(
       ::CreateFile(pdf_path.value().c_str(),
                    GENERIC_READ,
                    FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -128,7 +132,7 @@ void ServiceUtilityProcessHost::OnChildDied() {
   ServiceChildProcessHost::OnChildDied();
 }
 
-void ServiceUtilityProcessHost::OnMessageReceived(const IPC::Message& message) {
+bool ServiceUtilityProcessHost::OnMessageReceived(const IPC::Message& message) {
   bool msg_is_ok = false;
   IPC_BEGIN_MESSAGE_MAP_EX(ServiceUtilityProcessHost, message, msg_is_ok)
 #if defined(OS_WIN)  // This hack is Windows-specific.
@@ -138,6 +142,7 @@ void ServiceUtilityProcessHost::OnMessageReceived(const IPC::Message& message) {
                         OnRenderPDFPagesToMetafileSucceeded)
     IPC_MESSAGE_UNHANDLED(msg_is_ok__ = MessageForClient(message))
   IPC_END_MESSAGE_MAP_EX()
+  return true;
 }
 
 bool ServiceUtilityProcessHost::MessageForClient(const IPC::Message& message) {
@@ -172,8 +177,9 @@ void ServiceUtilityProcessHost::OnRenderPDFPagesToMetafileSucceeded(
   waiting_for_reply_ = false;
 }
 
-void ServiceUtilityProcessHost::Client::OnMessageReceived(
+bool ServiceUtilityProcessHost::Client::OnMessageReceived(
     const IPC::Message& message) {
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(ServiceUtilityProcessHost, message)
     IPC_MESSAGE_HANDLER(UtilityHostMsg_RenderPDFPagesToMetafile_Failed,
                         Client::OnRenderPDFPagesToMetafileFailed)
@@ -181,7 +187,9 @@ void ServiceUtilityProcessHost::Client::OnMessageReceived(
                         Client::OnGetPrinterCapsAndDefaultsSucceeded)
     IPC_MESSAGE_HANDLER(UtilityHostMsg_GetPrinterCapsAndDefaults_Failed,
                         Client::OnGetPrinterCapsAndDefaultsFailed)
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP_EX()
+  return handled;
 }
 
 void ServiceUtilityProcessHost::Client::MetafileAvailable(
@@ -190,7 +198,8 @@ void ServiceUtilityProcessHost::Client::MetafileAvailable(
   // The metafile was created in a temp folder which needs to get deleted after
   // we have processed it.
   ScopedTempDir scratch_metafile_dir;
-  scratch_metafile_dir.Set(metafile_path.DirName());
+  if (!scratch_metafile_dir.Set(metafile_path.DirName()))
+    LOG(WARNING) << "Unable to set scratch metafile directory";
 #if defined(OS_WIN)
   printing::NativeMetafile metafile;
   if (!metafile.CreateFromFile(metafile_path)) {

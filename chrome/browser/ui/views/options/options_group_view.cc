@@ -1,14 +1,16 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include <vsstyle.h>
 #include <vssym32.h>
 
-#include "chrome/browser/views/options/options_group_view.h"
+#include "chrome/browser/ui/views/options/options_group_view.h"
 
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
+#include "base/string_number_conversions.h"
+#include "base/utf_string_conversions.h"
 #include "gfx/canvas.h"
 #include "gfx/font.h"
 #include "gfx/native_theme_win.h"
@@ -49,8 +51,8 @@ OptionsGroupView::OptionsGroupView(views::View* contents,
   description_label_->SetMultiLine(true);
   description_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
 
-  SetAccessibleName(title);
-  contents->SetAccessibleName(title);
+  SetAccessibleName(WideToUTF16Hack(title));
+  contents->SetAccessibleName(WideToUTF16Hack(title));
 }
 
 OptionsGroupView::~OptionsGroupView() {
@@ -103,10 +105,11 @@ void OptionsGroupView::Init() {
 
   ResourceBundle& rb = ResourceBundle::GetSharedInstance();
   const gfx::Font& font = rb.GetFont(ResourceBundle::BaseFont);
-  std::wstring left_column_chars =
-      l10n_util::GetString(IDS_OPTIONS_DIALOG_LEFT_COLUMN_WIDTH_CHARS);
-  int left_column_width =
-      font.GetExpectedTextWidth(_wtoi(left_column_chars.c_str()));
+  int left_column_chars = 0;
+  base::StringToInt(
+      l10n_util::GetStringUTF16(IDS_OPTIONS_DIALOG_LEFT_COLUMN_WIDTH_CHARS),
+      &left_column_chars);
+  int left_column_width = font.GetExpectedTextWidth(left_column_chars);
 
   const int two_column_layout_id = 0;
   ColumnSet* column_set = layout->AddColumnSet(two_column_layout_id);

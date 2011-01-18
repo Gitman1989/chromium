@@ -1,4 +1,4 @@
-# Copyright (c) 2010 The Chromium Authors. All rights reserved.
+# Copyright (c) 2011 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -7,12 +7,12 @@ from grit.format.policy_templates.writers import plist_helper
 from grit.format.policy_templates.writers import template_writer
 
 
-def GetWriter(config, messages):
+def GetWriter(config):
   '''Factory method for creating PListStringsWriter objects.
   See the constructor of TemplateWriter for description of
   arguments.
   '''
-  return PListStringsWriter(['mac'], config, messages)
+  return PListStringsWriter(['mac'], config)
 
 
 class PListStringsWriter(template_writer.TemplateWriter):
@@ -31,11 +31,14 @@ class PListStringsWriter(template_writer.TemplateWriter):
       desc: The text of the description to add.
     '''
     caption = caption.replace('"', '\\"')
-    caption = caption.replace('\n','\\n')
+    caption = caption.replace('\n', '\\n')
     desc = desc.replace('"', '\\"')
-    desc = desc.replace('\n','\\n')
+    desc = desc.replace('\n', '\\n')
     self._out.append('%s.pfm_title = \"%s\";' % (item_name, caption))
     self._out.append('%s.pfm_description = \"%s\";' % (item_name, desc))
+
+  def PreprocessPolicies(self, policy_list):
+    return self.FlattenGroupsAndSortPolicies(policy_list)
 
   def WritePolicy(self, policy):
     '''Add strings to the stringtable corresponding a given policy.
@@ -45,11 +48,11 @@ class PListStringsWriter(template_writer.TemplateWriter):
         string table.
     '''
     desc = policy['desc']
-    if (policy['type'] == 'enum'):
+    if policy['type'] in ('int-enum','string-enum'):
       # Append the captions of enum items to the description string.
       item_descs = []
       for item in policy['items']:
-        item_descs.append(item['value'] + ' - ' + item['caption'])
+        item_descs.append(str(item['value']) + ' - ' + item['caption'])
       desc = '\n'.join(item_descs) + '\n' + desc
 
     self._AddToStringTable(policy['name'], policy['label'], desc)
@@ -59,7 +62,7 @@ class PListStringsWriter(template_writer.TemplateWriter):
     self._AddToStringTable(
         app_name,
         self.config['app_name'],
-        self.messages['IDS_POLICY_MAC_CHROME_PREFERENCES'])
+        self.messages['mac_chrome_preferences']['text'])
 
   def Init(self):
     # A buffer for the lines of the string table being generated.

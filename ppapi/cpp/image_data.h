@@ -12,6 +12,7 @@
 
 namespace pp {
 
+class Instance;
 class Plugin;
 
 class ImageData : public Resource {
@@ -28,12 +29,12 @@ class ImageData : public Resource {
 
   // Allocates a new ImageData in the browser with the given parameters. The
   // resulting object will be is_null() if the allocation failed.
-  ImageData(PP_ImageDataFormat format,
+  ImageData(Instance* instance,
+            PP_ImageDataFormat format,
             const Size& size,
             bool init_to_zero);
 
   ImageData& operator=(const ImageData& other);
-  void swap(ImageData& other);
 
   // Returns the browser's preferred format for images. Using this format
   // guarantees no extra conversions will occur when painting.

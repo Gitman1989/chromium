@@ -8,7 +8,7 @@
 
 #include "ppapi/cpp/common.h"
 #include "ppapi/cpp/image_data.h"
-#include "ppapi/cpp/module.h"
+#include "ppapi/cpp/instance.h"
 #include "ppapi/cpp/point.h"
 #include "ppapi/cpp/rect.h"
 #include "ppapi/cpp/module_impl.h"
@@ -97,19 +97,26 @@ TextRun_Dev& TextRun_Dev::operator=(const TextRun_Dev& other) {
 
 // Font ------------------------------------------------------------------------
 
+Font_Dev::Font_Dev() : Resource() {
+}
+
 Font_Dev::Font_Dev(PP_Resource resource) : Resource(resource) {
 }
 
-Font_Dev::Font_Dev(const FontDescription_Dev& description) {
+Font_Dev::Font_Dev(Instance* instance, const FontDescription_Dev& description) {
   if (!has_interface<PPB_Font_Dev>())
     return;
   PassRefFromConstructor(get_interface<PPB_Font_Dev>()->Create(
-      Module::Get()->pp_module(), &description.pp_font_description()));
+      instance->pp_instance(), &description.pp_font_description()));
 }
 
 Font_Dev::Font_Dev(const Font_Dev& other) : Resource(other) {
 }
 
+Font_Dev& Font_Dev::operator=(const Font_Dev& other) {
+  Resource::operator=(other);
+  return *this;
+}
 
 bool Font_Dev::Describe(FontDescription_Dev* description,
                         PP_FontMetrics_Dev* metrics) const {

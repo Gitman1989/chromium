@@ -33,7 +33,7 @@ class PluginChannel : public PluginChannelBase {
   virtual ~PluginChannel();
 
   virtual bool Send(IPC::Message* msg);
-  virtual void OnMessageReceived(const IPC::Message& message);
+  virtual bool OnMessageReceived(const IPC::Message& message);
 
   base::ProcessHandle renderer_handle() const { return renderer_handle_; }
   int renderer_id() { return renderer_id_; }
@@ -69,15 +69,15 @@ class PluginChannel : public PluginChannelBase {
   // Called on the plugin thread
   PluginChannel();
 
-  virtual void OnControlMessageReceived(const IPC::Message& msg);
+  virtual bool OnControlMessageReceived(const IPC::Message& msg);
 
   static PluginChannelBase* ClassFactory() { return new PluginChannel(); }
 
   void OnCreateInstance(const std::string& mime_type, int* instance_id);
   void OnDestroyInstance(int instance_id, IPC::Message* reply_msg);
   void OnGenerateRouteID(int* route_id);
-  void OnClearSiteData(uint64 flags,
-                       const std::string& domain,
+  void OnClearSiteData(const std::string& site,
+                       uint64 flags,
                        base::Time begin_time);
 
   std::vector<scoped_refptr<WebPluginDelegateStub> > plugin_stubs_;

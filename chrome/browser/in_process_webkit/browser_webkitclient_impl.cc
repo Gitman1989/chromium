@@ -10,10 +10,10 @@
 #include "chrome/browser/in_process_webkit/indexed_db_key_utility_client.h"
 #include "chrome/common/indexed_db_key.h"
 #include "chrome/common/serialized_script_value.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebData.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSerializedScriptValue.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebString.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURL.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebData.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSerializedScriptValue.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURL.h"
 #include "webkit/glue/webkit_glue.h"
 
 BrowserWebKitClientImpl::BrowserWebKitClientImpl() {
@@ -148,8 +148,10 @@ int BrowserWebKitClientImpl::databaseDeleteFile(
 }
 
 void BrowserWebKitClientImpl::idbShutdown() {
-  if (indexed_db_key_utility_client_.get())
+  if (indexed_db_key_utility_client_.get()) {
     indexed_db_key_utility_client_->EndUtilityProcess();
+    indexed_db_key_utility_client_ = NULL;
+  }
 }
 
 void BrowserWebKitClientImpl::createIDBKeysFromSerializedValuesAndKeyPath(

@@ -1,8 +1,6 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
-
 
 //------------------------------------------------------------------------------
 // Description of the life cycle of a instance of MetricsService.
@@ -163,7 +161,8 @@
 #include "base/md5.h"
 #include "base/metrics/histogram.h"
 #include "base/string_number_conversions.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
+#include "base/threading/platform_thread.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
@@ -1333,21 +1332,21 @@ void MetricsService::PrepareFetchWithPendingLog() {
   current_fetch_->set_upload_data(kMetricsType, compressed_log_);
 }
 
-static const char* StatusToString(const URLRequestStatus& status) {
+static const char* StatusToString(const net::URLRequestStatus& status) {
   switch (status.status()) {
-    case URLRequestStatus::SUCCESS:
+    case net::URLRequestStatus::SUCCESS:
       return "SUCCESS";
 
-    case URLRequestStatus::IO_PENDING:
+    case net::URLRequestStatus::IO_PENDING:
       return "IO_PENDING";
 
-    case URLRequestStatus::HANDLED_EXTERNALLY:
+    case net::URLRequestStatus::HANDLED_EXTERNALLY:
       return "HANDLED_EXTERNALLY";
 
-    case URLRequestStatus::CANCELED:
+    case net::URLRequestStatus::CANCELED:
       return "CANCELED";
 
-    case URLRequestStatus::FAILED:
+    case net::URLRequestStatus::FAILED:
       return "FAILED";
 
     default:
@@ -1358,7 +1357,7 @@ static const char* StatusToString(const URLRequestStatus& status) {
 
 void MetricsService::OnURLFetchComplete(const URLFetcher* source,
                                         const GURL& url,
-                                        const URLRequestStatus& status,
+                                        const net::URLRequestStatus& status,
                                         int response_code,
                                         const ResponseCookies& cookies,
                                         const std::string& data) {
@@ -1904,10 +1903,10 @@ void MetricsService::RecordCurrentState(PrefService* pref) {
 }
 
 static bool IsSingleThreaded() {
-  static PlatformThreadId thread_id = 0;
+  static base::PlatformThreadId thread_id = 0;
   if (!thread_id)
-    thread_id = PlatformThread::CurrentId();
-  return PlatformThread::CurrentId() == thread_id;
+    thread_id = base::PlatformThread::CurrentId();
+  return base::PlatformThread::CurrentId() == thread_id;
 }
 
 #if defined(OS_CHROMEOS)

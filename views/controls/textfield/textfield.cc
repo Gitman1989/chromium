@@ -10,22 +10,23 @@
 
 #include <string>
 
-#include "app/keyboard_codes.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "gfx/insets.h"
+#include "ui/base/keycodes/keyboard_codes.h"
 #include "views/controls/native/native_view_host.h"
 #include "views/controls/textfield/native_textfield_wrapper.h"
 #include "views/widget/widget.h"
 
 #if defined(OS_LINUX)
-#include "app/keyboard_code_conversion_gtk.h"
+#include "ui/base/keycodes/keyboard_code_conversion_gtk.h"
 #elif defined(OS_WIN)
-#include "app/win_util.h"
-#include "base/win_util.h"
+#include "app/win/win_util.h"
+#include "base/win/win_util.h"
 // TODO(beng): this should be removed when the OS_WIN hack from
 // ViewHierarchyChanged is removed.
 #include "views/controls/textfield/native_textfield_win.h"
+#include "views/controls/textfield/native_textfield_views.h"
 #endif
 
 namespace views {
@@ -261,7 +262,7 @@ gfx::Size Textfield::GetPreferredSize() {
 }
 
 bool Textfield::IsFocusable() const {
-  return IsEnabled() && !read_only_;
+  return View::IsFocusable() && !read_only_;
 }
 
 void Textfield::AboutToRequestFocusFromTabTraversal(bool reverse) {
@@ -271,15 +272,15 @@ void Textfield::AboutToRequestFocusFromTabTraversal(bool reverse) {
 bool Textfield::SkipDefaultKeyEventProcessing(const KeyEvent& e) {
   // TODO(hamaji): Figure out which keyboard combinations we need to add here,
   //               similar to LocationBarView::SkipDefaultKeyEventProcessing.
-  app::KeyboardCode key = e.GetKeyCode();
-  if (key == app::VKEY_BACK)
+  ui::KeyboardCode key = e.GetKeyCode();
+  if (key == ui::VKEY_BACK)
     return true;  // We'll handle BackSpace ourselves.
 
 #if defined(OS_WIN)
   // We don't translate accelerators for ALT + NumPad digit on Windows, they are
   // used for entering special characters.  We do translate alt-home.
-  if (e.IsAltDown() && (key != app::VKEY_HOME) &&
-      win_util::IsNumPadDigit(key, e.IsExtendedKey()))
+  if (e.IsAltDown() && (key != ui::VKEY_HOME) &&
+      app::win::IsNumPadDigit(key, e.IsExtendedKey()))
     return true;
 #endif
   return false;
@@ -288,6 +289,29 @@ bool Textfield::SkipDefaultKeyEventProcessing(const KeyEvent& e) {
 void Textfield::PaintFocusBorder(gfx::Canvas* canvas) {
   if (NativeViewHost::kRenderNativeControlFocus)
     View::PaintFocusBorder(canvas);
+}
+
+bool Textfield::OnKeyPressed(const views::KeyEvent& e) {
+  return native_wrapper_ && native_wrapper_->HandleKeyPressed(e);
+}
+
+bool Textfield::OnKeyReleased(const views::KeyEvent& e) {
+  return native_wrapper_ && native_wrapper_->HandleKeyReleased(e);
+}
+
+void Textfield::WillGainFocus() {
+  if (native_wrapper_)
+    native_wrapper_->HandleWillGainFocus();
+}
+
+void Textfield::DidGainFocus() {
+  if (native_wrapper_)
+    native_wrapper_->HandleDidGainFocus();
+}
+
+void Textfield::WillLoseFocus() {
+  if (native_wrapper_)
+    native_wrapper_->HandleWillLoseFocus();
 }
 
 AccessibilityTypes::Role Textfield::GetAccessibleRole() {
@@ -303,10 +327,10 @@ AccessibilityTypes::State Textfield::GetAccessibleState() {
   return state;
 }
 
-std::wstring Textfield::GetAccessibleValue() {
+string16 Textfield::GetAccessibleValue() {
   if (!text_.empty())
-    return UTF16ToWide(text_);
-  return std::wstring();
+    return text_;
+  return string16();
 }
 
 void Textfield::SetEnabled(bool enabled) {
@@ -316,12 +340,11 @@ void Textfield::SetEnabled(bool enabled) {
 }
 
 void Textfield::Focus() {
-  if (native_wrapper_) {
-    // Forward the focus to the wrapper if it exists.
-    native_wrapper_->SetFocus();
-  } else {
-    // If there is no wrapper, cause the RootView to be focused so that we still
-    // get keyboard messages.
+  // Forward the focus to the wrapper if it exists.
+  if (!native_wrapper_ || !native_wrapper_->SetFocus()) {
+    // If there is no wrapper or the wrapper din't take focus, call
+    // View::Focus to clear the native focus so that we still get
+    // keyboard messages.
     View::Focus();
   }
 }
@@ -339,13 +362,15 @@ void Textfield::ViewHierarchyChanged(bool is_add, View* parent, View* child) {
     UpdateAllProperties();
 
 #if defined(OS_WIN)
-    // TODO(beng): remove this once NativeTextfieldWin subclasses
-    // NativeControlWin. This is currently called to perform post-AddChildView
-    // initialization for the wrapper. The GTK version subclasses things
-    // correctly and doesn't need this.
-    //
-    // Remove the include for native_textfield_win.h above when you fix this.
-    static_cast<NativeTextfieldWin*>(native_wrapper_)->AttachHack();
+    if (!NativeTextfieldViews::IsTextfieldViewsEnabled()) {
+      // TODO(beng): remove this once NativeTextfieldWin subclasses
+      // NativeControlWin. This is currently called to perform post-AddChildView
+      // initialization for the wrapper. The GTK version subclasses things
+      // correctly and doesn't need this.
+      //
+      // Remove the include for native_textfield_win.h above when you fix this.
+      static_cast<NativeTextfieldWin*>(native_wrapper_)->AttachHack();
+    }
 #endif
   }
 }
@@ -353,31 +378,5 @@ void Textfield::ViewHierarchyChanged(bool is_add, View* parent, View* child) {
 std::string Textfield::GetClassName() const {
   return kViewClassName;
 }
-
-app::KeyboardCode Textfield::Keystroke::GetKeyboardCode() const {
-#if defined(OS_WIN)
-  return static_cast<app::KeyboardCode>(key_);
-#else
-  return event_->GetKeyCode();
-#endif
-}
-
-#if defined(OS_WIN)
-bool Textfield::Keystroke::IsControlHeld() const {
-  return win_util::IsCtrlPressed();
-}
-
-bool Textfield::Keystroke::IsShiftHeld() const {
-  return win_util::IsShiftPressed();
-}
-#else
-bool Textfield::Keystroke::IsControlHeld() const {
-  return event_->IsControlDown();
-}
-
-bool Textfield::Keystroke::IsShiftHeld() const {
-  return event_->IsShiftDown();
-}
-#endif
 
 }  // namespace views

@@ -1,4 +1,4 @@
-# Copyright (c) 2010 The Chromium Authors. All rights reserved.
+# Copyright (c) 2011 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -6,12 +6,12 @@
 from grit.format.policy_templates.writers import template_writer
 
 
-def GetWriter(config, messages):
+def GetWriter(config):
   '''Factory method for creating AdmWriter objects.
   See the constructor of TemplateWriter for description of
   arguments.
   '''
-  return AdmWriter(['win'], config, messages)
+  return AdmWriter(['win'], config)
 
 
 class AdmWriter(template_writer.TemplateWriter):
@@ -21,13 +21,15 @@ class AdmWriter(template_writer.TemplateWriter):
 
   TYPE_TO_INPUT = {
     'string': 'EDITTEXT',
-    'enum': 'DROPDOWNLIST',
+    'int': 'NUMERIC',
+    'string-enum': 'DROPDOWNLIST',
+    'int-enum': 'DROPDOWNLIST',
     'list': 'LISTBOX'}
   NEWLINE = '\r\n'
 
   def _AddGuiString(self, name, value):
     # Escape newlines in the value.
-    value = value.replace('\n','\\n')
+    value = value.replace('\n', '\\n')
     line = '%s="%s"' % (name, value)
     self.str_list.append(line)
 
@@ -76,11 +78,15 @@ class AdmWriter(template_writer.TemplateWriter):
       self._PrintLine('VALUEPREFIX ""')
     else:
       self._PrintLine('VALUENAME "%s"' % policy['name'])
-    if policy['type'] == 'enum':
+    if policy['type'] in ('int-enum', 'string-enum'):
       self._PrintLine('ITEMLIST', 1)
       for item in policy['items']:
-        self._PrintLine('NAME !!%s_DropDown VALUE NUMERIC %s' %
-                        (item['name'],  item['value']))
+        if policy['type'] == 'int-enum':
+          value_text = 'NUMERIC ' + str(item['value'])
+        else:
+          value_text = '"' + item['value'] + '"'
+        self._PrintLine('NAME !!%s_DropDown VALUE %s' %
+            (item['name'], value_text))
         self._AddGuiString(item['name'] + '_DropDown', item['caption'])
       self._PrintLine('END ITEMLIST', -1)
     self._PrintLine('END PART', -1)
@@ -119,7 +125,7 @@ class AdmWriter(template_writer.TemplateWriter):
   def BeginTemplate(self):
     category_path = self.config['win_category_path']
     self._AddGuiString(self.config['win_supported_os'],
-                       self.messages[self.config['win_supported_os_msg']])
+                       self.messages['win_supported_winxpsp2']['text'])
     self._PrintLine(
         'CLASS ' + self.config['win_group_policy_class'].upper(),
         1)

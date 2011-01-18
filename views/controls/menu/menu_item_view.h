@@ -12,6 +12,8 @@
 #include <windows.h>
 #endif
 
+// TODO(avi): remove when not needed
+#include "base/utf_string_conversions.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "views/view.h"
 
@@ -19,7 +21,7 @@
 #include "gfx/native_theme_win.h"
 #endif
 
-namespace menus {
+namespace ui {
 class MenuModel;
 }
 
@@ -104,8 +106,8 @@ class MenuItemView : public View {
 
   // Returns the accessible name to be used with screen readers. Mnemonics are
   // removed and the menu item accelerator text is appended.
-  static std::wstring GetAccessibleNameForMenuItem(
-      const std::wstring& item_text, const std::wstring& accelerator_text);
+  static string16 GetAccessibleNameForMenuItem(
+      const string16& item_text, const string16& accelerator_text);
 
   // Run methods. See description above class for details. Both Run methods take
   // a rectangle, which is used to position the menu. |has_mnemonics| indicates
@@ -182,7 +184,7 @@ class MenuItemView : public View {
   // Creates a menu item for the specified entry in the model and appends it as
   // a child. |index| should be offset by GetFirstItemIndex() before calling
   // this function.
-  MenuItemView* AppendMenuItemFromModel(menus::MenuModel* model,
+  MenuItemView* AppendMenuItemFromModel(ui::MenuModel* model,
                                         int index,
                                         int id);
 
@@ -209,7 +211,8 @@ class MenuItemView : public View {
   void SetTitle(const std::wstring& title);
 
   // Returns the title.
-  const std::wstring& GetTitle() const { return title_; }
+  // TODO(avi): switch back to returning a const reference.
+  const std::wstring GetTitle() const { return UTF16ToWideHack(title_); }
 
   // Returns the type of this menu.
   const Type& GetType() { return type_; }
@@ -345,7 +348,7 @@ class MenuItemView : public View {
   void DestroyAllMenuHosts();
 
   // Returns the accelerator text.
-  std::wstring GetAcceleratorText();
+  string16 GetAcceleratorText();
 
   // Returns the various margins.
   int GetTopMargin();
@@ -383,7 +386,7 @@ class MenuItemView : public View {
   SubmenuView* submenu_;
 
   // Title.
-  std::wstring title_;
+  string16 title_;
 
   // Icon.
   SkBitmap icon_;
@@ -398,7 +401,7 @@ class MenuItemView : public View {
   bool has_icons_;
 
   // The tooltip to show on hover for this menu item.
-  std::wstring tooltip_;
+  string16 tooltip_;
 
   // X-coordinate of where the label starts.
   static int label_start_;

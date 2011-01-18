@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,23 +15,23 @@ class MessageLoopProxy;
 
 namespace net {
 class CookieStore;
+class URLRequestContext;
 }
 
-class URLRequestContext;
 struct URLRequestContextGetterTraits;
 
-// Interface for retrieving an URLRequestContext.
+// Interface for retrieving an net::URLRequestContext.
 class URLRequestContextGetter
     : public base::RefCountedThreadSafe<URLRequestContextGetter,
                                         URLRequestContextGetterTraits> {
  public:
-  virtual URLRequestContext* GetURLRequestContext() = 0;
+  virtual net::URLRequestContext* GetURLRequestContext() = 0;
 
   // Defaults to GetURLRequestContext()->cookie_store(), but
   // implementations can override it.
   virtual net::CookieStore* GetCookieStore();
   // Returns a MessageLoopProxy corresponding to the thread on which the
-  // request IO happens (the thread on which the returned URLRequestContext
+  // request IO happens (the thread on which the returned net::URLRequestContext
   // may be used).
   virtual scoped_refptr<base::MessageLoopProxy>
       GetIOMessageLoopProxy() const = 0;

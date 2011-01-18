@@ -10,14 +10,12 @@
 #include "base/message_loop.h"
 #include "base/path_service.h"
 #include "chrome/browser/browser_thread.h"
-#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/notification_service.h"
-#include "chrome/common/pref_names.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 class ProfileManagerTest : public testing::Test {

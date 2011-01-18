@@ -5,7 +5,8 @@
 {
   'variables': {
     'chromium_code': 1,
-    'grit_info_cmd': ['python', '../../tools/grit/grit_info.py',],
+    'grit_info_cmd': ['python', '../../tools/grit/grit_info.py',
+                      '<@(grit_defines)'],
     'grit_out_dir': '<(SHARED_INTERMEDIATE_DIR)/chrome',
     'grit_cmd': ['python', '../../tools/grit/grit.py'],
    },
@@ -79,12 +80,8 @@
           ],
           'action': ['<@(grit_cmd)',
                      '-i', '<(input_path)', 'build',
-                     '-o', '<(grit_out_dir)/default_plugin_resources'],
-          'conditions': [
-            ['toolkit_views==1', {
-              'action': ['-D', 'toolkit_views'],
-            }],
-          ],
+                     '-o', '<(grit_out_dir)/default_plugin_resources',
+                     '<@(grit_defines)'],
           'message': 'Generating resources from <(input_path)',
         },
       ],

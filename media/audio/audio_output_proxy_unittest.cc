@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 #include "base/message_loop.h"
-#include "base/platform_thread.h"
+#include "base/threading/platform_thread.h"
 #include "media/audio/audio_output_dispatcher.h"
 #include "media/audio/audio_output_proxy.h"
 #include "media/audio/audio_manager.h"
@@ -38,6 +38,7 @@ class MockAudioManager : public AudioManager {
   MockAudioManager() { };
 
   MOCK_METHOD0(Init, void());
+  MOCK_METHOD0(Cleanup, void());
   MOCK_METHOD0(HasAudioOutputDevices, bool());
   MOCK_METHOD0(HasAudioInputDevices, bool());
   MOCK_METHOD0(GetAudioInputDeviceModel, string16());
@@ -125,7 +126,7 @@ TEST_F(AudioOutputProxyTest, CreateAndWait) {
   EXPECT_TRUE(proxy->Open());
 
   // Simulate a delay.
-  PlatformThread::Sleep(kTestCloseDelayMs * 2);
+  base::PlatformThread::Sleep(kTestCloseDelayMs * 2);
   message_loop_.RunAllPending();
 
   // Verify expectation before calling Close().
@@ -185,7 +186,7 @@ TEST_F(AudioOutputProxyTest, CloseAfterStop) {
 
   // Simulate a delay.
   message_loop_.RunAllPending();
-  PlatformThread::Sleep(kTestCloseDelayMs * 10);
+  base::PlatformThread::Sleep(kTestCloseDelayMs * 10);
   message_loop_.RunAllPending();
 
   // Verify expectation before calling Close().
@@ -332,7 +333,7 @@ TEST_F(AudioOutputProxyTest, StartFailed) {
   EXPECT_TRUE(proxy->Open());
 
   // Simulate a delay.
-  PlatformThread::Sleep(kTestCloseDelayMs);
+  base::PlatformThread::Sleep(kTestCloseDelayMs);
   message_loop_.RunAllPending();
 
   // Verify expectation before calling Close().

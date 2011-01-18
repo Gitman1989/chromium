@@ -4,16 +4,16 @@
 
 #include "webkit/tools/test_shell/webwidget_host.h"
 
+#include "app/win/hwnd_util.h"
 #include "base/logging.h"
-#include "base/win_util.h"
 #include "gfx/rect.h"
 #include "skia/ext/platform_canvas.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebInputEvent.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPopupMenu.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebScreenInfo.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSize.h"
-#include "third_party/WebKit/WebKit/chromium/public/win/WebInputEventFactory.h"
-#include "third_party/WebKit/WebKit/chromium/public/win/WebScreenInfoFactory.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPopupMenu.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebScreenInfo.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSize.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/win/WebInputEventFactory.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/win/WebScreenInfoFactory.h"
 #include "webkit/tools/test_shell/test_shell.h"
 
 using WebKit::WebInputEvent;
@@ -52,7 +52,7 @@ WebWidgetHost* WebWidgetHost::Create(HWND parent_view,
                                kWindowClassName, kWindowClassName, WS_POPUP,
                                0, 0, 0, 0,
                                parent_view, NULL, GetModuleHandle(NULL), NULL);
-  win_util::SetWindowUserData(host->view_, host);
+  app::win::SetWindowUserData(host->view_, host);
 
   host->webwidget_ = WebPopupMenu::create(client);
 
@@ -60,7 +60,7 @@ WebWidgetHost* WebWidgetHost::Create(HWND parent_view,
 }
 
 static WebWidgetHost* FromWindow(HWND view) {
-  return reinterpret_cast<WebWidgetHost*>(win_util::GetWindowUserData(view));
+  return reinterpret_cast<WebWidgetHost*>(app::win::GetWindowUserData(view));
 }
 
 /*static*/
@@ -205,7 +205,7 @@ WebWidgetHost::WebWidgetHost()
 }
 
 WebWidgetHost::~WebWidgetHost() {
-  win_util::SetWindowUserData(view_, 0);
+  app::win::SetWindowUserData(view_, 0);
 
   TrackMouseLeave(false);
 

@@ -1,8 +1,8 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/tabs/browser_tab_strip_controller.h"
+#include "chrome/browser/ui/views/tabs/browser_tab_strip_controller.h"
 
 #include "base/auto_reset.h"
 #include "base/command_line.h"
@@ -16,7 +16,6 @@
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
 #include "chrome/browser/ui/views/tabs/base_tab_strip.h"
 #include "chrome/browser/ui/views/tabs/tab_renderer_data.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/notification_service.h"
 #include "chrome/common/url_constants.h"
 #include "views/controls/menu/menu_2.h"
@@ -32,7 +31,7 @@ static TabRendererData::NetworkState TabContentsNetworkState(
 }
 
 class BrowserTabStripController::TabContextMenuContents
-    : public menus::SimpleMenuModel::Delegate {
+    : public ui::SimpleMenuModel::Delegate {
  public:
   TabContextMenuContents(BaseTab* tab,
                          BrowserTabStripController* controller)
@@ -54,14 +53,11 @@ class BrowserTabStripController::TabContextMenuContents
   }
 
   void RunMenuAt(const gfx::Point& point) {
-    BrowserTabStripController* controller = controller_;
     menu_->RunMenuAt(point, views::Menu2::ALIGN_TOPLEFT);
     // We could be gone now. Assume |this| is junk!
-    if (controller)
-      controller->tabstrip_->StopAllHighlighting();
   }
 
-  // Overridden from menus::SimpleMenuModel::Delegate:
+  // Overridden from ui::SimpleMenuModel::Delegate:
   virtual bool IsCommandIdChecked(int command_id) const {
     return controller_->IsCommandCheckedForTab(
         static_cast<TabStripModel::ContextMenuCommand>(command_id),
@@ -74,7 +70,7 @@ class BrowserTabStripController::TabContextMenuContents
   }
   virtual bool GetAcceleratorForCommandId(
       int command_id,
-      menus::Accelerator* accelerator) {
+      ui::Accelerator* accelerator) {
     int browser_cmd;
     return TabStripModel::ContextMenuCommandToBrowserCommand(command_id,
                                                              &browser_cmd) ?
@@ -88,6 +84,10 @@ class BrowserTabStripController::TabContextMenuContents
     controller_->StartHighlightTabsForCommand(last_command_, tab_);
   }
   virtual void ExecuteCommand(int command_id) {
+    // Executing the command destroys |this|, and can also end up destroying
+    // |controller_| (e.g. for |CommandUseVerticalTabs|). So stop the highlights
+    // before executing the command.
+    controller_->tabstrip_->StopAllHighlighting();
     controller_->ExecuteCommandForTab(
         static_cast<TabStripModel::ContextMenuCommand>(command_id),
         tab_);
@@ -335,7 +335,8 @@ void BrowserTabStripController::TabChangedAt(TabContentsWrapper* contents,
   SetTabDataAt(contents, model_index);
 }
 
-void BrowserTabStripController::TabReplacedAt(TabContentsWrapper* old_contents,
+void BrowserTabStripController::TabReplacedAt(TabStripModel* tab_strip_model,
+                                              TabContentsWrapper* old_contents,
                                               TabContentsWrapper* new_contents,
                                               int model_index) {
   SetTabDataAt(new_contents, model_index);

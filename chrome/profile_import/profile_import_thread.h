@@ -11,7 +11,7 @@
 
 #include "base/basictypes.h"
 #include "base/scoped_ptr.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "chrome/browser/history/history_types.h"
 #include "chrome/browser/importer/importer_data_types.h"
 #include "chrome/browser/importer/profile_writer.h"
@@ -56,7 +56,7 @@ class ProfileImportThread : public ChildThread {
 
  private:
   // IPC messages
-  virtual void OnControlMessageReceived(const IPC::Message& msg);
+  virtual bool OnControlMessageReceived(const IPC::Message& msg);
 
   // Creates the importer and launches it in a new thread. Import is run on
   // a separate thread so that this thread can receive messages from the

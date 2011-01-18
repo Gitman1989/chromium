@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -22,7 +22,7 @@
 #include "base/timer.h"
 #include "chrome/browser/renderer_host/web_cache_manager.h"
 #include "net/url_request/url_request_job_tracker.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebCache.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCache.h"
 
 class Extension;
 class SkBitmap;
@@ -300,7 +300,7 @@ class TaskManagerModel : public net::URLRequestJobTracker::JobObserver,
   virtual void OnJobAdded(net::URLRequestJob* job);
   virtual void OnJobRemoved(net::URLRequestJob* job);
   virtual void OnJobDone(net::URLRequestJob* job,
-                         const URLRequestStatus& status);
+                         const net::URLRequestStatus& status);
   virtual void OnJobRedirect(net::URLRequestJob* job,
                              const GURL& location,
                              int status_code);

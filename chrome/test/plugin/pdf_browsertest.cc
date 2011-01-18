@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "app/clipboard/clipboard.h"
 #include "base/command_line.h"
 #include "base/file_util.h"
 #include "base/path_service.h"
@@ -22,6 +21,7 @@
 #include "chrome/test/ui_test_utils.h"
 #include "gfx/codec/png_codec.h"
 #include "net/test/test_server.h"
+#include "ui/base/clipboard/clipboard.h"
 
 extern base::hash_map<std::string, int> g_test_timeout_overrides;
 
@@ -266,19 +266,19 @@ IN_PROC_BROWSER_TEST_F(PDFBrowserTest, MAYBE_FindAndCopy) {
       false, NULL));
 
   // Verify that copying selected text works.
-  Clipboard clipboard;
+  ui::Clipboard clipboard;
   // Reset the clipboard first.
-  Clipboard::ObjectMap objects;
-  Clipboard::ObjectMapParams params;
+  ui::Clipboard::ObjectMap objects;
+  ui::Clipboard::ObjectMapParams params;
   params.push_back(std::vector<char>());
-  objects[Clipboard::CBF_TEXT] = params;
+  objects[ui::Clipboard::CBF_TEXT] = params;
   clipboard.WriteObjects(objects);
 
   browser()->GetSelectedTabContents()->render_view_host()->Copy();
   ASSERT_NO_FATAL_FAILURE(WaitForResponse());
 
   std::string text;
-  clipboard.ReadAsciiText(Clipboard::BUFFER_STANDARD, &text);
+  clipboard.ReadAsciiText(ui::Clipboard::BUFFER_STANDARD, &text);
   ASSERT_EQ("adipiscing", text);
 }
 

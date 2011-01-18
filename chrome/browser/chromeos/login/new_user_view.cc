@@ -10,7 +10,6 @@
 #include <algorithm>
 #include <vector>
 
-#include "app/keyboard_codes.h"
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
 #include "base/callback.h"
@@ -29,6 +28,7 @@
 #include "grit/app_resources.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
+#include "ui/base/keycodes/keyboard_codes.h"
 #include "views/controls/label.h"
 #include "views/controls/throbber.h"
 #include "views/widget/widget_gtk.h"
@@ -63,19 +63,25 @@ class UsernameField : public chromeos::TextfieldWithMargin {
 
   // views::Textfield overrides:
   virtual void WillLoseFocus() {
-    if (!text().empty()) {
-      std::string username = UTF16ToUTF8(text());
+    string16 user_input;
+    bool was_trim = TrimWhitespace(text(), TRIM_ALL, &user_input) != TRIM_NONE;
+    if (!user_input.empty()) {
+      std::string username = UTF16ToUTF8(user_input);
 
       if (username.find('@') == std::string::npos) {
         username += kDefaultDomain;
         SetText(UTF8ToUTF16(username));
+        was_trim = false;
       }
     }
+
+    if (was_trim)
+      SetText(user_input);
   }
 
   // Overridden from views::View:
   virtual bool OnKeyPressed(const views::KeyEvent& e) {
-    if (e.GetKeyCode() == app::VKEY_LEFT) {
+    if (e.GetKeyCode() == ui::VKEY_LEFT) {
       return controller_->NavigateAway();
     }
     return false;
@@ -105,10 +111,10 @@ NewUserView::NewUserView(Delegate* delegate,
       create_account_link_(NULL),
       guest_link_(NULL),
       languages_menubutton_(NULL),
-      accel_focus_pass_(views::Accelerator(app::VKEY_P, false, false, true)),
-      accel_focus_user_(views::Accelerator(app::VKEY_U, false, false, true)),
+      accel_focus_pass_(views::Accelerator(ui::VKEY_P, false, false, true)),
+      accel_focus_user_(views::Accelerator(ui::VKEY_U, false, false, true)),
       accel_login_off_the_record_(
-          views::Accelerator(app::VKEY_B, false, false, true)),
+          views::Accelerator(ui::VKEY_B, false, false, true)),
       accel_toggle_accessibility_(WizardAccessibilityHelper::GetAccelerator()),
       delegate_(delegate),
       ALLOW_THIS_IN_INITIALIZER_LIST(focus_grabber_factory_(this)),
@@ -162,7 +168,7 @@ void NewUserView::Init() {
   username_field_ = new UsernameField(this);
   username_field_->set_background(new CopyBackground(this));
   username_field_->SetAccessibleName(
-      ASCIIToWide(l10n_util::GetStringUTF8(IDS_CHROMEOS_ACC_USERNAME_LABEL)));
+      l10n_util::GetStringUTF16(IDS_CHROMEOS_ACC_USERNAME_LABEL));
   AddChildView(username_field_);
 
   password_field_ = new TextfieldWithMargin(views::Textfield::STYLE_PASSWORD);
@@ -271,23 +277,27 @@ void NewUserView::AddChildView(View* view) {
 }
 
 void NewUserView::UpdateLocalizedStrings() {
-  title_label_->SetText(l10n_util::GetString(IDS_LOGIN_TITLE));
-  title_hint_label_->SetText(l10n_util::GetString(IDS_LOGIN_TITLE_HINT));
+  title_label_->SetText(UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_LOGIN_TITLE)));
+  title_hint_label_->SetText(UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_LOGIN_TITLE_HINT)));
   username_field_->set_text_to_display_when_empty(
       l10n_util::GetStringUTF16(IDS_LOGIN_USERNAME));
   password_field_->set_text_to_display_when_empty(
       l10n_util::GetStringUTF16(IDS_LOGIN_PASSWORD));
-  sign_in_button_->SetLabel(l10n_util::GetString(IDS_LOGIN_BUTTON));
+  sign_in_button_->SetLabel(UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_LOGIN_BUTTON)));
   if (need_create_account_) {
     create_account_link_->SetText(
-        l10n_util::GetString(IDS_CREATE_ACCOUNT_BUTTON));
+        UTF16ToWide(l10n_util::GetStringUTF16(IDS_CREATE_ACCOUNT_BUTTON)));
   }
   if (need_guest_link_) {
-    guest_link_->SetText(
-        l10n_util::GetString(IDS_BROWSE_WITHOUT_SIGNING_IN_BUTTON));
+    guest_link_->SetText(UTF16ToWide(
+        l10n_util::GetStringUTF16(IDS_BROWSE_WITHOUT_SIGNING_IN_BUTTON)));
   }
   delegate_->ClearErrors();
-  languages_menubutton_->SetText(language_switch_menu_.GetCurrentLocaleName());
+  languages_menubutton_->SetText(
+      UTF16ToWide(language_switch_menu_.GetCurrentLocaleName()));
 }
 
 void NewUserView::OnLocaleChanged() {
@@ -515,12 +525,12 @@ gfx::Rect NewUserView::GetUsernameBounds() const {
   return username_field_->GetScreenBounds();
 }
 
-bool NewUserView::HandleKeystroke(views::Textfield* s,
-    const views::Textfield::Keystroke& keystroke) {
+bool NewUserView::HandleKeyEvent(views::Textfield* sender,
+                                 const views::KeyEvent& key_event) {
   if (!CrosLibrary::Get()->EnsureLoaded() || login_in_process_)
     return false;
 
-  if (keystroke.GetKeyboardCode() == app::VKEY_RETURN) {
+  if (key_event.GetKeyCode() == ui::VKEY_RETURN) {
     if (!username_field_->text().empty() && !password_field_->text().empty())
       Login();
     // Return true so that processing ends
@@ -534,6 +544,8 @@ bool NewUserView::HandleKeystroke(views::Textfield* s,
 void NewUserView::ContentsChanged(views::Textfield* sender,
                                   const string16& new_contents) {
   UpdateSignInButtonState();
+  if (!new_contents.empty())
+    delegate_->ClearErrors();
 }
 
 void NewUserView::EnableInputControls(bool enabled) {

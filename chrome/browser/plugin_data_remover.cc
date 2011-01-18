@@ -4,11 +4,13 @@
 
 #include "chrome/browser/plugin_data_remover.h"
 
+#include "base/command_line.h"
 #include "base/message_loop_proxy.h"
 #include "base/metrics/histogram.h"
 #include "base/version.h"
 #include "chrome/browser/browser_thread.h"
 #include "chrome/browser/plugin_service.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/plugin_messages.h"
 #include "webkit/plugins/npapi/plugin_group.h"
 #include "webkit/plugins/npapi/plugin_list.h"
@@ -18,11 +20,12 @@
 #endif
 
 namespace {
-const char* g_flash_mime_type = "application/x-shockwave-flash";
+const char* kFlashMimeType = "application/x-shockwave-flash";
 // TODO(bauerb): Update minimum required Flash version as soon as there is one
 // implementing the API.
-const char* g_min_flash_version = "100";
-const int64 g_timeout_ms = 10000;
+const char* kMinFlashVersion = "100";
+const int64 kRemovalTimeoutMs = 10000;
+const uint64 kClearAllData = 0;
 }  // namespace
 
 PluginDataRemover::PluginDataRemover()
@@ -47,13 +50,13 @@ void PluginDataRemover::StartRemoving(base::Time begin_time, Task* done_task) {
 
   AddRef();
   PluginService::GetInstance()->OpenChannelToPlugin(
-      GURL(), g_flash_mime_type, this);
+      GURL(), kFlashMimeType, this);
 
   BrowserThread::PostDelayedTask(
       BrowserThread::IO,
       FROM_HERE,
       NewRunnableMethod(this, &PluginDataRemover::OnTimeout),
-      g_timeout_ms);
+      kRemovalTimeoutMs);
 }
 
 int PluginDataRemover::ID() {
@@ -90,7 +93,9 @@ void PluginDataRemover::ConnectToChannel(const IPC::ChannelHandle& handle) {
   }
 
   if (!channel_->Send(
-          new PluginMsg_ClearSiteData(0, std::string(), begin_time_))) {
+          new PluginMsg_ClearSiteData(std::string(),
+                                      kClearAllData,
+                                      begin_time_))) {
     LOG(DFATAL) << "Couldn't send ClearSiteData message";
     SignalDone();
   }
@@ -115,12 +120,14 @@ void PluginDataRemover::OnTimeout() {
   SignalDone();
 }
 
-void PluginDataRemover::OnMessageReceived(const IPC::Message& msg) {
+bool PluginDataRemover::OnMessageReceived(const IPC::Message& msg) {
   IPC_BEGIN_MESSAGE_MAP(PluginDataRemover, msg)
     IPC_MESSAGE_HANDLER(PluginHostMsg_ClearSiteDataResult,
                         OnClearSiteDataResult)
     IPC_MESSAGE_UNHANDLED_ERROR()
   IPC_END_MESSAGE_MAP()
+
+  return true;
 }
 
 void PluginDataRemover::OnChannelError() {
@@ -145,16 +152,17 @@ bool PluginDataRemover::IsSupported() {
   bool allow_wildcard = false;
   webkit::npapi::WebPluginInfo plugin;
   std::string mime_type;
-  if (!webkit::npapi::PluginList::Singleton()->GetPluginInfo(GURL(),
-                                                             g_flash_mime_type,
-                                                             allow_wildcard,
-                                                             &plugin,
-                                                             &mime_type))
+  if (!webkit::npapi::PluginList::Singleton()->GetPluginInfo(
+          GURL(), kFlashMimeType, allow_wildcard, &plugin, &mime_type)) {
     return false;
+  }
   scoped_ptr<Version> version(
       webkit::npapi::PluginGroup::CreateVersionFromString(plugin.version));
-  scoped_ptr<Version> min_version(
-      Version::GetVersionFromString(g_min_flash_version));
+  scoped_ptr<Version> min_version(Version::GetVersionFromString(
+      CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          switches::kMinClearSiteDataFlashVersion)));
+  if (!min_version.get())
+    min_version.reset(Version::GetVersionFromString(kMinFlashVersion));
   return plugin.enabled &&
          version.get() &&
          min_version->CompareTo(*version) == -1;

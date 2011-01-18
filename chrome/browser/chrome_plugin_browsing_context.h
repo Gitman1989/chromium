@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2008 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,13 +13,15 @@
 #include "chrome/common/notification_observer.h"
 #include "chrome/common/notification_registrar.h"
 
+namespace net {
 class URLRequestContext;
+}  // namespace net
 
 // This class manages the mapping between CPBrowsingContexts and
-// URLRequestContexts.  It observes when URLRequestContexts go away, and
-// invalidates the corresponding CPBrowsingContexts.  CPBrowsingContexts can be
-// associated with other data as well, so there can be multiple ones referring
-// to a given URLRequestContext.
+// net::URLRequestContexts.  It observes when net::URLRequestContexts go away,
+// and invalidates the corresponding CPBrowsingContexts.  CPBrowsingContexts can
+// be associated with other data as well, so there can be multiple ones
+// referring to a given net::URLRequestContext.
 // Note: This class should be used on the IO thread only.
 class CPBrowsingContextManager : public NotificationObserver {
  public:
@@ -31,18 +33,18 @@ class CPBrowsingContextManager : public NotificationObserver {
   ~CPBrowsingContextManager();
 
   // Generate a new unique CPBrowsingContext ID from the given
-  // URLRequestContext.  Multiple CPBrowsingContexts can map to the same
-  // URLRequestContext.
-  CPBrowsingContext Allocate(URLRequestContext* context);
+  // net::URLRequestContext.  Multiple CPBrowsingContexts can map to the same
+  // net::URLRequestContext.
+  CPBrowsingContext Allocate(net::URLRequestContext* context);
 
-  // Return the URLRequestContext that this CPBrowsingContext refers to, or NULL
-  // if not found.
-  URLRequestContext* ToURLRequestContext(CPBrowsingContext id);
+  // Return the net::URLRequestContext that this CPBrowsingContext refers to, or
+  // NULL if not found.
+  net::URLRequestContext* ToURLRequestContext(CPBrowsingContext id);
 
   // Return a CPBrowsingContext ID that corresponds to the given
-  // URLRequestContext. This function differs from Allocate in that calling
+  // net::URLRequestContext. This function differs from Allocate in that calling
   // this multiple times with the same argument gives the same ID.
-  CPBrowsingContext Lookup(URLRequestContext* context);
+  CPBrowsingContext Lookup(net::URLRequestContext* context);
 
  private:
   // NotificationObserver
@@ -50,13 +52,13 @@ class CPBrowsingContextManager : public NotificationObserver {
                        const NotificationSource& source,
                        const NotificationDetails& details);
 
-  typedef IDMap<URLRequestContext> Map;
-  typedef std::map<URLRequestContext*, CPBrowsingContext> ReverseMap;
+  typedef IDMap<net::URLRequestContext> Map;
+  typedef std::map<net::URLRequestContext*, CPBrowsingContext> ReverseMap;
 
   NotificationRegistrar registrar_;
 
-  Map map_;  // map of CPBrowsingContext -> URLRequestContext
-  ReverseMap reverse_map_;  // map of URLRequestContext -> CPBrowsingContext
+  Map map_;  // map of CPBrowsingContext -> net::URLRequestContext
+  ReverseMap reverse_map_; // map of net::URLRequestContext -> CPBrowsingContext
 };
 
 #endif  // CHROME_BROWSER_CHROME_PLUGIN_BROWSING_CONTEXT_H_

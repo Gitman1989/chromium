@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,7 +6,9 @@
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/path_service.h"
+#include "base/string_number_conversions.h"
 #include "base/string_util.h"
+#include "base/test/test_timeouts.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/automation/tab_proxy.h"
@@ -15,7 +17,9 @@
 namespace {
 
 // Provides a UI Test that lets us take the browser to a url, and
-// wait for a cookie value to be set before closing the page.
+// wait for a cookie value to be set or a JavaScript expression to evaluate
+// true before closing the page. It is undefined what happens if you specify
+// both a cookie and a JS expression.
 class UrlFetchTest : public UITest {
  public:
   UrlFetchTest() {
@@ -45,23 +49,36 @@ class UrlFetchTest : public UITest {
     UITest::SetUp();
   }
 
-  void RunTest(const GURL& url, const char* wait_cookie_name,
-               const char* wait_cookie_value, const char* var_to_fetch,
+  void RunTest(const GURL& url,
+               const char* wait_cookie_name,
+               const char* wait_cookie_value,
+               const char* var_to_fetch,
+               const std::wstring& wait_js_expr,
+               const std::wstring& wait_js_frame_xpath,
+               int wait_js_timeout_ms,
                UrlFetchTestResult* result) {
     scoped_refptr<TabProxy> tab(GetActiveTab());
     ASSERT_EQ(AUTOMATION_MSG_NAVIGATION_SUCCESS, tab->NavigateToURL(url));
 
     if (wait_cookie_name) {
       if (wait_cookie_value) {
-        bool completed = WaitUntilCookieValue(tab.get(), url, wait_cookie_name,
-                                              UITest::test_timeout_ms(),
-                                              wait_cookie_value);
+        bool completed = WaitUntilCookieValue(
+            tab.get(), url, wait_cookie_name,
+            TestTimeouts::huge_test_timeout_ms(),
+            wait_cookie_value);
         ASSERT_TRUE(completed);
       } else {
         result->cookie_value = WaitUntilCookieNonEmpty(
-            tab.get(), url, wait_cookie_name, UITest::test_timeout_ms());
+            tab.get(), url, wait_cookie_name,
+            TestTimeouts::huge_test_timeout_ms());
         ASSERT_TRUE(result->cookie_value.length());
       }
+    } else if (!wait_js_expr.empty()) {
+      bool completed = WaitUntilJavaScriptCondition(tab.get(),
+                                                    wait_js_frame_xpath,
+                                                    wait_js_expr,
+                                                    wait_js_timeout_ms);
+      ASSERT_TRUE(completed);
     }
     if (var_to_fetch) {
       std::string script = StringPrintf(
@@ -99,6 +116,21 @@ bool WriteValueToFile(std::string value, const FilePath& path) {
 //   In conjunction with --wait_cookie_name, this saves the cookie value to
 //   a file at the given path. (Incompatible with --wait_cookie_value)
 //
+// --wait_js_expr=<jscript_expr>
+// Waits for a javascript expression to evaluate true before exiting
+// successfully.
+//
+// --wait_js_timeout=<timeout_ms>
+// In conjunction with --wait_js_condition, this sets the timeout in ms
+// that we are prepared to wait. If this timeout is exceeded, we will exit
+// with failure. Note that a timeout greater than the gtest timeout will not
+// be honored.
+//
+// --wait_js_frame_xpath=<xpath>
+// In conjuction with --wait_js_condition, the JavaScript expression is
+// executed in the context of the frame that matches the provided xpath.
+// If this is not specified (or empty string), then the main frame is used.
+//
 // --jsvar=<name>
 //   At the end of the test, fetch the named javascript variable from the page.
 //
@@ -118,14 +150,27 @@ TEST_F(UrlFetchTest, UrlFetch) {
       cmd_line->GetSwitchValueASCII("wait_cookie_name");
   std::string cookie_value =
       cmd_line->GetSwitchValueASCII("wait_cookie_value");
+  std::wstring js_expr =
+      UTF8ToWide(cmd_line->GetSwitchValueASCII("wait_js_expr"));
+  std::wstring js_frame_xpath =
+      UTF8ToWide(cmd_line->GetSwitchValueASCII("wait_js_frame_xpath"));
+  std::string js_timeout_ms_str =
+      cmd_line->GetSwitchValueASCII("wait_js_timeout");
 
   std::string jsvar = cmd_line->GetSwitchValueASCII("jsvar");
+  int js_timeout_ms = -1; // no timeout, wait forever
+
+  if (!js_timeout_ms_str.empty())
+    base::StringToInt(js_timeout_ms_str, &js_timeout_ms);
 
   UrlFetchTestResult result;
   RunTest(GURL(cmd_line->GetSwitchValueASCII("url")),
           cookie_name.length() > 0 ? cookie_name.c_str() : NULL,
           cookie_value.length() > 0 ? cookie_value.c_str() : NULL,
           jsvar.length() > 0 ? jsvar.c_str() : NULL,
+          js_expr,
+          js_frame_xpath,
+          js_timeout_ms,
           &result);
 
   // Write out the cookie if requested

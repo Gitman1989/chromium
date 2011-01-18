@@ -26,15 +26,15 @@ void TestBuffer::RunTest() {
 }
 
 std::string TestBuffer::TestInvalidSize() {
-  pp::Buffer_Dev zero_size(0);
+  pp::Buffer_Dev zero_size(instance_, 0);
   if (!zero_size.is_null())
     return "Zero size accepted";
 
-  return "";
+  PASS();
 }
 
 std::string TestBuffer::TestInitToZero() {
-  pp::Buffer_Dev buffer(100);
+  pp::Buffer_Dev buffer(instance_, 100);
   if (buffer.is_null())
     return "Could not create buffer";
 
@@ -48,7 +48,7 @@ std::string TestBuffer::TestInitToZero() {
       return "Buffer isn't entirely zero";
   }
 
-  return "";
+  PASS();
 }
 
 std::string TestBuffer::TestIsBuffer() {
@@ -59,19 +59,19 @@ std::string TestBuffer::TestIsBuffer() {
 
   // Make another resource type and test it.
   const int w = 16, h = 16;
-  pp::Graphics2D device(pp::Size(w, h), true);
+  pp::Graphics2D device(instance_, pp::Size(w, h), true);
   if (device.is_null())
     return "Couldn't create device context";
   if (buffer_interface_->IsBuffer(device.pp_resource()))
     return "Device context was reported as a buffer";
 
   // Make a valid buffer.
-  pp::Buffer_Dev buffer(100);
+  pp::Buffer_Dev buffer(instance_, 100);
   if (buffer.is_null())
     return "Couldn't create buffer";
   if (!buffer_interface_->IsBuffer(buffer.pp_resource()))
     return "Buffer should be identified as a buffer";
 
-  return "";
+  PASS();
 }
 

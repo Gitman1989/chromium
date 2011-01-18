@@ -14,24 +14,23 @@
 #include "net/http/http_cache.h"
 #include "net/test/test_server.h"
 #include "media/base/media.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebCache.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebData.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDatabase.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFileSystem.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebGraphicsContext3D.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebIDBFactory.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebIDBKey.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebIDBKeyPath.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebRuntimeFeatures.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebKit.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebScriptController.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSecurityPolicy.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSerializedScriptValue.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebStorageArea.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebStorageEventDispatcher.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebStorageNamespace.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebString.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURL.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCache.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebData.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDatabase.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFileSystem.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBFactory.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBKey.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBKeyPath.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebRuntimeFeatures.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebScriptController.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSecurityPolicy.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSerializedScriptValue.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebStorageArea.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebStorageEventDispatcher.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebStorageNamespace.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURL.h"
 #include "webkit/appcache/web_application_cache_host_impl.h"
 #include "webkit/database/vfs_backend.h"
 #include "webkit/extensions/v8/gc_extension.h"
@@ -40,6 +39,7 @@
 #include "webkit/glue/webclipboard_impl.h"
 #include "webkit/glue/webkit_glue.h"
 #include "webkit/glue/webkitclient_impl.h"
+#include "webkit/gpu/webgraphicscontext3d_in_process_impl.h"
 #include "webkit/support/weburl_loader_mock_factory.h"
 #include "webkit/tools/test_shell/mock_webclipboard_impl.h"
 #include "webkit/tools/test_shell/simple_appcache_system.h"
@@ -52,12 +52,12 @@
 #include "v8/include/v8.h"
 
 #if defined(OS_WIN)
-#include "third_party/WebKit/WebKit/chromium/public/win/WebThemeEngine.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/win/WebThemeEngine.h"
 #include "webkit/tools/test_shell/test_shell_webthemeengine.h"
 #elif defined(OS_LINUX)
-#include "third_party/WebKit/WebKit/chromium/public/linux/WebThemeEngine.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/linux/WebThemeEngine.h"
 #elif defined(OS_MACOSX)
-#include "base/mac_util.h"
+#include "base/mac/mac_util.h"
 #endif
 
 using WebKit::WebScriptController;
@@ -88,7 +88,7 @@ TestWebKitClient::TestWebKitClient(bool unit_test_mode)
   FilePath module_path;
   if (PathService::Get(base::DIR_MODULE, &module_path)) {
 #if defined(OS_MACOSX)
-    if (mac_util::AmIBundled())
+    if (base::mac::AmIBundled())
       module_path = module_path.DirName().DirName().DirName();
 #endif
     if (media::InitializeMediaLibrary(module_path))
@@ -331,7 +331,7 @@ void TestWebKitClient::createIDBKeysFromSerializedValuesAndKeyPath(
   keys_out.swap(keys);
 }
 
-#if defined(OS_WIN)
+#if defined(OS_WIN) || defined(OS_MACOSX)
 void TestWebKitClient::SetThemeEngine(WebKit::WebThemeEngine* engine) {
   active_theme_engine_ = engine ? engine : WebKitClientImpl::themeEngine();
 }
@@ -346,5 +346,5 @@ WebKit::WebSharedWorkerRepository* TestWebKitClient::sharedWorkerRepository() {
 }
 
 WebKit::WebGraphicsContext3D* TestWebKitClient::createGraphicsContext3D() {
-  return WebKit::WebGraphicsContext3D::createDefault();
+  return new webkit::gpu::WebGraphicsContext3DInProcessImpl();
 }

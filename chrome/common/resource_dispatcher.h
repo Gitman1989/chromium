@@ -1,11 +1,11 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 // See http://dev.chromium.org/developers/design-documents/multi-process-resource-loading
 
-#ifndef CHROME_COMMON_RESOURCE_DISPATCHER_H__
-#define CHROME_COMMON_RESOURCE_DISPATCHER_H__
+#ifndef CHROME_COMMON_RESOURCE_DISPATCHER_H_
+#define CHROME_COMMON_RESOURCE_DISPATCHER_H_
 #pragma once
 
 #include <deque>
@@ -23,13 +23,12 @@ struct ResourceResponseHead;
 // This class serves as a communication interface between the
 // ResourceDispatcherHost in the browser process and the ResourceLoaderBridge in
 // the child process.  It can be used from any child process.
-class ResourceDispatcher {
+class ResourceDispatcher : public IPC::Channel::Listener {
  public:
   explicit ResourceDispatcher(IPC::Message::Sender* sender);
   ~ResourceDispatcher();
 
-  // Called to possibly handle the incoming IPC message.  Returns true if
-  // handled, else false.
+  // IPC::Channel::Listener implementation.
   bool OnMessageReceived(const IPC::Message& message);
 
   // Creates a ResourceLoaderBridge for this type of dispatcher, this is so
@@ -115,7 +114,7 @@ class ResourceDispatcher {
       int data_len);
   void OnRequestComplete(
       int request_id,
-      const URLRequestStatus& status,
+      const net::URLRequestStatus& status,
       const std::string& security_info,
       const base::Time& completion_time);
 
@@ -150,4 +149,4 @@ class ResourceDispatcher {
   DISALLOW_COPY_AND_ASSIGN(ResourceDispatcher);
 };
 
-#endif  // CHROME_COMMON_RESOURCE_DISPATCHER_H__
+#endif  // CHROME_COMMON_RESOURCE_DISPATCHER_H_

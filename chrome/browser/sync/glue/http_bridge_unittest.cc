@@ -1,9 +1,9 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "base/message_loop_proxy.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "chrome/browser/browser_thread.h"
 #include "chrome/browser/sync/glue/http_bridge.h"
 #include "chrome/common/net/test_url_fetcher_factory.h"
@@ -21,7 +21,7 @@ const FilePath::CharType kDocRoot[] = FILE_PATH_LITERAL("chrome/test/data");
 // Lazy getter for TestURLRequestContext instances.
 class TestURLRequestContextGetter : public URLRequestContextGetter {
  public:
-  virtual URLRequestContext* GetURLRequestContext() {
+  virtual net::URLRequestContext* GetURLRequestContext() {
     if (!context_)
       context_ = new TestURLRequestContext;
     return context_;
@@ -33,7 +33,7 @@ class TestURLRequestContextGetter : public URLRequestContextGetter {
  private:
   ~TestURLRequestContextGetter() {}
 
-  scoped_refptr<URLRequestContext> context_;
+  scoped_refptr<net::URLRequestContext> context_;
 };
 
 class HttpBridgeTest : public testing::Test {
@@ -137,7 +137,8 @@ class ShuntedHttpBridge : public HttpBridge {
 
     std::string response_content = "success!";
     DummyURLFetcher fetcher;
-    OnURLFetchComplete(&fetcher, GURL("www.google.com"), URLRequestStatus(),
+    OnURLFetchComplete(&fetcher, GURL("www.google.com"),
+                       net::URLRequestStatus(),
                        200, cookies, response_content);
   }
   HttpBridgeTest* test_;

@@ -1,4 +1,4 @@
-# Copyright (c) 2010 The Chromium Authors. All rights reserved.
+# Copyright (c) 2011 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -401,10 +401,6 @@
             'controls/slider/slider.cc',
             'controls/slider/slider.h',
             'controls/slider/native_slider_wrapper.h',
-            'controls/textfield/native_textfield_views.cc',
-            'controls/textfield/native_textfield_views.h',
-            'controls/textfield/textfield_views_model.cc',
-            'controls/textfield/textfield_views_model.h',
           ],
           'include_dirs': [
             '<(DEPTH)/third_party/wtl/include',
@@ -413,6 +409,10 @@
       ],
     },
     {
+        'controls/single_split_view_unittest.cc',
+        'test/views_test_base.h',
+        'test/test_views_delegate.h',
+        'widget/widget_win_unittest.cc',
       'target_name': 'views_examples',
       'type': 'executable',
       'dependencies': [

@@ -18,8 +18,8 @@
 #include "base/process_util.h"
 #include "base/ref_counted.h"
 #include "base/scoped_temp_dir.h"
-#include "base/thread.h"
-#include "base/waitable_event.h"
+#include "base/threading/thread.h"
+#include "base/synchronization/waitable_event.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_switches.h"
@@ -38,7 +38,7 @@ class ChromeStarter : public base::RefCountedThreadSafe<ChromeStarter> {
   explicit ChromeStarter(int timeout_ms, const FilePath& user_data_dir)
       : ready_event_(false /* manual */, false /* signaled */),
         done_event_(false /* manual */, false /* signaled */),
-        process_handle_(NULL),
+        process_handle_(base::kNullProcessHandle),
         process_terminated_(false),
         timeout_ms_(timeout_ms),
         user_data_dir_(user_data_dir) {
@@ -61,7 +61,7 @@ class ChromeStarter : public base::RefCountedThreadSafe<ChromeStarter> {
     FilePath browser_directory;
     PathService::Get(chrome::DIR_APP, &browser_directory);
     CommandLine command_line(browser_directory.Append(
-        FilePath::FromWStringHack(chrome::kBrowserProcessExecutablePath)));
+        chrome::kBrowserProcessExecutablePath));
 
     command_line.AppendSwitchPath(switches::kUserDataDir, user_data_dir_);
 
@@ -136,7 +136,7 @@ class ProcessSingletonTest : public UITest {
       // We use a manual reset so that all threads wake up at once when signaled
       // and thus we must manually reset it for each attempt.
       : threads_waker_(true /* manual */, false /* signaled */) {
-    temp_profile_dir_.CreateUniqueTempDir();
+    EXPECT_TRUE(temp_profile_dir_.CreateUniqueTempDir());
   }
 
   void SetUp() {

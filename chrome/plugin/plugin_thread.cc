@@ -18,7 +18,7 @@
 #include "base/command_line.h"
 #include "base/lazy_instance.h"
 #include "base/process_util.h"
-#include "base/thread_local.h"
+#include "base/threading/thread_local.h"
 #include "chrome/common/child_process.h"
 #include "chrome/common/chrome_plugin_lib.h"
 #include "chrome/common/chrome_switches.h"
@@ -41,7 +41,7 @@
 #include "app/x11_util.h"
 #elif defined(OS_MACOSX)
 #include "app/l10n_util.h"
-#include "base/mac_util.h"
+#include "base/mac/mac_util.h"
 #include "base/mac/scoped_cftyperef.h"
 #include "base/sys_string_conversions.h"
 #include "grit/chromium_strings.h"
@@ -100,7 +100,7 @@ PluginThread::PluginThread()
     base::mac::ScopedCFTypeRef<CFStringRef> process_name(
         CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@ (%@)"),
                                  plugin_name.get(), app_name.get()));
-    mac_util::SetProcessName(process_name);
+    base::mac::SetProcessName(process_name);
 #endif
   }
 
@@ -128,13 +128,16 @@ PluginThread* PluginThread::current() {
   return lazy_tls.Pointer()->Get();
 }
 
-void PluginThread::OnControlMessageReceived(const IPC::Message& msg) {
+bool PluginThread::OnControlMessageReceived(const IPC::Message& msg) {
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(PluginThread, msg)
     IPC_MESSAGE_HANDLER(PluginProcessMsg_CreateChannel, OnCreateChannel)
     IPC_MESSAGE_HANDLER(PluginProcessMsg_PluginMessage, OnPluginMessage)
     IPC_MESSAGE_HANDLER(PluginProcessMsg_NotifyRenderersOfPendingShutdown,
                         OnNotifyRenderersOfPendingShutdown)
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
+  return handled;
 }
 
 void PluginThread::OnCreateChannel(int renderer_id,

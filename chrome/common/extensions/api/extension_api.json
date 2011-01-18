@@ -517,10 +517,15 @@
 		"optional": true,
 		"description": "If true, enqueues this utterance if TTS is already in progress. If false (the default), interrupts any current speech and flushes the speech queue before speaking this new utterance."
               },
-	      "languageName": {
+	      "voiceName": {
                 "type": "string",
                 "optional": true,
-                "description": "The language name for synthesis specified in the form <language>-<locale>, e.g. en-US, en-GB, fr-CA, zh-CN, etc."
+                "description": "The name of the voice to use for synthesis."
+              },
+	      "locale": {
+                "type": "string",
+                "optional": true,
+                "description": "The language and region code that specify the language and dialect to be used for synthesis, in the form <language>-<region>, e.g. en-US, en-GB, fr-CA, zh-CN, etc."
               },
               "gender": {
                 "type": "string",
@@ -584,6 +589,99 @@
             ]
           }
         ]
+      },
+      {
+        "name": "speakCompleted",
+        "nodoc": true,
+        "type": "function",
+        "description": "A callback passed to the onSpeak event.",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "requestId"
+          },
+          {
+            "type": "string",
+	    "optional": "true",
+            "name": "errorMessage"
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "name": "onSpeak",
+        "type": "function",
+        "description": "Called when the user makes a call to tts.speak and the options matches one of the tts_voices from this extension's manifest.",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "utterance",
+            "description": "The text to speak."
+          },
+          {
+            "type": "object",
+            "name": "options",
+            "description": "The speak options.",
+            "properties": {
+	      "voiceName": {
+                "type": "string",
+                "optional": true,
+                "description": "The name of the voice to use for synthesis."
+              },
+	      "locale": {
+                "type": "string",
+                "optional": true,
+                "description": "The language and region code that specify the language and dialect to be used for synthesis, in the form <language>-<region>, e.g. en-US, en-GB, fr-CA, zh-CN, etc."
+              },
+              "gender": {
+                "type": "string",
+                "optional": true,
+                "description": "Gender of voice for synthesized speech.",
+                "enum": ["male", "female"]
+              },
+              "rate": {
+                "type": "number",
+                "optional": true,
+                "minimum": 0,
+                "maximum": 1,
+                "description": "Speaking speed between 0 and 1 inclusive, with 0 being slowest and 1 being fastest."
+              },
+              "pitch": {
+                "type": "number",
+                "optional": true,
+                "minimum": 0,
+                "maximum": 1,
+                "description": "Speaking pitch between 0 and 1 inclusive, with 0 being lowest and 1 being highest."
+              },
+              "volume": {
+                "type": "number",
+                "optional": true,
+                "minimum": 0,
+                "maximum": 1,
+                "description": "Speaking volume between 0 and 1 inclusive, with 0 being lowest and 1 being highest."
+              }
+            }
+	  },
+          {
+            "type": "function",
+            "name": "callback",
+            "description": "You must call this function when speaking is finished.",
+            "parameters": [
+              {
+                "type": "string",
+                "name": "error",
+		"optional": true,
+                "description": "Error message, which will be returned to the caller in chrome.extension.lastError."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "onStop",
+        "type": "function",
+        "description": "Fired when a call is made to tts.stop and this extension may be in the middle of speaking."
       }
     ]
   },
@@ -1220,7 +1318,7 @@
       {
         "name": "onCreated",
         "type": "function",
-        "description": "Fires when a tab is created.",
+        "description": "Fires when a tab is created. Note that the tab's URL may not be set at the time this event fires, but you can listen to onUpdated events to be notified when a URL is set.",
         "parameters": [
           {
             "$ref": "Tab",
@@ -2967,6 +3065,39 @@
     ],
     "functions": [
       {
+        "name": "getEnabled",
+        "type": "function",
+        "description": "Get the user preference to send UMA and crash reports to Google.",
+        "parameters": [
+          {
+            "type": "function",
+            "name": "callback",
+            "parameters": [
+              {"name": "enabled", "type": "boolean"}
+            ]
+          }
+        ]
+      },
+      {
+        "name": "setEnabled",
+        "type": "function",
+        "description": "Set the user preference to send UMA and crash reports to Google.",
+        "parameters": [
+          {"name": "enabled", "type": "boolean", "description": "True for setting Chrome to actively send UMA and crash reports, false for disabling this."},
+          {
+            "type": "function",
+            "name": "callback",
+            "parameters": [
+              {
+                "name": "enabled", 
+                "type": "boolean",
+                "description": "The actual value set. If it is not the one passed in parameter, the value couldn't be changed (e.g. because of security)."
+              }
+            ]
+          }          
+        ]
+      },
+      {
         "name": "recordUserAction",
         "type": "function",
         "description": "Records an action performed by the user.",
@@ -3636,8 +3767,12 @@
         "description": "An object encapsulating a complete proxy configuration.",
         "properties": {
           "rules": {"$ref": "ProxyRules", "optional": true, "description": "The proxy rules describing this configuration."},
-          "autoDetect": {"type": "boolean", "optional": true, "description": "True if the proxy settings sbould be detected automatically."},
-          "pacScript": {"$ref": "PacScript", "optional": true, "description": "The proxy auto-config (PAC) script for this configuration."}
+          "pacScript": {"$ref": "PacScript", "optional": true, "description": "The proxy auto-config (PAC) script for this configuration."},
+          "mode": {
+            "type": "string",
+            "enum": ["direct", "auto_detect", "pac_script", "fixed_servers", "system"],
+            "description": "'direct' = Never use a proxy<br>'auto_detect' = Auto detect proxy settings<br>'pac_script' = Use specified PAC script<br>'fixed_servers' = Manually specify proxy servers<br>'system' = Use system proxy settings"
+          }
         }
       }
     ],

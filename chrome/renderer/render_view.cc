@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -63,11 +63,7 @@
 #include "chrome/renderer/extensions/renderer_extension_bindings.h"
 #include "chrome/renderer/external_host_bindings.h"
 #include "chrome/renderer/external_popup_menu.h"
-#if ENABLE_CLIENT_BASED_GEOLOCATION
 #include "chrome/renderer/geolocation_dispatcher.h"
-#else
-#include "chrome/renderer/geolocation_dispatcher_old.h"
-#endif
 #include "chrome/renderer/ggl/ggl.h"
 #include "chrome/renderer/load_progress_tracker.h"
 #include "chrome/renderer/localized_error.h"
@@ -82,6 +78,7 @@
 #include "chrome/renderer/print_web_view_helper.h"
 #include "chrome/renderer/render_process.h"
 #include "chrome/renderer/render_thread.h"
+#include "chrome/renderer/render_view_observer.h"
 #include "chrome/renderer/render_view_visitor.h"
 #include "chrome/renderer/render_widget_fullscreen.h"
 #include "chrome/renderer/render_widget_fullscreen_pepper.h"
@@ -109,58 +106,61 @@
 #include "grit/renderer_resources.h"
 #include "media/base/filter_collection.h"
 #include "media/base/media_switches.h"
+#include "media/base/message_loop_factory_impl.h"
 #include "net/base/data_url.h"
 #include "net/base/escape.h"
 #include "net/base/net_errors.h"
 #include "net/http/http_util.h"
+#include "ppapi/c/private/ppb_flash.h"
 #include "skia/ext/bitmap_platform_device.h"
 #include "skia/ext/image_operations.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebAccessibilityCache.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebAccessibilityObject.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebCString.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDataSource.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDevToolsAgent.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDocument.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDragData.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebElement.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFileChooserParams.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFileSystem.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFileSystemCallbacks.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFindOptions.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFormControlElement.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFormElement.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebGraphicsContext3D.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebHistoryItem.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebImage.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebInputElement.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebNode.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebNodeList.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPageSerializer.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPlugin.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPluginContainer.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPluginDocument.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPluginParams.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPoint.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebRange.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebRect.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebScriptSource.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSearchableFormData.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSecurityOrigin.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSettings.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSize.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebStorageNamespace.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebString.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURL.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLError.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLRequest.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLResponse.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebVector.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebView.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebWindowFeatures.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebAccessibilityCache.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebAccessibilityObject.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDataSource.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDevToolsAgent.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDragData.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebElement.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFileChooserParams.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFileSystem.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFileSystemCallbacks.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFindOptions.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFormControlElement.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFormElement.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebGraphicsContext3D.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebHistoryItem.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebImage.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputElement.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebNode.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebNodeList.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPageSerializer.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPlugin.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginContainer.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginDocument.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginParams.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPoint.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebRange.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebRect.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebScriptSource.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSearchableFormData.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSecurityOrigin.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSettings.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSize.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebStorageNamespace.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURL.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLError.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLRequest.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLResponse.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebVector.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebWindowFeatures.h"
 #include "third_party/cld/encodings/compact_lang_det/win/cld_unicodetext.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "v8/include/v8.h"
+#include "v8/include/v8-testing.h"
 #include "webkit/appcache/web_application_cache_host_impl.h"
 #include "webkit/glue/alt_error_page_resource_fetcher.h"
 #include "webkit/glue/context_menu.h"
@@ -192,7 +192,7 @@
 #include "gfx/native_theme_win.h"
 #elif defined(USE_X11)
 #include "gfx/native_theme_linux.h"
-#include "third_party/WebKit/WebKit/chromium/public/linux/WebRenderTheme.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/linux/WebRenderTheme.h"
 #elif defined(OS_MACOSX)
 #include "skia/ext/skia_utils_mac.h"
 #endif
@@ -522,10 +522,16 @@ struct RenderView::PendingFileChooser {
 };
 
 RenderView::RenderView(RenderThreadBase* render_thread,
-                       const WebPreferences& webkit_preferences,
-                       int64 session_storage_namespace_id)
+                       gfx::NativeViewId parent_hwnd,
+                       int32 opener_id,
+                       const RendererPreferences& renderer_prefs,
+                       const WebPreferences& webkit_prefs,
+                       SharedRenderViewCounter* counter,
+                       int32 routing_id,
+                       int64 session_storage_namespace_id,
+                       const string16& frame_name)
     : RenderWidget(render_thread, WebKit::WebPopupTypeNone),
-      webkit_preferences_(webkit_preferences),
+      webkit_preferences_(webkit_prefs),
       send_content_state_immediately_(false),
       enabled_bindings_(0),
       send_preferred_size_changes_(false),
@@ -550,16 +556,16 @@ RenderView::RenderView(RenderThreadBase* render_thread,
       browser_window_id_(-1),
       ALLOW_THIS_IN_INITIALIZER_LIST(pepper_delegate_(this)),
       ALLOW_THIS_IN_INITIALIZER_LIST(page_info_method_factory_(this)),
-      ALLOW_THIS_IN_INITIALIZER_LIST(autofill_method_factory_(this)),
       ALLOW_THIS_IN_INITIALIZER_LIST(accessibility_method_factory_(this)),
       ALLOW_THIS_IN_INITIALIZER_LIST(translate_helper_(this)),
       ALLOW_THIS_IN_INITIALIZER_LIST(cookie_jar_(this)),
-      ALLOW_THIS_IN_INITIALIZER_LIST(
-          notification_provider_(new NotificationProvider(this))),
+      devtools_client_(NULL),
+      geolocation_dispatcher_(NULL),
+      speech_input_dispatcher_(NULL),
+      device_orientation_dispatcher_(NULL),
       accessibility_ack_pending_(false),
       pending_app_icon_requests_(0),
       session_storage_namespace_id_(session_storage_namespace_id),
-      decrement_shared_popup_at_destruction_(false),
       custom_menu_listener_(NULL) {
 #if defined(OS_MACOSX)
   // On Mac, the select popups are rendered by the browser.
@@ -567,14 +573,7 @@ RenderView::RenderView(RenderThreadBase* render_thread,
   // in single-process mode.
   WebKit::WebView::setUseExternalPopupMenus(true);
 #endif
-  password_autocomplete_manager_.reset(new PasswordAutocompleteManager(this));
-  autofill_helper_.reset(new AutoFillHelper(this));
-  page_click_tracker_.reset(new PageClickTracker(this));
-  // Note that the order of insertion of the listeners is important.
-  // The password_autocomplete_manager_ takes the first shot at processing the
-  // notification and can stop the propagation.
-  page_click_tracker_->AddListener(password_autocomplete_manager_.get());
-  page_click_tracker_->AddListener(autofill_helper_.get());
+
   ClearBlockedContentSettings();
   if (CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kEnableClientSidePhishingDetection)) {
@@ -585,6 +584,66 @@ RenderView::RenderView(RenderThreadBase* render_thread,
       phishing_delegate_->SetPhishingScorer(thread->phishing_scorer());
     }
   }
+
+  routing_id_ = routing_id;
+  if (opener_id != MSG_ROUTING_NONE)
+    opener_id_ = opener_id;
+
+  if (counter) {
+    shared_popup_counter_ = counter;
+    shared_popup_counter_->data++;
+    decrement_shared_popup_at_destruction_ = true;
+  } else {
+    shared_popup_counter_ = new SharedRenderViewCounter(0);
+    decrement_shared_popup_at_destruction_ = false;
+  }
+
+  notification_provider_ = new NotificationProvider(this);
+
+  devtools_agent_ = new DevToolsAgent(this);
+  PasswordAutocompleteManager* password_autocomplete_manager =
+      new PasswordAutocompleteManager(this);
+  AutoFillHelper* autofill_helper = new AutoFillHelper(
+      this, password_autocomplete_manager);
+
+  webwidget_ = WebView::create(this, devtools_agent_, autofill_helper);
+  g_view_map.Get().insert(std::make_pair(webview(), this));
+  webkit_preferences_.Apply(webview());
+  webview()->initializeMainFrame(this);
+  if (!frame_name.empty())
+    webview()->mainFrame()->setName(frame_name);
+
+  OnSetRendererPrefs(renderer_prefs);
+
+  render_thread_->AddRoute(routing_id_, this);
+  // Take a reference on behalf of the RenderThread.  This will be balanced
+  // when we receive ViewMsg_Close.
+  AddRef();
+
+  // If this is a popup, we must wait for the CreatingNew_ACK message before
+  // completing initialization.  Otherwise, we can finish it now.
+  if (opener_id == MSG_ROUTING_NONE) {
+    did_show_ = true;
+    CompleteInit(parent_hwnd);
+  }
+
+  host_window_ = parent_hwnd;
+
+  const CommandLine& command_line = *CommandLine::ForCurrentProcess();
+  if (command_line.HasSwitch(switches::kDomAutomationController))
+    enabled_bindings_ |= BindingsPolicy::DOM_AUTOMATION;
+  if (command_line.HasSwitch(switches::kEnableAccessibility))
+    WebAccessibilityCache::enableAccessibility();
+
+  audio_message_filter_ = new AudioMessageFilter(routing_id_);
+  render_thread_->AddFilter(audio_message_filter_);
+
+  PageClickTracker* page_click_tracker = new PageClickTracker(this);
+  // Note that the order of insertion of the listeners is important.
+  // The password_autocomplete_manager takes the first shot at processing the
+  // notification and can stop the propagation.
+  page_click_tracker->AddListener(password_autocomplete_manager);
+  page_click_tracker->AddListener(autofill_helper);
 }
 
 RenderView::~RenderView() {
@@ -626,6 +685,9 @@ RenderView::~RenderView() {
   for (ViewMap::iterator it = views->begin(); it != views->end(); ++it)
     DCHECK_NE(this, it->second) << "Failed to call Close?";
 #endif
+
+  FOR_EACH_OBSERVER(RenderViewObserver, observers_, set_render_view(NULL));
+  FOR_EACH_OBSERVER(RenderViewObserver, observers_, OnDestruct());
 }
 
 /*static*/
@@ -656,15 +718,16 @@ RenderView* RenderView::Create(
     int64 session_storage_namespace_id,
     const string16& frame_name) {
   DCHECK(routing_id != MSG_ROUTING_NONE);
-  scoped_refptr<RenderView> view(new RenderView(render_thread, webkit_prefs,
-                                                session_storage_namespace_id));
-  view->Init(parent_hwnd,
-             opener_id,
-             renderer_prefs,
-             counter,
-             routing_id,
-             frame_name);  // adds reference
-  return view;
+  return new RenderView(
+      render_thread,
+      parent_hwnd,
+      opener_id,
+      renderer_prefs,
+      webkit_prefs,
+      counter,
+      routing_id,
+      session_storage_namespace_id,
+      frame_name);  // adds reference
 }
 
 // static
@@ -674,6 +737,15 @@ void RenderView::SetNextPageID(int32 next_page_id) {
   DCHECK_EQ(next_page_id_, 1);
   DCHECK(next_page_id >= next_page_id_);
   next_page_id_ = next_page_id;
+}
+
+void RenderView::AddObserver(RenderViewObserver* observer) {
+  observers_.AddObserver(observer);
+}
+
+void RenderView::RemoveObserver(RenderViewObserver* observer) {
+  observer->set_render_view(NULL);
+  observers_.RemoveObserver(observer);
 }
 
 bool RenderView::RendererAccessibilityNotification::ShouldIncludeChildren() {
@@ -820,16 +892,16 @@ void RenderView::DidDownloadApplicationIcon(ImageResourceFetcher* fetcher,
   // some alternative way to transmit the icon data to the browser process.
   //
   // See also: bug 63729.
-  const int kMaxIconSize = 1024 * 128;
-  int actual_icon_size = 0;
+  const size_t kMaxIconSize = 1024 * 128;
+  size_t actual_icon_size = 0;
   for (size_t i = 0; i < pending_app_info_->icons.size(); ++i) {
-    actual_icon_size += pending_app_info_->icons[i].data.getSize();
-  }
-
-  if (actual_icon_size > kMaxIconSize) {
-    AddErrorToRootConsole(ASCIIToUTF16(
+    size_t current_size = pending_app_info_->icons[i].data.getSize();
+    if (current_size > kMaxIconSize - actual_icon_size) {
+      AddErrorToRootConsole(ASCIIToUTF16(
         "Icons are too large. Maximum total size for app icons is 128 KB."));
-    return;
+      return;
+    }
+    actual_icon_size += current_size;
   }
 
   Send(new ViewHostMsg_InstallApplication(routing_id_, *pending_app_info_));
@@ -888,92 +960,34 @@ void RenderView::UnregisterPluginDelegate(WebPluginDelegateProxy* delegate) {
   plugin_delegates_.erase(delegate);
 }
 
-void RenderView::Init(gfx::NativeViewId parent_hwnd,
-                      int32 opener_id,
-                      const RendererPreferences& renderer_prefs,
-                      SharedRenderViewCounter* counter,
-                      int32 routing_id,
-                      const string16& frame_name) {
-  DCHECK(!webview());
-
-  if (opener_id != MSG_ROUTING_NONE)
-    opener_id_ = opener_id;
-
-  if (counter) {
-    shared_popup_counter_ = counter;
-    shared_popup_counter_->data++;
-    decrement_shared_popup_at_destruction_ = true;
-  } else {
-    shared_popup_counter_ = new SharedRenderViewCounter(0);
-    decrement_shared_popup_at_destruction_ = false;
-  }
-
-  devtools_agent_.reset(new DevToolsAgent(routing_id, this));
-
-  webwidget_ = WebView::create(this, devtools_agent_.get());
-  g_view_map.Get().insert(std::make_pair(webview(), this));
-  webkit_preferences_.Apply(webview());
-  webview()->initializeMainFrame(this);
-  if (!frame_name.empty())
-    webview()->mainFrame()->setName(frame_name);
-
-  OnSetRendererPrefs(renderer_prefs);
-
-  routing_id_ = routing_id;
-  render_thread_->AddRoute(routing_id_, this);
-  // Take a reference on behalf of the RenderThread.  This will be balanced
-  // when we receive ViewMsg_Close.
-  AddRef();
-
-  // If this is a popup, we must wait for the CreatingNew_ACK message before
-  // completing initialization.  Otherwise, we can finish it now.
-  if (opener_id == MSG_ROUTING_NONE) {
-    did_show_ = true;
-    CompleteInit(parent_hwnd);
-  }
-
-  host_window_ = parent_hwnd;
-
-  const CommandLine& command_line = *CommandLine::ForCurrentProcess();
-  if (command_line.HasSwitch(switches::kDomAutomationController))
-    enabled_bindings_ |= BindingsPolicy::DOM_AUTOMATION;
-  if (command_line.HasSwitch(switches::kEnableAccessibility))
-    WebAccessibilityCache::enableAccessibility();
-
-  audio_message_filter_ = new AudioMessageFilter(routing_id_);
-  render_thread_->AddFilter(audio_message_filter_);
+void RenderView::RegisterBlockedPlugin(BlockedPlugin* blocked_plugin) {
+  blocked_plugins_.insert(blocked_plugin);
 }
 
-void RenderView::OnMessageReceived(const IPC::Message& message) {
+void RenderView::UnregisterBlockedPlugin(BlockedPlugin* blocked_plugin) {
+  blocked_plugins_.erase(blocked_plugin);
+}
+
+bool RenderView::OnMessageReceived(const IPC::Message& message) {
   WebFrame* main_frame = webview() ? webview()->mainFrame() : NULL;
   if (main_frame)
     child_process_logging::SetActiveURL(main_frame->url());
 
-  // If this is developer tools renderer intercept tools messages first.
-  if (devtools_client_.get() && devtools_client_->OnMessageReceived(message))
-    return;
-  if (devtools_agent_.get() && devtools_agent_->OnMessageReceived(message))
-    return;
-  if (notification_provider_->OnMessageReceived(message))
-    return;
-  if (geolocation_dispatcher_.get() &&
-      geolocation_dispatcher_->OnMessageReceived(message)) {
-    return;
-  }
-  if (speech_input_dispatcher_.get() &&
-      speech_input_dispatcher_->OnMessageReceived(message)) {
-    return;
-  }
-  if (device_orientation_dispatcher_.get() &&
-      device_orientation_dispatcher_->OnMessageReceived(message)) {
-    return;
-  }
+  ObserverListBase<RenderViewObserver>::Iterator it(observers_);
+  RenderViewObserver* observer;
+  while ((observer = it.GetNext()) != NULL)
+    if (observer->OnMessageReceived(message))
+      return true;
 
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(RenderView, message)
     IPC_MESSAGE_HANDLER(ViewMsg_CaptureThumbnail, OnCaptureThumbnail)
     IPC_MESSAGE_HANDLER(ViewMsg_CaptureSnapshot, OnCaptureSnapshot)
     IPC_MESSAGE_HANDLER(ViewMsg_PrintPages, OnPrintPages)
     IPC_MESSAGE_HANDLER(ViewMsg_PrintingDone, OnPrintingDone)
+    IPC_MESSAGE_HANDLER(ViewMsg_PrintPreview, OnPrintPreview)
+    IPC_MESSAGE_HANDLER(ViewMsg_PrintNodeUnderContextMenu,
+                        OnPrintNodeUnderContextMenu)
     IPC_MESSAGE_HANDLER(ViewMsg_Navigate, OnNavigate)
     IPC_MESSAGE_HANDLER(ViewMsg_Stop, OnStop)
     IPC_MESSAGE_HANDLER(ViewMsg_ReloadFrame, OnReloadFrame)
@@ -1012,7 +1026,6 @@ void RenderView::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(ViewMsg_CSSInsertRequest, OnCSSInsertRequest)
     IPC_MESSAGE_HANDLER(ViewMsg_AddMessageToConsole, OnAddMessageToConsole)
     IPC_MESSAGE_HANDLER(ViewMsg_ReservePageIDRange, OnReservePageIDRange)
-    IPC_MESSAGE_HANDLER(ViewMsg_FillPasswordForm, OnFillPasswordForm)
     IPC_MESSAGE_HANDLER(ViewMsg_DragTargetDragEnter, OnDragTargetDragEnter)
     IPC_MESSAGE_HANDLER(ViewMsg_DragTargetDragOver, OnDragTargetDragOver)
     IPC_MESSAGE_HANDLER(ViewMsg_DragTargetDragLeave, OnDragTargetDragLeave)
@@ -1046,10 +1059,6 @@ void RenderView::OnMessageReceived(const IPC::Message& message) {
                         OnHandleMessageFromExternalHost)
     IPC_MESSAGE_HANDLER(ViewMsg_DisassociateFromPopupCount,
                         OnDisassociateFromPopupCount)
-    IPC_MESSAGE_HANDLER(ViewMsg_AutoFillSuggestionsReturned,
-                        OnAutoFillSuggestionsReturned)
-    IPC_MESSAGE_HANDLER(ViewMsg_AutoFillFormDataFilled,
-                        OnAutoFillFormDataFilled)
     IPC_MESSAGE_HANDLER(ViewMsg_AllowScriptToClose,
                         OnAllowScriptToClose)
     IPC_MESSAGE_HANDLER(ViewMsg_MoveOrResizeStarted, OnMoveOrResizeStarted)
@@ -1096,14 +1105,20 @@ void RenderView::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(ViewMsg_AccessibilityNotifications_ACK,
                         OnAccessibilityNotificationsAck)
     IPC_MESSAGE_HANDLER(ViewMsg_AsyncOpenFile_ACK, OnAsyncFileOpened)
+#if defined(ENABLE_FLAPPER_HACKS)
+    IPC_MESSAGE_HANDLER(ViewMsg_PepperConnectTcpACK, OnConnectTcpACK)
+#endif
 #if defined(OS_MACOSX)
     IPC_MESSAGE_HANDLER(ViewMsg_SelectPopupMenuItem, OnSelectPopupMenuItem)
 #endif
-    IPC_MESSAGE_HANDLER(ViewMsg_PrintPreview, OnPrintPreview)
+    IPC_MESSAGE_HANDLER(ViewMsg_JavaScriptStressTestControl,
+                        OnJavaScriptStressTestControl)
+    IPC_MESSAGE_HANDLER(ViewMsg_ContextMenuClosed, OnContextMenuClosed)
 
     // Have the super handle all other messages.
-    IPC_MESSAGE_UNHANDLED(RenderWidget::OnMessageReceived(message))
+    IPC_MESSAGE_UNHANDLED(handled = RenderWidget::OnMessageReceived(message))
   IPC_END_MESSAGE_MAP()
+  return handled;
 }
 
 void RenderView::OnCaptureThumbnail() {
@@ -1178,6 +1193,18 @@ void RenderView::OnPrintPreview() {
     else
       Print(webview()->focusedFrame(), false, true);
   }
+}
+
+void RenderView::OnPrintNodeUnderContextMenu() {
+  if (context_menu_node_.isNull()) {
+    NOTREACHED();
+    return;
+  }
+
+  // Make a copy of the node, since we will do a sync call to the browser and
+  // during that time OnContextMenuClosed might reset context_menu_node_.
+  WebNode context_menu_node(context_menu_node_);
+  GetPrintWebViewHelper()->PrintNode(&context_menu_node, false, false);
 }
 
 void RenderView::CapturePageInfo(int load_id, bool preliminary_capture) {
@@ -1365,12 +1392,6 @@ void RenderView::OnNavigate(const ViewMsg_Navigate_Params& params) {
   history_list_offset_ = params.current_history_list_offset;
   history_list_length_ = params.current_history_list_length;
 
-  if (devtools_agent_.get())
-    devtools_agent_->OnNavigate();
-
-  if (notification_provider_.get())
-    notification_provider_->OnNavigate();
-
   child_process_logging::SetActiveURL(params.url);
 
   AboutHandler::MaybeHandle(params.url);
@@ -1491,8 +1512,8 @@ void RenderView::OnExecuteEditCommand(const std::string& name,
 }
 
 void RenderView::OnSetupDevToolsClient() {
-  DCHECK(!devtools_client_.get());
-  devtools_client_.reset(new DevToolsClient(this));
+  DCHECK(!devtools_client_);
+  devtools_client_ = new DevToolsClient(this);
 }
 
 void RenderView::OnUpdateTargetURLAck() {
@@ -1969,21 +1990,6 @@ void RenderView::AddGURLSearchProvider(
                                      provider_type));
 }
 
-void RenderView::OnAutoFillSuggestionsReturned(
-    int query_id,
-    const std::vector<string16>& values,
-    const std::vector<string16>& labels,
-    const std::vector<string16>& icons,
-    const std::vector<int>& unique_ids) {
-  autofill_helper_->SuggestionsReceived(
-      query_id, values, labels, icons, unique_ids);
-}
-
-void RenderView::OnAutoFillFormDataFilled(int query_id,
-                                          const webkit_glue::FormData& form) {
-  autofill_helper_->FormDataFilled(query_id, form);
-}
-
 void RenderView::OnAllowScriptToClose(bool script_can_close) {
   script_can_close_ = script_can_close;
 }
@@ -2050,6 +2056,7 @@ void RenderView::OnMissingPluginStatus(
 
 WebView* RenderView::createView(
     WebFrame* creator,
+    const WebURLRequest& request,
     const WebWindowFeatures& features,
     const WebString& frame_name) {
   // Check to make sure we aren't overloading on popups.
@@ -2142,7 +2149,7 @@ RenderView::CreatePepperFullscreenContainer(
   RenderWidgetFullscreenPepper* widget =
       RenderWidgetFullscreenPepper::Create(routing_id_, render_thread_, plugin);
   widget->show(WebKit::WebNavigationPolicyIgnore);
-  return widget->container();
+  return widget;
 }
 
 WebStorageNamespace* RenderView::createSessionStorageNamespace(unsigned quota) {
@@ -2173,7 +2180,7 @@ void RenderView::printPage(WebFrame* frame) {
 }
 
 WebKit::WebNotificationPresenter* RenderView::notificationPresenter() {
-  return notification_provider_.get();
+  return notification_provider_;
 }
 
 void RenderView::didStartLoading() {
@@ -2278,29 +2285,6 @@ void RenderView::didExecuteCommand(const WebString& command_name) {
   UserMetricsRecordAction(name);
 }
 
-void RenderView::textFieldDidEndEditing(
-    const WebKit::WebInputElement& element) {
-  password_autocomplete_manager_->TextFieldDidEndEditing(element);
-}
-
-void RenderView::textFieldDidChange(const WebKit::WebInputElement& element) {
-  // We post a task for doing the AutoFill as the caret position is not set
-  // properly at this point (http://bugs.webkit.org/show_bug.cgi?id=16976) and
-  // it is needed to trigger autofill.
-  autofill_method_factory_.RevokeAll();
-  MessageLoop::current()->PostTask(
-        FROM_HERE,
-        autofill_method_factory_.NewRunnableMethod(
-            &RenderView::TextFieldDidChangeImpl, element));
-}
-
-void RenderView::TextFieldDidChangeImpl(
-    const WebKit::WebInputElement& element) {
-  if (password_autocomplete_manager_->TextDidChangeInTextField(element))
-    return;
-  autofill_helper_->TextDidChangeInTextField(element);
-}
-
 void RenderView::SendPendingAccessibilityNotifications() {
   if (!accessibility_.get())
     return;
@@ -2326,13 +2310,6 @@ void RenderView::SendPendingAccessibilityNotifications() {
   pending_accessibility_notifications_.clear();
   Send(new ViewHostMsg_AccessibilityNotifications(routing_id_, notifications));
   accessibility_ack_pending_ = true;
-}
-
-void RenderView::textFieldDidReceiveKeyDown(
-    const WebKit::WebInputElement& element,
-    const WebKit::WebKeyboardEvent& event) {
-  password_autocomplete_manager_->TextFieldHandlingKeyDown(element, event);
-  autofill_helper_->KeyDownInTextField(element, event);
 }
 
 bool RenderView::handleCurrentKeyboardEvent() {
@@ -2491,6 +2468,7 @@ void RenderView::showContextMenu(
   //                 data encoded images.  We should have a way to save them.
   if (params.src_url.spec().size() > chrome::kMaxURLChars)
     params.src_url = GURL();
+  context_menu_node_ = data.node;
   Send(new ViewHostMsg_ContextMenu(routing_id_, params));
 }
 
@@ -2625,38 +2603,6 @@ void RenderView::didUpdateInspectorSetting(const WebString& key,
   Send(new ViewHostMsg_UpdateInspectorSetting(routing_id_,
                                               key.utf8(),
                                               value.utf8()));
-}
-
-void RenderView::removeAutofillSuggestions(const WebString& name,
-                                           const WebString& value) {
-  autofill_helper_->RemoveAutocompleteSuggestion(name, value);
-}
-
-void RenderView::didAcceptAutoFillSuggestion(const WebKit::WebNode& node,
-                                             const WebKit::WebString& value,
-                                             const WebKit::WebString& label,
-                                             int unique_id,
-                                             unsigned index) {
-  autofill_helper_->DidAcceptAutoFillSuggestion(node, value, unique_id, index);
-}
-
-void RenderView::didSelectAutoFillSuggestion(const WebKit::WebNode& node,
-                                             const WebKit::WebString& value,
-                                             const WebKit::WebString& label,
-                                             int unique_id) {
-  autofill_helper_->DidSelectAutoFillSuggestion(node, unique_id);
-}
-
-void RenderView::didClearAutoFillSelection(const WebKit::WebNode& node) {
-  autofill_helper_->DidClearAutoFillSelection(node);
-}
-
-void RenderView::didAcceptAutocompleteSuggestion(
-    const WebKit::WebInputElement& user_element) {
-  bool result = password_autocomplete_manager_->FillPassword(user_element);
-  // Since this user name was selected from a suggestion list, we should always
-  // have password for it.
-  DCHECK(result);
 }
 
 // WebKit::WebWidgetClient ----------------------------------------------------
@@ -2858,6 +2804,8 @@ WebSharedWorker* RenderView::createSharedWorker(
 
 WebMediaPlayer* RenderView::createMediaPlayer(
     WebFrame* frame, WebMediaPlayerClient* client) {
+  scoped_ptr<media::MessageLoopFactory> message_loop_factory(
+      new media::MessageLoopFactoryImpl());
   scoped_ptr<media::FilterCollection> collection(
       new media::FilterCollection());
 
@@ -2893,7 +2841,9 @@ WebMediaPlayer* RenderView::createMediaPlayer(
   video_renderer = renderer;
 
   scoped_ptr<webkit_glue::WebMediaPlayerImpl> result(
-      new webkit_glue::WebMediaPlayerImpl(client, collection.release()));
+      new webkit_glue::WebMediaPlayerImpl(client,
+                                          collection.release(),
+                                          message_loop_factory.release()));
   if (!result->Initialize(frame,
                           cmd_line->HasSwitch(switches::kSimpleDataSource),
                           video_renderer)) {
@@ -2914,8 +2864,7 @@ WebCookieJar* RenderView::cookieJar(WebFrame* frame) {
 }
 
 void RenderView::frameDetached(WebFrame* frame) {
-  autofill_helper_->FrameDetached(frame);
-  page_click_tracker_->StopTrackingFrame(frame, true);
+  FOR_EACH_OBSERVER(RenderViewObserver, observers_, FrameDetached(frame));
 }
 
 void RenderView::willClose(WebFrame* frame) {
@@ -2925,8 +2874,7 @@ void RenderView::willClose(WebFrame* frame) {
   page_load_histograms_.Dump(frame);
   navigation_state->user_script_idle_scheduler()->Cancel();
 
-  // TODO(jhawkins): Remove once frameDetached is called by WebKit.
-  autofill_helper_->FrameWillClose(frame);
+  FOR_EACH_OBSERVER(RenderViewObserver, observers_, FrameWillClose(frame));
 }
 
 bool RenderView::allowImages(WebFrame* frame, bool enabled_per_settings) {
@@ -3520,11 +3468,8 @@ void RenderView::didFinishDocumentLoad(WebFrame* frame) {
 
   Send(new ViewHostMsg_DocumentLoadedInFrame(routing_id_, frame->identifier()));
 
-  page_click_tracker_->StartTrackingFrame(frame);
-  // The document has now been fully loaded.  Scan for forms to be sent up to
-  // the browser.
-  autofill_helper_->FrameContentsAvailable(frame);
-  password_autocomplete_manager_->SendPasswordForms(frame, false);
+  FOR_EACH_OBSERVER(
+      RenderViewObserver, observers_, DidFinishDocumentLoad(frame));
 
   // Check whether we have new encoding name.
   UpdateEncoding(frame, frame->view()->pageEncoding().utf8());
@@ -3575,8 +3520,7 @@ void RenderView::didFinishLoad(WebFrame* frame) {
   navigation_state->set_finish_load_time(Time::Now());
   navigation_state->user_script_idle_scheduler()->DidFinishLoad();
 
-  // Let the password manager know which password forms are actually visible.
-  password_autocomplete_manager_->SendPasswordForms(frame, true);
+  FOR_EACH_OBSERVER(RenderViewObserver, observers_, DidFinishLoad(frame));
 
   Send(new ViewHostMsg_DidFinishLoad(routing_id_, frame->identifier()));
 }
@@ -4690,12 +4634,6 @@ void RenderView::OnDragSourceSystemDragEnded() {
   webview()->dragSourceSystemDragEnded();
 }
 
-void RenderView::OnFillPasswordForm(
-    const webkit_glue::PasswordFormFillData& form_data) {
-  password_autocomplete_manager_->ReceivedPasswordFormFillData(webview(),
-                                                              form_data);
-}
-
 void RenderView::OnDragTargetDragEnter(const WebDropData& drop_data,
                                        const gfx::Point& client_point,
                                        const gfx::Point& screen_point,
@@ -4765,11 +4703,8 @@ void RenderView::OnInstallMissingPlugin() {
 }
 
 void RenderView::OnLoadBlockedPlugins() {
-  current_content_settings_.settings[CONTENT_SETTINGS_TYPE_PLUGINS] =
-      CONTENT_SETTING_ALLOW;
-  NotificationService::current()->Notify(NotificationType::SHOULD_LOAD_PLUGINS,
-                                         Source<RenderView>(this),
-                                         NotificationService::NoDetails());
+  while (!blocked_plugins_.empty())
+    (*blocked_plugins_.begin())->LoadPlugin();
 }
 
 void RenderView::OnFileChooserResponse(const std::vector<FilePath>& paths) {
@@ -4859,9 +4794,13 @@ void RenderView::OnSearchBoxResize(const gfx::Rect& bounds) {
 }
 
 void RenderView::OnDetermineIfPageSupportsInstant(const string16& value,
-                                                  bool verbatim) {
+                                                  bool verbatim,
+                                                  int selection_start,
+                                                  int selection_end) {
   search_box_.value = value;
   search_box_.verbatim = verbatim;
+  search_box_.selection_start = selection_start;
+  search_box_.selection_end = selection_end;
   bool result = extensions_v8::SearchBoxExtension::PageSupportsInstant(
       webview()->mainFrame());
   Send(new ViewHostMsg_InstantSupportDetermined(routing_id_, page_id_, result));
@@ -5228,7 +5167,7 @@ void RenderView::DidFlushPaint() {
   }
 }
 
-bool RenderView::GetBitmapForOptimizedPluginPaint(
+webkit::ppapi::PluginInstance* RenderView::GetBitmapForOptimizedPluginPaint(
     const gfx::Rect& paint_bounds,
     TransportDIB** dib,
     gfx::Rect* location,
@@ -5383,10 +5322,13 @@ void RenderView::Print(WebFrame* frame,
                        bool script_initiated,
                        bool is_preview) {
   DCHECK(frame);
-  if (print_helper_.get() == NULL) {
+  GetPrintWebViewHelper()->PrintFrame(frame, script_initiated, is_preview);
+}
+
+PrintWebViewHelper* RenderView::GetPrintWebViewHelper() {
+  if (print_helper_.get() == NULL)
     print_helper_.reset(new PrintWebViewHelper(this));
-  }
-  print_helper_->Print(frame, script_initiated, is_preview);
+  return print_helper_.get();
 }
 
 void RenderView::OnSetEditCommandsForNextKeyEvent(
@@ -5471,7 +5413,7 @@ void RenderView::DidHandleKeyEvent() {
 }
 
 void RenderView::DidHandleMouseEvent(const WebKit::WebMouseEvent& event) {
-  page_click_tracker_->DidHandleMouseEvent(event);
+  FOR_EACH_OBSERVER(RenderViewObserver, observers_, DidHandleMouseEvent(event));
 }
 
 #if defined(OS_MACOSX)
@@ -5629,35 +5571,26 @@ void RenderView::OnPageTranslated() {
   if (!frame)
     return;
 
-  // The page is translated, so try to extract the form data again.
-  autofill_helper_->FrameContentsAvailable(frame);
+  FOR_EACH_OBSERVER(RenderViewObserver, observers_, FrameTranslated(frame));
 }
 
-#if defined(ENABLE_CLIENT_BASED_GEOLOCATION)
 WebKit::WebGeolocationClient* RenderView::geolocationClient() {
-  if (!geolocation_dispatcher_.get())
-    geolocation_dispatcher_.reset(new GeolocationDispatcher(this));
-  return geolocation_dispatcher_.get();
+  if (!geolocation_dispatcher_)
+    geolocation_dispatcher_ = new GeolocationDispatcher(this);
+  return geolocation_dispatcher_;
 }
-#else
-WebKit::WebGeolocationService* RenderView::geolocationService() {
-  if (!geolocation_dispatcher_.get())
-    geolocation_dispatcher_.reset(new GeolocationDispatcherOld(this));
-  return geolocation_dispatcher_.get();
-}
-#endif
 
 WebKit::WebSpeechInputController* RenderView::speechInputController(
     WebKit::WebSpeechInputListener* listener) {
-  if (!speech_input_dispatcher_.get())
-    speech_input_dispatcher_.reset(new SpeechInputDispatcher(this, listener));
-  return speech_input_dispatcher_.get();
+  if (!speech_input_dispatcher_)
+    speech_input_dispatcher_ = new SpeechInputDispatcher(this, listener);
+  return speech_input_dispatcher_;
 }
 
 WebKit::WebDeviceOrientationClient* RenderView::deviceOrientationClient() {
-  if (!device_orientation_dispatcher_.get())
-    device_orientation_dispatcher_.reset(new DeviceOrientationDispatcher(this));
-  return device_orientation_dispatcher_.get();
+  if (!device_orientation_dispatcher_)
+    device_orientation_dispatcher_ = new DeviceOrientationDispatcher(this);
+  return device_orientation_dispatcher_;
 }
 
 void RenderView::zoomLimitsChanged(double minimum_level, double maximum_level) {
@@ -5761,4 +5694,30 @@ void RenderView::AddErrorToRootConsole(const string16& message) {
     webview()->mainFrame()->addMessageToConsole(
         WebConsoleMessage(WebConsoleMessage::LevelError, message));
   }
+}
+
+#if defined(ENABLE_FLAPPER_HACKS)
+void RenderView::OnConnectTcpACK(
+    int request_id,
+    IPC::PlatformFileForTransit socket_for_transit,
+    const PP_Flash_NetAddress& local_addr,
+    const PP_Flash_NetAddress& remote_addr) {
+  pepper_delegate_.OnConnectTcpACK(
+      request_id,
+      IPC::PlatformFileForTransitToPlatformFile(socket_for_transit),
+      local_addr,
+      remote_addr);
+}
+#endif
+
+void RenderView::OnJavaScriptStressTestControl(int cmd, int param) {
+  if (cmd == kJavaScriptStressTestSetStressRunType) {
+    v8::Testing::SetStressRunType(static_cast<v8::Testing::StressType>(param));
+  } else if (cmd == kJavaScriptStressTestPrepareStressRun) {
+    v8::Testing::PrepareStressRun(param);
+  }
+}
+
+void RenderView::OnContextMenuClosed() {
+  context_menu_node_.reset();
 }

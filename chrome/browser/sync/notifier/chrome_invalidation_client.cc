@@ -126,7 +126,14 @@ void ChromeInvalidationClient::Invalidate(
   VLOG(1) << "Invalidate: " << InvalidationToString(invalidation);
   syncable::ModelType model_type;
   if (ObjectIdToRealModelType(invalidation.object_id(), &model_type)) {
-    listener_->OnInvalidate(model_type);
+    // TODO(akalin): This is a hack to make new sync data types work
+    // with server-issued notifications.  Remove this when it's not
+    // needed anymore.
+    if (model_type == syncable::UNSPECIFIED) {
+      listener_->OnInvalidateAll();
+    } else {
+      listener_->OnInvalidate(model_type);
+    }
   } else {
     LOG(WARNING) << "Could not get invalidation model type; "
                  << "invalidating everything";
@@ -149,20 +156,24 @@ void ChromeInvalidationClient::RegistrationStateChanged(
     invalidation::RegistrationState new_state,
     const invalidation::UnknownHint& unknown_hint) {
   DCHECK(non_thread_safe_.CalledOnValidThread());
-  VLOG(1) << "RegistrationStateChanged to " << new_state;
+  VLOG(1) << "RegistrationStateChanged: "
+          << ObjectIdToString(object_id) << " " << new_state;
   if (new_state == invalidation::RegistrationState_UNKNOWN) {
     VLOG(1) << "is_transient=" << unknown_hint.is_transient()
             << ", message=" << unknown_hint.message();
   }
-  // TODO(akalin): Figure out something else to do if the failure
-  // isn't transient.  Even if it is transient, we may still want to
-  // add exponential back-off or limit the number of attempts.
+
   syncable::ModelType model_type;
-  if (ObjectIdToRealModelType(object_id, &model_type) &&
-      (new_state != invalidation::RegistrationState_REGISTERED)) {
-    registration_manager_->MarkRegistrationLost(model_type);
-  } else {
+  if (!ObjectIdToRealModelType(object_id, &model_type)) {
     LOG(WARNING) << "Could not get object id model type; ignoring";
+    return;
+  }
+
+  if (new_state != invalidation::RegistrationState_REGISTERED) {
+    // TODO(akalin): Figure out something else to do if the failure
+    // isn't transient.  Even if it is transient, we may still want to
+    // add exponential back-off or limit the number of attempts.
+    registration_manager_->MarkRegistrationLost(model_type);
   }
 }
 

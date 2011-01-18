@@ -21,7 +21,7 @@
 #include "base/win/registry.h"
 #include "base/win/windows_version.h"
 #include "skia/ext/platform_canvas.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebInputEvent.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "webkit/glue/webkit_glue.h"
 #include "webkit/plugins/npapi/default_plugin_shared.h"
 #include "webkit/plugins/npapi/plugin_constants_win.h"
@@ -191,8 +191,9 @@ bool WebPluginDelegateImpl::IsPluginDelegateWindow(HWND window) {
   return wcscmp(class_name, kNativeWindowClassName) == 0;
 }
 
+// static
 bool WebPluginDelegateImpl::GetPluginNameFromWindow(
-    HWND window, std::wstring *plugin_name) {
+    HWND window, string16* plugin_name) {
   if (NULL == plugin_name) {
     return false;
   }

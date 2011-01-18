@@ -18,7 +18,6 @@
 
 using base::win::ScopedBstr;
 using base::win::ScopedComPtr;
-using base::win::ScopedHGlobal;
 
 namespace {
 
@@ -29,7 +28,7 @@ HRESULT StreamOnHGlobalToString(IStream* stream, std::string* out) {
   HRESULT hr = GetHGlobalFromStream(stream, &hdata);
   if (SUCCEEDED(hr)) {
     DCHECK(hdata);
-    ScopedHGlobal<char> locked_data(hdata);
+    base::win::ScopedHGlobal<char> locked_data(hdata);
     out->assign(locked_data.release(), locked_data.Size());
   }
   return hr;
@@ -86,7 +85,8 @@ void PrintBackendWin::EnumeratePrinters(PrinterList* printer_list) {
 bool PrintBackendWin::GetPrinterCapsAndDefaults(
     const std::string& printer_name,
     PrinterCapsAndDefaults* printer_info) {
-  if (!XPSModule::Init()) {
+  ScopedXPSInitializer xps_initializer;
+  if (!xps_initializer.initialized()) {
     // TODO(sanjeevr): Handle legacy proxy case (with no prntvpt.dll)
     return false;
   }

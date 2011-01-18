@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 // This class simulates what wininet does when a dns lookup fails.
@@ -13,6 +13,7 @@
 #include "net/url_request/url_request_job.h"
 
 class AutomationResourceMessageFilter;
+struct AutomationURLResponse;
 
 namespace net {
 class HttpResponseHeaders;
@@ -21,7 +22,6 @@ class HttpResponseInfo;
 
 namespace IPC {
 class Message;
-struct AutomationURLResponse;
 }
 
 // net::URLRequestJob implementation that loads the resources using
@@ -81,10 +81,9 @@ class URLRequestAutomationJob : public net::URLRequestJob {
   void DisconnectFromMessageFilter();
 
   // IPC message handlers.
-  void OnRequestStarted(int tab, int id,
-      const IPC::AutomationURLResponse& response);
-  void OnDataAvailable(int tab, int id, const std::string& bytes);
-  void OnRequestEnd(int tab, int id, const URLRequestStatus& status);
+  void OnRequestStarted(int id, const AutomationURLResponse& response);
+  void OnDataAvailable(int id, const std::string& bytes);
+  void OnRequestEnd(int id, const net::URLRequestStatus& status);
 
  private:
   virtual ~URLRequestAutomationJob();
@@ -121,7 +120,7 @@ class URLRequestAutomationJob : public net::URLRequestJob {
 
   // Contains the request status code, which is eventually passed  to the http
   // stack when we receive a Read request for a completed job.
-  URLRequestStatus request_status_;
+  net::URLRequestStatus request_status_;
 
   ScopedRunnableMethodFactory<URLRequestAutomationJob> method_factory_;
 

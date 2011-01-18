@@ -1,8 +1,8 @@
-// Copyright (c) 2006-2008 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/sad_tab_view.h"
+#include "chrome/browser/ui/views/sad_tab_view.h"
 
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
@@ -28,8 +28,12 @@ static const float kMessageSize = 0.65f;
 static const SkColor kTitleColor = SK_ColorWHITE;
 static const SkColor kMessageColor = SK_ColorWHITE;
 static const SkColor kLinkColor = SK_ColorWHITE;
-static const SkColor kBackgroundColor = SkColorSetRGB(35, 48, 64);
-static const SkColor kBackgroundEndColor = SkColorSetRGB(35, 48, 64);
+static const SkColor kCrashBackgroundColor = SkColorSetRGB(35, 48, 64);
+static const SkColor kCrashBackgroundEndColor = SkColorSetRGB(35, 48, 64);
+// TODO(gspencer): update these colors when the UI team has picked
+// official versions.  See http://crosbug.com/10711.
+static const SkColor kKillBackgroundColor = SkColorSetRGB(57, 48, 88);
+static const SkColor kKillBackgroundEndColor = SkColorSetRGB(57, 48, 88);
 
 // Font size correction.
 #if defined(CROS_FONTS_USING_BCI)
@@ -48,15 +52,17 @@ std::wstring SadTabView::title_;
 std::wstring SadTabView::message_;
 int SadTabView::title_width_;
 
-SadTabView::SadTabView(TabContents* tab_contents)
+SadTabView::SadTabView(TabContents* tab_contents, Kind kind)
     : tab_contents_(tab_contents),
-      learn_more_link_(NULL) {
+      learn_more_link_(NULL),
+      kind_(kind) {
   DCHECK(tab_contents);
 
-  InitClass();
+  InitClass(kind);
 
   if (tab_contents != NULL) {
-    learn_more_link_ = new views::Link(l10n_util::GetString(IDS_LEARN_MORE));
+    learn_more_link_ =
+        new views::Link(UTF16ToWide(l10n_util::GetStringUTF16(IDS_LEARN_MORE)));
     learn_more_link_->SetFont(*message_font_);
     learn_more_link_->SetNormalColor(kLinkColor);
     learn_more_link_->SetController(this);
@@ -66,22 +72,26 @@ SadTabView::SadTabView(TabContents* tab_contents)
 
 void SadTabView::Paint(gfx::Canvas* canvas) {
   SkPaint paint;
-  SkSafeUnref(paint.setShader(gfx::CreateGradientShader(0, height(),
-                                                        kBackgroundColor,
-                                                        kBackgroundEndColor)));
+  SkSafeUnref(paint.setShader(
+      gfx::CreateGradientShader(
+          0,
+          height(),
+          kind_ == CRASHED ? kCrashBackgroundColor : kKillBackgroundColor,
+          kind_ == CRASHED ?
+            kCrashBackgroundEndColor : kKillBackgroundEndColor)));
   paint.setStyle(SkPaint::kFill_Style);
   canvas->AsCanvasSkia()->drawRectCoords(
       0, 0, SkIntToScalar(width()), SkIntToScalar(height()), paint);
 
   canvas->DrawBitmapInt(*sad_tab_bitmap_, icon_bounds_.x(), icon_bounds_.y());
 
-  canvas->DrawStringInt(title_, *title_font_, kTitleColor, title_bounds_.x(),
-                        title_bounds_.y(), title_bounds_.width(),
-                        title_bounds_.height(),
+  canvas->DrawStringInt(WideToUTF16Hack(title_), *title_font_, kTitleColor,
+                        title_bounds_.x(), title_bounds_.y(),
+                        title_bounds_.width(), title_bounds_.height(),
                         gfx::Canvas::TEXT_ALIGN_CENTER);
 
-  canvas->DrawStringInt(message_, *message_font_, kMessageColor,
-                        message_bounds_.x(), message_bounds_.y(),
+  canvas->DrawStringInt(WideToUTF16Hack(message_), *message_font_,
+                        kMessageColor, message_bounds_.x(), message_bounds_.y(),
                         message_bounds_.width(), message_bounds_.height(),
                         gfx::Canvas::MULTI_LINE);
 
@@ -123,7 +133,9 @@ void SadTabView::Layout() {
 void SadTabView::LinkActivated(views::Link* source, int event_flags) {
   if (tab_contents_ != NULL && source == learn_more_link_) {
     GURL help_url =
-        google_util::AppendGoogleLocaleParam(GURL(chrome::kCrashReasonURL));
+        google_util::AppendGoogleLocaleParam(GURL(kind_ == CRASHED ?
+                                                  chrome::kCrashReasonURL :
+                                                  chrome::kKillReasonURL));
     WindowOpenDisposition disposition(CURRENT_TAB);
 #if defined(OS_CHROMEOS)
     if (tab_contents_->delegate() &&
@@ -138,7 +150,7 @@ void SadTabView::LinkActivated(views::Link* source, int event_flags) {
 }
 
 // static
-void SadTabView::InitClass() {
+void SadTabView::InitClass(Kind kind) {
   static bool initialized = false;
   if (!initialized) {
     ResourceBundle& rb = ResourceBundle::GetSharedInstance();
@@ -147,11 +159,14 @@ void SadTabView::InitClass() {
                                                         gfx::Font::BOLD));
     message_font_ = new gfx::Font(
         rb.GetFont(ResourceBundle::BaseFont).DeriveFont(kMessageFontSizeDelta));
-    sad_tab_bitmap_ = rb.GetBitmapNamed(IDR_SAD_TAB);
+    sad_tab_bitmap_ = rb.GetBitmapNamed(
+        kind == CRASHED ? IDR_SAD_TAB : IDR_KILLED_TAB);
 
-    title_ = l10n_util::GetString(IDS_SAD_TAB_TITLE);
-    title_width_ = title_font_->GetStringWidth(title_);
-    message_ = l10n_util::GetString(IDS_SAD_TAB_MESSAGE);
+    title_ = UTF16ToWide(l10n_util::GetStringUTF16(
+        kind == CRASHED ? IDS_SAD_TAB_TITLE : IDS_KILLED_TAB_TITLE));
+    title_width_ = title_font_->GetStringWidth(WideToUTF16Hack(title_));
+    message_ = UTF16ToWide(l10n_util::GetStringUTF16(
+        kind == CRASHED ? IDS_SAD_TAB_MESSAGE : IDS_KILLED_TAB_MESSAGE));
 
     initialized = true;
   }

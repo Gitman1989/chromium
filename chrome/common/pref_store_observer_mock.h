@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,11 +10,11 @@
 #include "chrome/common/pref_store.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
-// A gmock-ified implementation of PrefStore::ObserverInterface.
-class PrefStoreObserverMock : public PrefStore::ObserverInterface {
+// A gmock-ified implementation of PrefStore::Observer.
+class PrefStoreObserverMock : public PrefStore::Observer {
  public:
-  PrefStoreObserverMock() {}
-  virtual ~PrefStoreObserverMock() {}
+  PrefStoreObserverMock();
+  virtual ~PrefStoreObserverMock();
 
   MOCK_METHOD1(OnPrefValueChanged, void(const std::string&));
   MOCK_METHOD0(OnInitializationCompleted, void());

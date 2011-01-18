@@ -2,9 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/auto_reset.h"
+#include "base/message_loop.h"
+#include "base/scoped_ptr.h"
 #include "base/utf_string_conversions.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/clipboard/clipboard.h"
+#include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "views/controls/textfield/textfield_views_model.h"
+#include "views/test/test_views_delegate.h"
+#include "views/views_delegate.h"
 
 namespace views {
 
@@ -209,7 +216,6 @@ TEST(TextfieldViewsModelTest, TextFragment) {
   // Empty string
   model.GetFragments(&fragments);
   EXPECT_EQ(1U, fragments.size());
-  fragments.clear();
   EXPECT_EQ(0U, fragments[0].begin);
   EXPECT_EQ(0U, fragments[0].end);
   EXPECT_FALSE(fragments[0].selected);
@@ -280,6 +286,66 @@ TEST(TextfieldViewsModelTest, SetText) {
   EXPECT_EQ(string16(), model.GetSelectedText());
   model.SetText(ASCIIToUTF16(""));
   EXPECT_EQ(0U, model.cursor_pos());
+}
+
+#if defined(OS_WIN)
+#define MAYBE_Clipboard DISABLED_Clipboard
+#else
+#define MAYBE_Clipboard Clipboard
+#endif
+TEST(TextfieldViewsModelTest, MAYBE_Clipboard) {
+  scoped_ptr<TestViewsDelegate> test_views_delegate(new TestViewsDelegate());
+  AutoReset<views::ViewsDelegate*> auto_reset(
+      &views::ViewsDelegate::views_delegate, test_views_delegate.get());
+  ui::Clipboard* clipboard
+      = views::ViewsDelegate::views_delegate->GetClipboard();
+  string16 initial_clipboard_text;
+  clipboard->ReadText(ui::Clipboard::BUFFER_STANDARD, &initial_clipboard_text);
+  string16 clipboard_text;
+  TextfieldViewsModel model;
+  model.Append(ASCIIToUTF16("HELLO WORLD"));
+  model.MoveCursorToEnd(false);
+
+  // Test for cut: Empty selection.
+  EXPECT_FALSE(model.Cut());
+  clipboard->ReadText(ui::Clipboard::BUFFER_STANDARD, &clipboard_text);
+  EXPECT_STR_EQ(UTF16ToUTF8(initial_clipboard_text), clipboard_text);
+  EXPECT_STR_EQ("HELLO WORLD", model.text());
+  EXPECT_EQ(11U, model.cursor_pos());
+
+  // Test for cut: Non-empty selection.
+  model.MoveCursorToPreviousWord(true);
+  EXPECT_TRUE(model.Cut());
+  clipboard->ReadText(ui::Clipboard::BUFFER_STANDARD, &clipboard_text);
+  EXPECT_STR_EQ("WORLD", clipboard_text);
+  EXPECT_STR_EQ("HELLO ", model.text());
+  EXPECT_EQ(6U, model.cursor_pos());
+
+  // Test for copy: Empty selection.
+  model.Copy();
+  clipboard->ReadText(ui::Clipboard::BUFFER_STANDARD, &clipboard_text);
+  EXPECT_STR_EQ("WORLD", clipboard_text);
+  EXPECT_STR_EQ("HELLO ", model.text());
+  EXPECT_EQ(6U, model.cursor_pos());
+
+  // Test for copy: Non-empty selection.
+  model.Append(ASCIIToUTF16("HELLO WORLD"));
+  model.SelectAll();
+  model.Copy();
+  clipboard->ReadText(ui::Clipboard::BUFFER_STANDARD, &clipboard_text);
+  EXPECT_STR_EQ("HELLO HELLO WORLD", clipboard_text);
+  EXPECT_STR_EQ("HELLO HELLO WORLD", model.text());
+  EXPECT_EQ(0U, model.cursor_pos());
+
+  // Test for paste.
+  model.ClearSelection();
+  model.MoveCursorToEnd(false);
+  model.MoveCursorToPreviousWord(true);
+  EXPECT_TRUE(model.Paste());
+  clipboard->ReadText(ui::Clipboard::BUFFER_STANDARD, &clipboard_text);
+  EXPECT_STR_EQ("HELLO HELLO WORLD", clipboard_text);
+  EXPECT_STR_EQ("HELLO HELLO HELLO HELLO WORLD", model.text());
+  EXPECT_EQ(29U, model.cursor_pos());
 }
 
 }  // namespace views

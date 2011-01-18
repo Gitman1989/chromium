@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,7 +6,7 @@
 
 // If this gets included after the gtk headers, then a bunch of compiler
 // errors happen because of a "#define Status int" in Xlib.h, which interacts
-// badly with URLRequestStatus::Status.
+// badly with net::URLRequestStatus::Status.
 #include "chrome/common/render_messages.h"
 
 #include <cairo/cairo.h>
@@ -37,7 +37,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/native_web_keyboard_event.h"
 #include "gfx/gtk_preserve_window.h"
-#include "third_party/WebKit/WebKit/chromium/public/gtk/WebInputEventFactory.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/gtk/WebInputEventFactory.h"
 #include "webkit/glue/webaccessibility.h"
 #include "webkit/glue/webcursor_gtk_data.h"
 #include "webkit/plugins/npapi/webplugin.h"
@@ -1106,15 +1106,17 @@ void RenderWidgetHostViewGtk::ForwardKeyboardEvent(
   host_->ForwardKeyboardEvent(event);
 }
 
-void RenderWidgetHostViewGtk::AnimationEnded(const Animation* animation) {
+void RenderWidgetHostViewGtk::AnimationEnded(const ui::Animation* animation) {
   gtk_widget_queue_draw(view_.get());
 }
 
-void RenderWidgetHostViewGtk::AnimationProgressed(const Animation* animation) {
+void RenderWidgetHostViewGtk::AnimationProgressed(
+    const ui::Animation* animation) {
   gtk_widget_queue_draw(view_.get());
 }
 
-void RenderWidgetHostViewGtk::AnimationCanceled(const Animation* animation) {
+void RenderWidgetHostViewGtk::AnimationCanceled(
+    const ui::Animation* animation) {
   gtk_widget_queue_draw(view_.get());
 }
 

@@ -55,13 +55,13 @@ class Graphics2D : public PluginResource {
 
 namespace {
 
-PP_Resource Create(PP_Module module_id,
+PP_Resource Create(PP_Instance instance,
                    const PP_Size* size,
                    PP_Bool is_always_opaque) {
   PluginDispatcher* dispatcher = PluginDispatcher::Get();
   PP_Resource result = 0;
   dispatcher->Send(new PpapiHostMsg_PPBGraphics2D_Create(
-      INTERFACE_ID_PPB_GRAPHICS_2D, module_id, *size, is_always_opaque,
+      INTERFACE_ID_PPB_GRAPHICS_2D, instance, *size, is_always_opaque,
       &result));
   if (result) {
     linked_ptr<Graphics2D> graphics_2d(new Graphics2D(*size, is_always_opaque));
@@ -166,7 +166,8 @@ InterfaceID PPB_Graphics2D_Proxy::GetInterfaceId() const {
   return INTERFACE_ID_PPB_GRAPHICS_2D;
 }
 
-void PPB_Graphics2D_Proxy::OnMessageReceived(const IPC::Message& msg) {
+bool PPB_Graphics2D_Proxy::OnMessageReceived(const IPC::Message& msg) {
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(PPB_Graphics2D_Proxy, msg)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBGraphics2D_Create,
                         OnMsgCreate)
@@ -181,16 +182,18 @@ void PPB_Graphics2D_Proxy::OnMessageReceived(const IPC::Message& msg) {
 
     IPC_MESSAGE_HANDLER(PpapiMsg_PPBGraphics2D_FlushACK,
                         OnMsgFlushACK)
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   // FIXME(brettw) handle bad messages!
+  return handled;
 }
 
-void PPB_Graphics2D_Proxy::OnMsgCreate(PP_Module module,
+void PPB_Graphics2D_Proxy::OnMsgCreate(PP_Instance instance,
                                        const PP_Size& size,
                                        PP_Bool is_always_opaque,
                                        PP_Resource* result) {
   *result = ppb_graphics_2d_target()->Create(
-      module, &size, is_always_opaque);
+      instance, &size, is_always_opaque);
 }
 
 void PPB_Graphics2D_Proxy::OnMsgPaintImageData(PP_Resource graphics_2d,

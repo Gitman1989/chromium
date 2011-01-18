@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,8 +8,9 @@
 
 #include <vector>
 
-#include "chrome/browser/views/options/options_page_view.h"
-#include "chrome/browser/views/options/passwords_page_view.h"
+#include "base/compiler_specific.h"
+#include "chrome/browser/ui/views/options/options_page_view.h"
+#include "chrome/browser/ui/views/options/passwords_page_view.h"
 #include "views/controls/table/table_view_observer.h"
 
 class Profile;
@@ -22,8 +23,8 @@ class ExceptionsTableModel : public PasswordsTableModel {
   virtual ~ExceptionsTableModel();
 
   // TableModel methods.
-  virtual std::wstring GetText(int row, int column);
-  virtual int CompareValues(int row1, int row2, int col_id);
+  virtual string16 GetText(int row, int column) OVERRIDE;
+  virtual int CompareValues(int row1, int row2, int col_id) OVERRIDE;
 
   // PasswordStoreConsumer implementation.
   virtual void OnPasswordStoreRequestDone(

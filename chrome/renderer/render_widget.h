@@ -17,12 +17,12 @@
 #include "gfx/rect.h"
 #include "gfx/size.h"
 #include "ipc/ipc_channel.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebCompositionUnderline.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPopupType.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebRect.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebTextDirection.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebTextInputType.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebWidgetClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCompositionUnderline.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPopupType.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebRect.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebTextDirection.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebTextInputType.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebWidgetClient.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "webkit/glue/webcursor.h"
 
@@ -49,8 +49,12 @@ struct WebPopupMenuInfo;
 namespace webkit {
 namespace npapi {
 struct WebPluginGeometry;
-}
-}
+}  // namespace npapi
+
+namespace ppapi {
+class PluginInstance;
+}  // namespace ppapi
+}  // namespace webkit
 
 // RenderWidget provides a communication bridge between a WebWidget and
 // a RenderWidgetHost, the latter of which lives in a different process.
@@ -88,7 +92,7 @@ class RenderWidget : public IPC::Channel::Listener,
   bool has_focus() const { return has_focus_; }
 
   // IPC::Channel::Listener
-  virtual void OnMessageReceived(const IPC::Message& msg);
+  virtual bool OnMessageReceived(const IPC::Message& msg);
 
   // IPC::Message::Sender
   virtual bool Send(IPC::Message* msg);
@@ -184,7 +188,7 @@ class RenderWidget : public IPC::Channel::Listener,
       const std::vector<WebKit::WebCompositionUnderline>& underlines,
       int selection_start,
       int selection_end);
-  void OnImeConfirmComposition();
+  void OnImeConfirmComposition(const string16& text);
   void OnMsgPaintAtSize(const TransportDIB::Handle& dib_id,
                         int tag,
                         const gfx::Size& page_size,
@@ -202,13 +206,14 @@ class RenderWidget : public IPC::Channel::Listener,
   // Detects if a suitable opaque plugin covers the given paint bounds with no
   // compositing necessary.
   //
-  // Returns true if the paint can be handled by just blitting the plugin
-  // bitmap. In this case, the location, clipping, and ID of the backing store
-  // will be filled into the given output parameters.
+  // Returns the plugin instance that's the source of the paint if the paint
+  // can be handled by just blitting the plugin bitmap. In this case, the
+  // location, clipping, and ID of the backing store will be filled into the
+  // given output parameters.
   //
-  // A return value of false means optimized painting can not be used and we
+  // A return value of null means optimized painting can not be used and we
   // should continue with the normal painting code path.
-  virtual bool GetBitmapForOptimizedPluginPaint(
+  virtual webkit::ppapi::PluginInstance* GetBitmapForOptimizedPluginPaint(
       const gfx::Rect& paint_bounds,
       TransportDIB** dib,
       gfx::Rect* location,

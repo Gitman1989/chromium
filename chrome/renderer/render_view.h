@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -17,6 +17,7 @@
 #include "base/basictypes.h"
 #include "base/gtest_prod_util.h"
 #include "base/linked_ptr.h"
+#include "base/observer_list.h"
 #include "base/timer.h"
 #include "base/weak_ptr.h"
 #include "build/build_config.h"
@@ -35,14 +36,15 @@
 #include "chrome/renderer/renderer_webcookiejar_impl.h"
 #include "chrome/renderer/searchbox.h"
 #include "chrome/renderer/translate_helper.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebConsoleMessage.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFileSystem.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrameClient.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebMediaPlayerAction.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPageSerializerClient.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebTextDirection.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebViewClient.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebNavigationType.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebConsoleMessage.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFileSystem.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrameClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebMediaPlayerAction.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPageSerializerClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebNode.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebTextDirection.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebViewClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebNavigationType.h"
 #include "webkit/glue/webpreferences.h"
 #include "webkit/plugins/npapi/webplugin_page_delegate.h"
 
@@ -54,7 +56,7 @@
 #endif
 
 class AudioMessageFilter;
-class AutoFillHelper;
+class BlockedPlugin;
 class CustomMenuListener;
 class DictionaryValue;
 class DeviceOrientationDispatcher;
@@ -71,16 +73,16 @@ class ListValue;
 class LoadProgressTracker;
 class NavigationState;
 class NotificationProvider;
-class PageClickTracker;
-class PasswordAutocompleteManager;
 class PepperDeviceTest;
 class PrintWebViewHelper;
+class RenderViewObserver;
 class RenderViewVisitor;
 class SkBitmap;
 class SpeechInputDispatcher;
 class WebPluginDelegatePepper;
 class WebPluginDelegateProxy;
 struct ContextMenuMediaParams;
+struct PP_Flash_NetAddress;
 struct ThumbnailScore;
 struct ViewMsg_ClosePage_Params;
 struct ViewMsg_Navigate_Params;
@@ -137,7 +139,6 @@ class WebKeyboardEvent;
 class WebMediaPlayer;
 class WebMediaPlayerClient;
 class WebMouseEvent;
-class WebNode;
 class WebPlugin;
 class WebSpeechInputController;
 class WebSpeechInputListener;
@@ -235,10 +236,6 @@ class RenderView : public RenderWidget,
     send_content_state_immediately_ = value;
   }
 
-  PageClickTracker* page_click_tracker() const {
-    return page_click_tracker_.get();
-  }
-
   // May be NULL if client-side phishing detection is disabled.
   safe_browsing::PhishingClassifierDelegate*
       phishing_classifier_delegate() const {
@@ -256,6 +253,10 @@ class RenderView : public RenderWidget,
   const SearchBox& searchbox() const {
     return search_box_;
   }
+
+  // Functions to add and remove observers for this object.
+  void AddObserver(RenderViewObserver* observer);
+  void RemoveObserver(RenderViewObserver* observer);
 
   // Called from JavaScript window.external.AddSearchProvider() to add a
   // keyword for a provider described in the given OpenSearch document.
@@ -386,9 +387,12 @@ class RenderView : public RenderWidget,
   void RegisterPluginDelegate(WebPluginDelegateProxy* delegate);
   void UnregisterPluginDelegate(WebPluginDelegateProxy* delegate);
 
+  void RegisterBlockedPlugin(BlockedPlugin* blocked_plugin);
+  void UnregisterBlockedPlugin(BlockedPlugin* blocked_plugin);
+
   // IPC::Channel::Listener implementation -------------------------------------
 
-  virtual void OnMessageReceived(const IPC::Message& msg);
+  virtual bool OnMessageReceived(const IPC::Message& msg);
 
   // WebKit::WebWidgetClient implementation ------------------------------------
 
@@ -403,6 +407,7 @@ class RenderView : public RenderWidget,
 
   virtual WebKit::WebView* createView(
       WebKit::WebFrame* creator,
+      const WebKit::WebURLRequest& request,
       const WebKit::WebWindowFeatures& features,
       const WebKit::WebString& frame_name);
   virtual WebKit::WebWidget* createPopupMenu(WebKit::WebPopupType popup_type);
@@ -429,11 +434,6 @@ class RenderView : public RenderWidget,
   virtual bool isSelectTrailingWhitespaceEnabled();
   virtual void didChangeSelection(bool is_selection_empty);
   virtual void didExecuteCommand(const WebKit::WebString& command_name);
-  virtual void textFieldDidEndEditing(const WebKit::WebInputElement& element);
-  virtual void textFieldDidChange(const WebKit::WebInputElement& element);
-  virtual void textFieldDidReceiveKeyDown(
-      const WebKit::WebInputElement& element,
-      const WebKit::WebKeyboardEvent& event);
   virtual bool handleCurrentKeyboardEvent();
   virtual void spellCheck(const WebKit::WebString& text,
                           int& offset,
@@ -483,25 +483,7 @@ class RenderView : public RenderWidget,
       WebKit::WebAccessibilityNotification notification);
   virtual void didUpdateInspectorSetting(const WebKit::WebString& key,
                                          const WebKit::WebString& value);
-  virtual void removeAutofillSuggestions(const WebKit::WebString& name,
-                                         const WebKit::WebString& value);
-  virtual void didAcceptAutoFillSuggestion(const WebKit::WebNode& node,
-                                           const WebKit::WebString& value,
-                                           const WebKit::WebString& label,
-                                           int unique_id,
-                                           unsigned index);
-  virtual void didSelectAutoFillSuggestion(const WebKit::WebNode& node,
-                                           const WebKit::WebString& value,
-                                           const WebKit::WebString& label,
-                                           int unique_id);
-  virtual void didClearAutoFillSelection(const WebKit::WebNode& node);
-  virtual void didAcceptAutocompleteSuggestion(
-      const WebKit::WebInputElement& element);
-#if defined(ENABLE_CLIENT_BASED_GEOLOCATION)
   virtual WebKit::WebGeolocationClient* geolocationClient();
-#else
-  virtual WebKit::WebGeolocationService* geolocationService();
-#endif
   virtual WebKit::WebSpeechInputController* speechInputController(
       WebKit::WebSpeechInputListener* listener);
   virtual WebKit::WebDeviceOrientationClient* deviceOrientationClient();
@@ -607,8 +589,9 @@ class RenderView : public RenderWidget,
       const WebKit::WebURLRequest& request,
       const WebKit::WebURLResponse&);
   virtual void didDisplayInsecureContent(WebKit::WebFrame* frame);
-  virtual void didRunInsecureContent(WebKit::WebFrame* frame,
-                                     const WebKit::WebSecurityOrigin& origin);
+  virtual void didRunInsecureContent(
+      WebKit::WebFrame* frame,
+      const WebKit::WebSecurityOrigin& origin) OVERRIDE;
   virtual bool allowScript(WebKit::WebFrame* frame, bool enabled_per_settings);
   virtual bool allowDatabase(WebKit::WebFrame* frame,
                              const WebKit::WebString& name,
@@ -672,14 +655,15 @@ class RenderView : public RenderWidget,
   // appropriate section, add it there. If not, there are some random functions
   // nearer to the top you can add it to.
 
+  virtual void DidFlushPaint();
+
  protected:
   // RenderWidget overrides:
   virtual void Close();
   virtual void OnResize(const gfx::Size& new_size,
                         const gfx::Rect& resizer_rect);
   virtual void DidInitiatePaint();
-  virtual void DidFlushPaint();
-  virtual bool GetBitmapForOptimizedPluginPaint(
+  virtual webkit::ppapi::PluginInstance* GetBitmapForOptimizedPluginPaint(
       const gfx::Rect& paint_bounds,
       TransportDIB** dib,
       gfx::Rect* location,
@@ -744,21 +728,17 @@ class RenderView : public RenderWidget,
   };
 
   RenderView(RenderThreadBase* render_thread,
-             const WebPreferences& webkit_preferences,
-             int64 session_storage_namespace_id);
+             gfx::NativeViewId parent_hwnd,
+             int32 opener_id,
+             const RendererPreferences& renderer_prefs,
+             const WebPreferences& webkit_prefs,
+             SharedRenderViewCounter* counter,
+             int32 routing_id,
+             int64 session_storage_namespace_id,
+             const string16& frame_name);
 
   // Do not delete directly.  This class is reference counted.
   virtual ~RenderView();
-
-  // Initializes this view with the given parent and ID. The |routing_id| can be
-  // set to 'MSG_ROUTING_NONE' if the true ID is not yet known. In this case,
-  // CompleteInit must be called later with the true ID.
-  void Init(gfx::NativeViewId parent,
-            int32 opener_id,
-            const RendererPreferences& renderer_prefs,
-            SharedRenderViewCounter* counter,
-            int32 routing_id,
-            const string16& frame_name);
 
   void UpdateURL(WebKit::WebFrame* frame);
   void UpdateTitle(WebKit::WebFrame* frame, const string16& title);
@@ -817,10 +797,6 @@ class RenderView : public RenderWidget,
   void AddGURLSearchProvider(const GURL& osd_url,
                              const ViewHostMsg_PageHasOSDD_Type& provider_type);
 
-  // Called in a posted task by textFieldDidChange() to work-around a WebKit bug
-  // http://bugs.webkit.org/show_bug.cgi?id=16976
-  void TextFieldDidChangeImpl(const WebKit::WebInputElement& element);
-
   // Send queued accessibility notifications from the renderer to the browser.
   void SendPendingAccessibilityNotifications();
 
@@ -837,21 +813,19 @@ class RenderView : public RenderWidget,
                              const WebKit::WebConsoleMessage::Level&);
   void OnAdvanceToNextMisspelling();
   void OnAllowScriptToClose(bool script_can_close);
-  void OnAutocompleteSuggestionsReturned(
-      int query_id,
-      const std::vector<string16>& suggestions,
-      int default_suggestions_index);
-  void OnAutoFillFormDataFilled(int query_id,
-                                const webkit_glue::FormData& form);
-  void OnAutoFillSuggestionsReturned(
-      int query_id,
-      const std::vector<string16>& values,
-      const std::vector<string16>& labels,
-      const std::vector<string16>& icons,
-      const std::vector<int>& unique_ids);
+  void OnAsyncFileOpened(base::PlatformFileError error_code,
+                         IPC::PlatformFileForTransit file_for_transit,
+                         int message_id);
   void OnCancelDownload(int32 download_id);
   void OnClearFocusedNode();
   void OnClosePage(const ViewMsg_ClosePage_Params& params);
+#if defined(ENABLE_FLAPPER_HACKS)
+  void OnConnectTcpACK(int request_id,
+                       IPC::PlatformFileForTransit socket_for_transit,
+                       const PP_Flash_NetAddress& local_addr,
+                       const PP_Flash_NetAddress& remote_addr);
+#endif
+  void OnContextMenuClosed();
   void OnCopy();
   void OnCopyImageAt(int x, int y);
 #if defined(OS_MACOSX)
@@ -893,7 +867,10 @@ class RenderView : public RenderWidget,
   void OnSearchBoxSubmit(const string16& value, bool verbatim);
   void OnSearchBoxCancel();
   void OnSearchBoxResize(const gfx::Rect& bounds);
-  void OnDetermineIfPageSupportsInstant(const string16& value, bool verbatim);
+  void OnDetermineIfPageSupportsInstant(const string16& value,
+                                        bool verbatim,
+                                        int selection_start,
+                                        int selection_end);
   void OnEnableViewSourceMode();
   void OnExecuteCode(const ViewMsg_ExecuteCode_Params& params);
   void OnExecuteEditCommand(const std::string& name, const std::string& value);
@@ -921,8 +898,6 @@ class RenderView : public RenderWidget,
   void OnMoveOrResizeStarted();
   void OnNavigate(const ViewMsg_Navigate_Params& params);
   void OnNotifyRendererViewType(ViewType::Type view_type);
-  void OnFillPasswordForm(
-      const webkit_glue::PasswordFormFillData& form_data);
   void OnPaste();
 #if defined(OS_MACOSX)
   void OnPluginImeCompositionConfirmed(const string16& text, int plugin_id);
@@ -930,6 +905,7 @@ class RenderView : public RenderWidget,
   void OnPrintingDone(int document_cookie, bool success);
   void OnPrintPages();
   void OnPrintPreview();
+  void OnPrintNodeUnderContextMenu();
   void OnRedo();
   void OnReloadFrame();
   void OnReplace(const string16& text);
@@ -980,10 +956,7 @@ class RenderView : public RenderWidget,
   void OnSelectPopupMenuItem(int selected_index);
 #endif
   void OnZoom(PageZoom::Function function);
-
-  void OnAsyncFileOpened(base::PlatformFileError error_code,
-                         IPC::PlatformFileForTransit file_for_transit,
-                         int message_id);
+  void OnJavaScriptStressTestControl(int cmd, int param);
 
   // Adding a new message handler? Please add it in alphabetical order above
   // and put it in the same position in the .cc file.
@@ -1116,7 +1089,11 @@ class RenderView : public RenderWidget,
                                    const WebKit::WebURLError& error,
                                    bool replace);
 
+  // Prints |frame|.
   void Print(WebKit::WebFrame* frame, bool script_initiated, bool is_preview);
+
+  // Returns the PrintWebViewHelper for this class, creating if necessary.
+  PrintWebViewHelper* GetPrintWebViewHelper();
 
   // Returns whether the page associated with |document| is a candidate for
   // translation.  Some pages can explictly specify (via a meta-tag) that they
@@ -1355,52 +1332,47 @@ class RenderView : public RenderWidget,
   // destroyed yet. Pepper v2 plugins are tracked by the pepper_delegate_.
   std::set<WebPluginDelegatePepper*> current_oldstyle_pepper_plugins_;
 
+  // A list of all BlockedPlugins so they can all be loaded if needed.
+  std::set<BlockedPlugin*> blocked_plugins_;
+
   // Helper objects ------------------------------------------------------------
 
   ScopedRunnableMethodFactory<RenderView> page_info_method_factory_;
-  ScopedRunnableMethodFactory<RenderView> autofill_method_factory_;
   ScopedRunnableMethodFactory<RenderView> accessibility_method_factory_;
 
   // Responsible for translating the page contents to other languages.
   TranslateHelper translate_helper_;
 
-  // Responsible for automatically filling login and password textfields.
-  scoped_ptr<PasswordAutocompleteManager> password_autocomplete_manager_;
-
-  // Responsible for filling forms (AutoFill) and single text entries
-  // (Autocomplete).
-  scoped_ptr<AutoFillHelper> autofill_helper_;
-
-  // Tracks when text input controls get clicked.
-  // IMPORTANT: this should be declared after autofill_helper_ and
-  // password_autocomplete_manager_ so the tracker is deleted first (so we won't
-  // run the risk of notifying deleted objects).
-  scoped_ptr<PageClickTracker> page_click_tracker_;
-
   RendererWebCookieJarImpl cookie_jar_;
 
+  // The next group of objects all implement RenderViewObserver, so are deleted
+  // along with the RenderView automatically.  This is why we just store weak
+  // references.
+
   // Provides access to this renderer from the remote Inspector UI.
-  scoped_ptr<DevToolsAgent> devtools_agent_;
+  DevToolsAgent* devtools_agent_;
 
   // DevToolsClient for renderer hosting developer tools UI. It's NULL for other
   // render views.
-  scoped_ptr<DevToolsClient> devtools_client_;
+  DevToolsClient* devtools_client_;
 
   // Holds a reference to the service which provides desktop notifications.
-  scoped_ptr<NotificationProvider> notification_provider_;
+  NotificationProvider* notification_provider_;
+
+  // The geolocation dispatcher attached to this view, lazily initialized.
+  GeolocationDispatcher* geolocation_dispatcher_;
+
+  // The speech dispatcher attached to this view, lazily initialized.
+  SpeechInputDispatcher* speech_input_dispatcher_;
+
+  // Device orientation dispatcher attached to this view; lazily initialized.
+  DeviceOrientationDispatcher* device_orientation_dispatcher_;
 
   // PrintWebViewHelper handles printing.  Note that this object is constructed
   // when printing for the first time but only destroyed with the RenderView.
   scoped_ptr<PrintWebViewHelper> print_helper_;
 
   scoped_refptr<AudioMessageFilter> audio_message_filter_;
-
-  // The geolocation dispatcher attached to this view, lazily initialized.
-#if ENABLE_CLIENT_BASED_GEOLOCATION
-  scoped_ptr<GeolocationDispatcher> geolocation_dispatcher_;
-#else
-  scoped_ptr<GeolocationDispatcherOld> geolocation_dispatcher_;
-#endif
 
   // Handles accessibility requests into the renderer side, as well as
   // maintains the cache and other features of the accessibility tree.
@@ -1413,12 +1385,6 @@ class RenderView : public RenderWidget,
 
   // Set if we are waiting for a accessibility notification ack.
   bool accessibility_ack_pending_;
-
-  // The speech dispatcher attached to this view, lazily initialized.
-  scoped_ptr<SpeechInputDispatcher> speech_input_dispatcher_;
-
-  // Device orientation dispatcher attached to this view; lazily initialized.
-  scoped_ptr<DeviceOrientationDispatcher> device_orientation_dispatcher_;
 
   // Responsible for sending page load related histograms.
   PageLoadHistograms page_load_histograms_;
@@ -1502,14 +1468,23 @@ class RenderView : public RenderWidget,
   // The custom menu event listener, if any.
   CustomMenuListener* custom_menu_listener_;
 
+  // The node that the context menu was pressed over.
+  WebKit::WebNode context_menu_node_;
+
   // Reports load progress to the browser.
   scoped_ptr<LoadProgressTracker> load_progress_tracker_;
+
+  // All the registered observers.  We expect this list to be small, so vector
+  // is fine.
+  ObserverList<RenderViewObserver> observers_;
 
   // ---------------------------------------------------------------------------
   // ADDING NEW DATA? Please see if it fits appropriately in one of the above
   // sections rather than throwing it randomly at the end. If you're adding a
   // bunch of stuff, you should probably create a helper class and put your
-  // data and methods on that to avoid bloating RenderView more.
+  // data and methods on that to avoid bloating RenderView more.  You can use
+  // the Observer interface to filter IPC messages and receive frame change
+  // notifications.
   // ---------------------------------------------------------------------------
 
   DISALLOW_COPY_AND_ASSIGN(RenderView);

@@ -11,6 +11,7 @@
 #include "chrome/common/gpu_messages.h"
 #include "chrome/gpu/gpu_channel.h"
 #include "chrome/gpu/gpu_command_buffer_stub.h"
+#include "chrome/gpu/gpu_thread.h"
 
 using gpu::Buffer;
 
@@ -81,7 +82,7 @@ bool GpuCommandBufferStub::CreateCompositorWindow() {
   DCHECK(handle_ != gfx::kNullPluginWindow);
 
   // Ask the browser to create the the host window.
-  ChildThread* gpu_thread = ChildThread::current();
+  GpuThread* gpu_thread = channel_->gpu_thread();
   gfx::PluginWindowHandle host_window_id = gfx::kNullPluginWindow;
   gpu_thread->Send(new GpuHostMsg_GetCompositorHostWindow(
       renderer_id_,
@@ -146,7 +147,7 @@ bool GpuCommandBufferStub::CreateCompositorWindow() {
 }
 
 void GpuCommandBufferStub::OnCompositorWindowPainted() {
-  ChildThread* gpu_thread = ChildThread::current();
+  GpuThread* gpu_thread = channel_->gpu_thread();
   gpu_thread->Send(new GpuHostMsg_ScheduleComposite(
       renderer_id_, render_view_id_));
 }
@@ -163,13 +164,14 @@ GpuCommandBufferStub::~GpuCommandBufferStub() {
     compositor_window_ = NULL;
   }
 #elif defined(OS_LINUX)
-  ChildThread* gpu_thread = ChildThread::current();
+  GpuThread* gpu_thread = channel_->gpu_thread();
   gpu_thread->Send(
       new GpuHostMsg_ReleaseXID(handle_));
 #endif  // defined(OS_WIN)
 }
 
-void GpuCommandBufferStub::OnMessageReceived(const IPC::Message& message) {
+bool GpuCommandBufferStub::OnMessageReceived(const IPC::Message& message) {
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(GpuCommandBufferStub, message)
     IPC_MESSAGE_HANDLER(GpuCommandBufferMsg_Initialize, OnInitialize);
     IPC_MESSAGE_HANDLER(GpuCommandBufferMsg_GetState, OnGetState);
@@ -187,8 +189,10 @@ void GpuCommandBufferStub::OnMessageReceived(const IPC::Message& message) {
 #if defined(OS_MACOSX)
     IPC_MESSAGE_HANDLER(GpuCommandBufferMsg_SetWindowSize, OnSetWindowSize);
 #endif  // defined(OS_MACOSX)
-    IPC_MESSAGE_UNHANDLED_ERROR()
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
+  DCHECK(handled);
+  return handled;
 }
 
 bool GpuCommandBufferStub::Send(IPC::Message* message) {
@@ -281,11 +285,16 @@ void GpuCommandBufferStub::OnAsyncGetState() {
 
 void GpuCommandBufferStub::OnFlush(int32 put_offset,
                                    gpu::CommandBuffer::State* state) {
-  *state = command_buffer_->Flush(put_offset);
+#if defined(OS_MACOSX)
+  // See comment in |DidDestroySurface()| in gpu_processor_mac.cc.
+  if (channel_->IsRenderViewGone(render_view_id_))
+    processor_->DidDestroySurface();
+#endif
+  *state = command_buffer_->FlushSync(put_offset);
 }
 
 void GpuCommandBufferStub::OnAsyncFlush(int32 put_offset) {
-  gpu::CommandBuffer::State state = command_buffer_->Flush(put_offset);
+  gpu::CommandBuffer::State state = command_buffer_->FlushSync(put_offset);
   Send(new GpuCommandBufferMsg_UpdateState(route_id_, state));
 }
 
@@ -324,7 +333,7 @@ void GpuCommandBufferStub::OnSwapBuffers() {
 
 #if defined(OS_MACOSX)
 void GpuCommandBufferStub::OnSetWindowSize(const gfx::Size& size) {
-  ChildThread* gpu_thread = ChildThread::current();
+  GpuThread* gpu_thread = channel_->gpu_thread();
   // Try using the IOSurface version first.
   uint64 new_backing_store = processor_->SetWindowSizeForIOSurface(size);
   if (new_backing_store) {
@@ -346,16 +355,14 @@ void GpuCommandBufferStub::OnSetWindowSize(const gfx::Size& size) {
 
 void GpuCommandBufferStub::SwapBuffersCallback() {
   OnSwapBuffers();
-  ChildThread* gpu_thread = ChildThread::current();
+  GpuThread* gpu_thread = channel_->gpu_thread();
   GpuHostMsg_AcceleratedSurfaceBuffersSwapped_Params params;
   params.renderer_id = renderer_id_;
   params.render_view_id = render_view_id_;
   params.window = handle_;
   params.surface_id = processor_->GetSurfaceId();
   params.route_id = route_id();
-#if defined(OS_MACOSX)
   params.swap_buffers_count = processor_->swap_buffers_count();
-#endif  // defined(OS_MACOSX)
   gpu_thread->Send(new GpuHostMsg_AcceleratedSurfaceBuffersSwapped(params));
 }
 
@@ -372,7 +379,7 @@ void GpuCommandBufferStub::ResizeCallback(gfx::Size size) {
     return;
 
 #if defined(OS_LINUX)
-  ChildThread* gpu_thread = ChildThread::current();
+  GpuThread* gpu_thread = channel_->gpu_thread();
   bool result = false;
   gpu_thread->Send(
       new GpuHostMsg_ResizeXID(handle_, size, &result));

@@ -6,10 +6,10 @@
 
 #include "base/file_util.h"
 #include "base/path_service.h"
-#include "base/platform_thread.h"
 #include "base/process_util.h"
 #include "base/string_util.h"
 #include "base/test/test_timeouts.h"
+#include "base/threading/platform_thread.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/installer/util/logging_installer.h"
@@ -36,7 +36,7 @@ void MiniInstallerTestUtil::CloseProcesses(
   while ((base::GetProcessCount(executable_name, NULL) > 0) &&
          (timer < 20000)) {
     base::KillProcesses(executable_name, 1, NULL);
-    PlatformThread::Sleep(200);
+    base::PlatformThread::Sleep(200);
     timer = timer + 200;
   }
   ASSERT_EQ(0, base::GetProcessCount(executable_name, NULL));
@@ -49,7 +49,7 @@ bool MiniInstallerTestUtil::CloseWindow(const wchar_t* window_name,
   HWND hndl = FindWindow(NULL, window_name);
   while (hndl == NULL && (timer < 60000)) {
     hndl = FindWindow(NULL, window_name);
-    PlatformThread::Sleep(200);
+    base::PlatformThread::Sleep(200);
     timer = timer + 200;
   }
   if (hndl != NULL) {
@@ -90,7 +90,7 @@ std::wstring MiniInstallerTestUtil::GetFilePath(const wchar_t* exe_name) {
   PathService::Get(base::DIR_EXE, &installer_path);
   installer_path = installer_path.Append(exe_name);
   VLOG(1) << "Chrome exe path: " << installer_path.value().c_str();
-  return installer_path.ToWStringHack();
+  return installer_path.value();
 }
 
 // This method will first call GetLatestFile to get the list of all
@@ -168,9 +168,9 @@ bool MiniInstallerTestUtil::GetLatestFile(const wchar_t* file_name,
 // This method retrieves the previous build version for the given diff
 // installer path.
 bool MiniInstallerTestUtil::GetPreviousBuildNumber(const std::wstring& path,
-    std::wstring *build_number) {
+                                                   std::wstring *build_number) {
 
-  std::wstring diff_name = file_util::GetFilenameFromPath(path);
+  std::wstring diff_name = FilePath(path).BaseName().value();
   // We want to remove 'from_', so add its length to found index (which is 5)
   std::wstring::size_type start_position = diff_name.find(L"from_") + 5;
   std::wstring::size_type end_position = diff_name.find(L"_c");
@@ -188,7 +188,7 @@ bool MiniInstallerTestUtil::GetPreviousBuildNumber(const std::wstring& path,
   if (folder.empty())
     return false;
 
-  build_number->assign(folder.BaseName().ToWStringHack());
+  build_number->assign(folder.BaseName().value());
   return true;
 }
 
@@ -274,7 +274,7 @@ void MiniInstallerTestUtil::VerifyProcessLaunch(
 
   while ((base::GetProcessCount(process_name, NULL) == 0) &&
          (timer < wait_time)) {
-    PlatformThread::Sleep(200);
+    base::PlatformThread::Sleep(200);
     timer = timer + 200;
   }
 
@@ -291,7 +291,7 @@ bool MiniInstallerTestUtil::VerifyProcessClose(
     VLOG(1) << "Waiting for this process to end: " << process_name;
     while ((base::GetProcessCount(process_name, NULL) > 0) &&
            (timer < TestTimeouts::large_test_timeout_ms())) {
-      PlatformThread::Sleep(200);
+      base::PlatformThread::Sleep(200);
       timer = timer + 200;
     }
   } else {

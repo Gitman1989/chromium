@@ -11,9 +11,9 @@
 #include "base/lazy_instance.h"
 #include "base/stl_util-inl.h"
 #include "base/string_number_conversions.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "base/values.h"
-#include "base/waitable_event.h"
+#include "base/synchronization/waitable_event.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_thread.h"
 #include "chrome/browser/io_thread.h"
@@ -246,7 +246,7 @@ void InitialObserver::Append(const GURL& url) {
     return;
 
   if (url.SchemeIs("http") || url.SchemeIs("https")) {
-    const GURL url_without_path(url.GetWithEmptyPath());
+    const GURL url_without_path(Predictor::CanonicalizeUrl(url));
     if (first_navigations_.find(url_without_path) == first_navigations_.end())
       first_navigations_[url_without_path] = base::TimeTicks::Now();
   }

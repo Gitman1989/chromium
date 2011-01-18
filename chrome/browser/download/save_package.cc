@@ -17,7 +17,7 @@
 #include "base/string_split.h"
 #include "base/utf_string_conversions.h"
 #include "base/task.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_thread.h"
 #include "chrome/browser/download/download_item.h"
@@ -50,7 +50,7 @@
 #include "net/base/mime_util.h"
 #include "net/base/net_util.h"
 #include "net/url_request/url_request_context.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPageSerializerClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPageSerializerClient.h"
 
 using base::Time;
 using WebKit::WebPageSerializerClient;

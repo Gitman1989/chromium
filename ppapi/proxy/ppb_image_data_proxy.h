@@ -32,13 +32,13 @@ class PPB_ImageData_Proxy : public InterfaceProxy {
   // InterfaceProxy implementation.
   virtual const void* GetSourceInterface() const;
   virtual InterfaceID GetInterfaceId() const;
-  virtual void OnMessageReceived(const IPC::Message& msg);
+  virtual bool OnMessageReceived(const IPC::Message& msg);
 
  private:
   // Message handlers.
   void OnMsgGetNativeImageDataFormat(int32* result);
   void OnMsgIsImageDataFormatSupported(int32 format, PP_Bool* result);
-  void OnMsgCreate(PP_Module module,
+  void OnMsgCreate(PP_Instance instance,
                    int32_t format,
                    const PP_Size& size,
                    PP_Bool init_to_zero,

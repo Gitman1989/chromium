@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,8 +7,8 @@
 
 #include "base/compiler_specific.h"
 #include "base/pickle.h"
-#include "base/thread.h"
-#include "base/waitable_event.h"
+#include "base/threading/thread.h"
+#include "base/synchronization/waitable_event.h"
 #include "net/base/net_errors.h"
 #include "net/http/http_response_headers.h"
 #include "net/url_request/url_request.h"
@@ -711,7 +711,7 @@ class AppCacheURLRequestJobTest : public testing::Test {
   }
 
   void VerifyCancel() {
-    EXPECT_EQ(URLRequestStatus::CANCELED,
+    EXPECT_EQ(net::URLRequestStatus::CANCELED,
               request_->status().status());
     TestFinished();
   }

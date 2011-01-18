@@ -16,7 +16,7 @@
 #include "base/file_path.h"
 #include "base/file_util.h"
 #if defined(OS_MACOSX)
-#include "base/mac_util.h"
+#include "base/mac/mac_util.h"
 #endif
 #include "base/md5.h"
 #include "base/message_loop.h"
@@ -53,8 +53,8 @@
 #include "printing/native_metafile.h"
 #include "third_party/npapi/bindings/npapi_extensions.h"
 #include "third_party/npapi/bindings/npapi_extensions_private.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebCursorInfo.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebInputEvent.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCursorInfo.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "webkit/glue/webcursor.h"
 #include "webkit/glue/webkit_glue.h"
 #include "webkit/plugins/npapi/plugin_constants_win.h"
@@ -779,7 +779,7 @@ NPError WebPluginDelegatePepper::Device3DFlushContext(
               callback,
               user_data));
     } else {
-      state = command_buffer_->Flush(context->putOffset);
+      state = command_buffer_->FlushSync(context->putOffset);
       Synchronize3DContext(context, state);
     }
   } else {
@@ -1440,7 +1440,6 @@ void WebPluginDelegatePepper::Paint(WebKit::WebCanvas* canvas,
       DrawSkBitmapToCanvas(committed_bitmap_, canvas, window_rect_,
                            static_cast<int>(CGBitmapContextGetHeight(canvas)));
 #else
-      gfx::Point origin(window_rect_.origin().x(), window_rect_.origin().y());
       canvas->drawBitmap(committed_bitmap_,
                          SkIntToScalar(window_rect_.origin().x()),
                          SkIntToScalar(window_rect_.origin().y()));
@@ -1749,7 +1748,7 @@ void WebPluginDelegatePepper::DrawSkBitmapToCanvas(
       CGImageCreate(
           bitmap.width(), bitmap.height(),
           8, 32, bitmap.rowBytes(),
-          mac_util::GetSystemColorSpace(),
+          base::mac::GetSystemColorSpace(),
           kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host,
           data_provider, NULL, false, kCGRenderingIntentDefault));
 

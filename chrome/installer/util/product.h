@@ -14,7 +14,6 @@
 #include "chrome/installer/util/package.h"
 
 class CommandLine;
-class Version;
 
 namespace installer {
 class MasterPreferences;
@@ -60,6 +59,14 @@ class Product : public base::RefCounted<Product> {
     return package().system_level();
   }
 
+  bool is_chrome() const {
+    return distribution_->GetType() == BrowserDistribution::CHROME_BROWSER;
+  }
+
+  bool is_chrome_frame() const {
+    return distribution_->GetType() == BrowserDistribution::CHROME_FRAME;
+  }
+
   // Returns the path to the directory that holds the user data.  This is always
   // inside "Users\<user>\Local Settings".  Note that this is the default user
   // data directory and does not take into account that it can be overriden with
@@ -90,23 +97,17 @@ class Product : public base::RefCounted<Product> {
   // ClientState key.
   bool SetMsiMarker(bool set) const;
 
-  // Find the version of this product installed on the system by checking the
-  // Google Update registry key. Returns the version or NULL if no version is
-  // found.  The returned Version object is owned by |this| Product instance.
-  const Version* GetInstalledVersion() const;
-
-  // Returns true if the product is already installed.
-  bool IsInstalled() const;
+  // Returns true if setup should create an entry in the Add/Remove list
+  // of installed applications.
+  bool ShouldCreateUninstallEntry() const;
 
  protected:
   enum CacheStateFlags {
-    MSI_STATE = 0x01,
-    VERSION = 0x02
+    MSI_STATE = 0x01
   };
 
   BrowserDistribution* distribution_;
   scoped_refptr<Package> package_;
-  mutable scoped_ptr<Version> installed_version_;
   mutable bool msi_;
   mutable uint8 cache_state_;
 

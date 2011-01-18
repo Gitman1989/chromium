@@ -12,13 +12,13 @@
 #include "base/basictypes.h"
 #include "base/logging.h"
 #include "base/message_loop.h"
-#include "base/platform_thread.h"
 #include "base/scoped_ptr.h"
 #include "base/stl_util-inl.h"
 #include "base/string_util.h"
 #include "base/third_party/dynamic_annotations/dynamic_annotations.h"
-#include "base/thread.h"
-#include "base/waitable_event.h"
+#include "base/threading/platform_thread.h"
+#include "base/threading/thread.h"
+#include "base/synchronization/waitable_event.h"
 #include "ipc/ipc_message.h"
 #include "ipc/ipc_sync_message_filter.h"
 #include "ipc/ipc_sync_message_unittest.h"
@@ -195,7 +195,7 @@ class Worker : public Channel::Listener, public Message::Sender {
     listener_event->Signal();
   }
 
-  void OnMessageReceived(const Message& message) {
+  bool OnMessageReceived(const Message& message) {
     IPC_BEGIN_MESSAGE_MAP(Worker, message)
      IPC_MESSAGE_HANDLER_DELAY_REPLY(SyncChannelTestMsg_Double, OnDoubleDelay)
      IPC_MESSAGE_HANDLER_DELAY_REPLY(SyncChannelTestMsg_AnswerToLife,
@@ -203,6 +203,7 @@ class Worker : public Channel::Listener, public Message::Sender {
      IPC_MESSAGE_HANDLER_DELAY_REPLY(SyncChannelNestedTestMsg_String,
                                      OnNestedTestMsg)
     IPC_END_MESSAGE_MAP()
+    return true;
   }
 
   void StartThread(base::Thread* thread, MessageLoop::Type type) {
@@ -1010,7 +1011,7 @@ class NestedTask : public Task {
   explicit NestedTask(Worker* server) : server_(server) { }
   void Run() {
     // Sleep a bit so that we wake up after the reply has been received.
-    PlatformThread::Sleep(250);
+    base::PlatformThread::Sleep(250);
     server_->SendAnswerToLife(true, base::kNoTimeout, true);
   }
 

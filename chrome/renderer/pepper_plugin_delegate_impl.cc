@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -35,16 +35,18 @@
 #include "grit/locale_settings.h"
 #include "ipc/ipc_channel_handle.h"
 #include "ppapi/c/dev/pp_video_dev.h"
+#include "ppapi/c/private/ppb_flash.h"
 #include "ppapi/proxy/host_dispatcher.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFileChooserCompletion.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFileChooserParams.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPluginContainer.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebView.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFileChooserCompletion.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFileChooserParams.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginContainer.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "webkit/fileapi/file_system_callback_dispatcher.h"
 #include "webkit/plugins/npapi/webplugin.h"
 #include "webkit/plugins/ppapi/ppb_file_io_impl.h"
 #include "webkit/plugins/ppapi/plugin_module.h"
 #include "webkit/plugins/ppapi/ppapi_plugin_instance.h"
+#include "webkit/plugins/ppapi/ppb_flash_impl.h"
 
 #if defined(OS_MACOSX)
 #include "chrome/common/render_messages.h"
@@ -370,22 +372,32 @@ PepperPluginDelegateImpl::~PepperPluginDelegateImpl() {
 
 scoped_refptr<webkit::ppapi::PluginModule>
 PepperPluginDelegateImpl::CreatePepperPlugin(const FilePath& path) {
-  // Easy case is in-process plugins.
+  // See if a module has already been loaded for this plugin.
+  scoped_refptr<webkit::ppapi::PluginModule> module =
+      PepperPluginRegistry::GetInstance()->GetModule(path);
+  if (module)
+    return module;
+
+  // In-process plugins will have always been created up-front to avoid the
+  // sandbox restrictions.
   if (!PepperPluginRegistry::GetInstance()->RunOutOfProcessForPlugin(path))
-    return PepperPluginRegistry::GetInstance()->GetModule(path);
+    return module;  // Return the NULL module.
 
   // Out of process: have the browser start the plugin process for us.
-  base::ProcessHandle plugin_process_handle = NULL;
+  base::ProcessHandle plugin_process_handle = base::kNullProcessHandle;
   IPC::ChannelHandle channel_handle;
   render_view_->Send(new ViewHostMsg_OpenChannelToPepperPlugin(
       path, &plugin_process_handle, &channel_handle));
-  if (channel_handle.name.empty())
-    return scoped_refptr<webkit::ppapi::PluginModule>();  // Couldn't be initialized.
+  if (channel_handle.name.empty()) {
+    // Couldn't be initialized.
+    return scoped_refptr<webkit::ppapi::PluginModule>();
+  }
 
   // Create a new HostDispatcher for the proxying, and hook it to a new
-  // PluginModule.
-  scoped_refptr<webkit::ppapi::PluginModule> module(
-      new webkit::ppapi::PluginModule);
+  // PluginModule. Note that AddLiveModule must be called before any early
+  // returns since the module's destructor will remove itself.
+  module = new webkit::ppapi::PluginModule(PepperPluginRegistry::GetInstance());
+  PepperPluginRegistry::GetInstance()->AddLiveModule(path, module);
   scoped_ptr<DispatcherWrapper> dispatcher(new DispatcherWrapper);
   if (!dispatcher->Init(
           plugin_process_handle, channel_handle,
@@ -435,7 +447,8 @@ void PepperPluginDelegateImpl::ViewFlushedPaint() {
   }
 }
 
-bool PepperPluginDelegateImpl::GetBitmapForOptimizedPluginPaint(
+webkit::ppapi::PluginInstance*
+PepperPluginDelegateImpl::GetBitmapForOptimizedPluginPaint(
     const gfx::Rect& paint_bounds,
     TransportDIB** dib,
     gfx::Rect* location,
@@ -446,9 +459,9 @@ bool PepperPluginDelegateImpl::GetBitmapForOptimizedPluginPaint(
     webkit::ppapi::PluginInstance* instance = *i;
     if (instance->GetBitmapForOptimizedPluginPaint(
             paint_bounds, dib, location, clip))
-      return true;
+      return *i;
   }
-  return false;
+  return NULL;
 }
 
 void PepperPluginDelegateImpl::InstanceCreated(
@@ -503,6 +516,11 @@ PepperPluginDelegateImpl::CreateImage2D(int width, int height) {
 webkit::ppapi::PluginDelegate::PlatformContext3D*
     PepperPluginDelegateImpl::CreateContext3D() {
 #ifdef ENABLE_GPU
+  // If accelerated compositing of plugins is disabled, fail to create a 3D
+  // context, because it won't be visible. This allows graceful fallback in the
+  // modules.
+  if (!render_view_->webkit_preferences().accelerated_plugins_enabled)
+    return NULL;
   WebGraphicsContext3DCommandBufferImpl* context =
       static_cast<WebGraphicsContext3DCommandBufferImpl*>(
           render_view_->webview()->graphicsContext3D());
@@ -757,6 +775,7 @@ base::PlatformFileError PepperPluginDelegateImpl::QueryModuleLocalFile(
   }
   return error;
 }
+
 base::PlatformFileError PepperPluginDelegateImpl::GetModuleLocalDirContents(
       const std::string& module_name,
       const FilePath& path,
@@ -777,6 +796,50 @@ base::PlatformFileError PepperPluginDelegateImpl::GetModuleLocalDirContents(
 scoped_refptr<base::MessageLoopProxy>
 PepperPluginDelegateImpl::GetFileThreadMessageLoopProxy() {
   return RenderThread::current()->GetFileThreadMessageLoopProxy();
+}
+
+int32_t PepperPluginDelegateImpl::ConnectTcp(
+    webkit::ppapi::PPB_Flash_NetConnector_Impl* connector,
+    const char* host,
+    uint16_t port) {
+  int request_id = pending_connect_tcps_.Add(
+      new scoped_refptr<webkit::ppapi::PPB_Flash_NetConnector_Impl>(connector));
+  IPC::Message* msg =
+      new ViewHostMsg_PepperConnectTcp(render_view_->routing_id(),
+                                       request_id,
+                                       std::string(host),
+                                       port);
+  if (!render_view_->Send(msg))
+    return PP_ERROR_FAILED;
+
+  return PP_ERROR_WOULDBLOCK;
+}
+
+int32_t PepperPluginDelegateImpl::ConnectTcpAddress(
+    webkit::ppapi::PPB_Flash_NetConnector_Impl* connector,
+    const struct PP_Flash_NetAddress* addr) {
+  int request_id = pending_connect_tcps_.Add(
+      new scoped_refptr<webkit::ppapi::PPB_Flash_NetConnector_Impl>(connector));
+  IPC::Message* msg =
+      new ViewHostMsg_PepperConnectTcpAddress(render_view_->routing_id(),
+                                              request_id,
+                                              *addr);
+  if (!render_view_->Send(msg))
+    return PP_ERROR_FAILED;
+
+  return PP_ERROR_WOULDBLOCK;
+}
+
+void PepperPluginDelegateImpl::OnConnectTcpACK(
+    int request_id,
+    base::PlatformFile socket,
+    const PP_Flash_NetAddress& local_addr,
+    const PP_Flash_NetAddress& remote_addr) {
+  scoped_refptr<webkit::ppapi::PPB_Flash_NetConnector_Impl> connector =
+      *pending_connect_tcps_.Lookup(request_id);
+  pending_connect_tcps_.Remove(request_id);
+
+  connector->CompleteConnectTcp(socket, local_addr, remote_addr);
 }
 
 webkit::ppapi::FullscreenContainer*

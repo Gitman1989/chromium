@@ -172,13 +172,14 @@ class HttpStreamRequest : public StreamRequest {
   // Called to handle a client certificate request.
   int HandleCertificateRequest(int error);
 
-  // Called to possibly recover from an SSL handshake error.  Sets next_state_
-  // and returns OK if recovering from the error.  Otherwise, the same error
-  // code is returned.
-  int HandleSSLHandshakeError(int error);
-
   // Moves this stream request into SPDY mode.
   void SwitchToSpdyMode();
+
+  // Should we force SPDY to run over SSL for this stream request.
+  bool ShouldForceSpdySSL();
+
+  // Should we force SPDY to run without SSL for this stream request.
+  bool ShouldForceSpdyWithoutSSL();
 
   // Record histograms of latency until Connect() completes.
   static void LogHttpConnectedMetrics(const ClientSocketHandle& handle);

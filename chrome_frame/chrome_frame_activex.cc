@@ -182,14 +182,14 @@ HRESULT ChromeFrameActivex::GetDocumentWindow(IHTMLWindow2** window) {
   return hr;
 }
 
-void ChromeFrameActivex::OnLoad(int tab_handle, const GURL& gurl) {
+void ChromeFrameActivex::OnLoad(const GURL& gurl) {
   ScopedComPtr<IDispatch> event;
   std::string url = gurl.spec();
   if (SUCCEEDED(CreateDomEvent("event", url, "", event.Receive())))
     Fire_onload(event);
 
   FireEvent(onload_, url);
-  Base::OnLoad(tab_handle, gurl);
+  Base::OnLoad(gurl);
 }
 
 void ChromeFrameActivex::OnLoadFailed(int error_code, const std::string& url) {
@@ -201,8 +201,7 @@ void ChromeFrameActivex::OnLoadFailed(int error_code, const std::string& url) {
   Base::OnLoadFailed(error_code, url);
 }
 
-void ChromeFrameActivex::OnMessageFromChromeFrame(int tab_handle,
-                                                  const std::string& message,
+void ChromeFrameActivex::OnMessageFromChromeFrame(const std::string& message,
                                                   const std::string& origin,
                                                   const std::string& target) {
   DVLOG(1) << __FUNCTION__;
@@ -680,6 +679,14 @@ HRESULT ChromeFrameActivex::registerBhoIfNeeded() {
   if (FAILED(hr)) {
     NOTREACHED() << "Failed to register ChromeFrame BHO. Error:"
                  << base::StringPrintf(" 0x%08X", hr);
+    return hr;
+  }
+
+  hr = UrlMkSetSessionOption(URLMON_OPTION_USERAGENT_REFRESH, NULL, 0, 0);
+  if (FAILED(hr)) {
+    DLOG(ERROR) << "Failed to refresh user agent string from registry. "
+                << "UrlMkSetSessionOption returned "
+                << base::StringPrintf("0x%08x", hr);
     return hr;
   }
 

@@ -7,16 +7,16 @@
 #include <dwmapi.h>
 #include <shellapi.h>
 
-#include "app/keyboard_code_conversion_win.h"
 #include "app/theme_provider.h"
-#include "app/win_util.h"
+#include "app/win/hwnd_util.h"
+#include "app/win/win_util.h"
 #include "base/i18n/rtl.h"
-#include "base/win_util.h"
 #include "base/win/windows_version.h"
 #include "gfx/canvas_skia_paint.h"
 #include "gfx/font.h"
 #include "gfx/icon_util.h"
 #include "gfx/path.h"
+#include "ui/base/keycodes/keyboard_code_conversion_win.h"
 #include "views/accessibility/view_accessibility.h"
 #include "views/widget/root_view.h"
 #include "views/window/client_view.h"
@@ -45,6 +45,55 @@ bool GetMonitorAndRects(const RECT& rect,
   *monitor_rect = monitor_info.rcMonitor;
   *work_area = monitor_info.rcWork;
   return true;
+}
+
+// Ensures that the child window stays within the boundaries of the parent
+// before setting its bounds. If |parent_window| is NULL, the bounds of the
+// parent are assumed to be the bounds of the monitor that |child_window| is
+// nearest to. If |child_window| isn't visible yet and |insert_after_window|
+// is non-NULL and visible, the monitor |insert_after_window| is on is used
+// as the parent bounds instead.
+void SetChildBounds(HWND child_window, HWND parent_window,
+                    HWND insert_after_window, const gfx::Rect& bounds,
+                    int padding, unsigned long flags) {
+  DCHECK(IsWindow(child_window));
+
+  // First figure out the bounds of the parent.
+  RECT parent_rect = {0};
+  if (parent_window) {
+    GetClientRect(parent_window, &parent_rect);
+  } else {
+    // If there is no parent, we consider the bounds of the monitor the window
+    // is on to be the parent bounds.
+
+    // If the child_window isn't visible yet and we've been given a valid,
+    // visible insert after window, use that window to locate the correct
+    // monitor instead.
+    HWND window = child_window;
+    if (!IsWindowVisible(window) && IsWindow(insert_after_window) &&
+        IsWindowVisible(insert_after_window))
+      window = insert_after_window;
+
+    POINT window_point = { bounds.x(), bounds.y() };
+    HMONITOR monitor = MonitorFromPoint(window_point,
+                                        MONITOR_DEFAULTTONEAREST);
+    if (monitor) {
+      MONITORINFO mi = {0};
+      mi.cbSize = sizeof(mi);
+      GetMonitorInfo(monitor, &mi);
+      parent_rect = mi.rcWork;
+    } else {
+      NOTREACHED() << "Unable to get default monitor";
+    }
+  }
+
+  gfx::Rect actual_bounds = bounds;
+  app::win::EnsureRectIsVisibleInRect(gfx::Rect(parent_rect), &actual_bounds,
+                                      padding);
+
+  SetWindowPos(child_window, insert_after_window, actual_bounds.x(),
+               actual_bounds.y(), actual_bounds.width(),
+               actual_bounds.height(), flags);
 }
 
 }  // namespace
@@ -133,8 +182,8 @@ gfx::Rect WindowWin::GetNormalBounds() const {
 
 void WindowWin::SetBounds(const gfx::Rect& bounds,
                           gfx::NativeWindow other_window) {
-  win_util::SetChildBounds(GetNativeView(), GetParent(), other_window, bounds,
-                           kMonitorEdgePadding, 0);
+  SetChildBounds(GetNativeView(), GetParent(), other_window, bounds,
+                 kMonitorEdgePadding, 0);
 }
 
 void WindowWin::Show(int show_state) {
@@ -491,7 +540,7 @@ gfx::NativeWindow WindowWin::GetNativeWindow() const {
 bool WindowWin::ShouldUseNativeFrame() const {
   ThemeProvider* tp = GetThemeProvider();
   if (!tp)
-    return win_util::ShouldUseVistaFrame();
+    return app::win::ShouldUseVistaFrame();
   return tp->ShouldUseNativeFrame();
 }
 
@@ -546,7 +595,7 @@ void WindowWin::Init(HWND parent, const gfx::Rect& bounds) {
     set_window_ex_style(CalculateWindowExStyle());
 
   WidgetWin::Init(parent, bounds);
-  win_util::SetWindowUserData(GetNativeView(), this);
+  app::win::SetWindowUserData(GetNativeView(), this);
 
   // Create the ClientView, add it to the NonClientView and add the
   // NonClientView to the RootView. This will cause everything to be parented.
@@ -565,8 +614,8 @@ void WindowWin::Init(HWND parent, const gfx::Rect& bounds) {
 }
 
 void WindowWin::SizeWindowToDefault() {
-  win_util::CenterAndSizeWindow(owning_window(), GetNativeView(),
-                                non_client_view_->GetPreferredSize().ToSIZE(),
+  app::win::CenterAndSizeWindow(owning_window(), GetNativeView(),
+                                non_client_view_->GetPreferredSize(),
                                 false);
 }
 
@@ -794,9 +843,9 @@ LRESULT WindowWin::OnNCCalcSize(BOOL mode, LPARAM l_param) {
         return 0;
       }
     }
-    if (win_util::EdgeHasTopmostAutoHideTaskbar(ABE_LEFT, monitor))
-      client_rect->left += win_util::kAutoHideTaskbarThicknessPx;
-    if (win_util::EdgeHasTopmostAutoHideTaskbar(ABE_TOP, monitor)) {
+    if (app::win::EdgeHasTopmostAutoHideTaskbar(ABE_LEFT, monitor))
+      client_rect->left += app::win::kAutoHideTaskbarThicknessPx;
+    if (app::win::EdgeHasTopmostAutoHideTaskbar(ABE_TOP, monitor)) {
       if (GetNonClientView()->UseNativeFrame()) {
         // Tricky bit.  Due to a bug in DwmDefWindowProc()'s handling of
         // WM_NCHITTEST, having any nonclient area atop the window causes the
@@ -809,13 +858,13 @@ LRESULT WindowWin::OnNCCalcSize(BOOL mode, LPARAM l_param) {
         // be no better solution.
         --client_rect->bottom;
       } else {
-        client_rect->top += win_util::kAutoHideTaskbarThicknessPx;
+        client_rect->top += app::win::kAutoHideTaskbarThicknessPx;
       }
     }
-    if (win_util::EdgeHasTopmostAutoHideTaskbar(ABE_RIGHT, monitor))
-      client_rect->right -= win_util::kAutoHideTaskbarThicknessPx;
-    if (win_util::EdgeHasTopmostAutoHideTaskbar(ABE_BOTTOM, monitor))
-      client_rect->bottom -= win_util::kAutoHideTaskbarThicknessPx;
+    if (app::win::EdgeHasTopmostAutoHideTaskbar(ABE_RIGHT, monitor))
+      client_rect->right -= app::win::kAutoHideTaskbarThicknessPx;
+    if (app::win::EdgeHasTopmostAutoHideTaskbar(ABE_BOTTOM, monitor))
+      client_rect->bottom -= app::win::kAutoHideTaskbarThicknessPx;
 
     // We cannot return WVR_REDRAW when there is nonclient area, or Windows
     // exhibits bugs where client pixels and child HWNDs are mispositioned by
@@ -1126,7 +1175,7 @@ void WindowWin::OnSysCommand(UINT notification_code, CPoint click) {
   if ((notification_code & sc_mask) == SC_KEYMENU && click.x == 0) {
     // Retrieve the status of shift and control keys to prevent consuming
     // shift+alt keys, which are used by Windows to change input languages.
-    Accelerator accelerator(app::KeyboardCodeForWindowsKeyCode(VK_MENU),
+    Accelerator accelerator(ui::KeyboardCodeForWindowsKeyCode(VK_MENU),
                             !!(GetKeyState(VK_SHIFT) & 0x8000),
                             !!(GetKeyState(VK_CONTROL) & 0x8000),
                             false);

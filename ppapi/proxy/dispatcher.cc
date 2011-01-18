@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,8 +12,6 @@
 #include "base/logging.h"
 #include "ipc/ipc_message.h"
 #include "ipc/ipc_sync_channel.h"
-#include "ppapi/c/dev/ppb_audio_config_dev.h"
-#include "ppapi/c/dev/ppb_audio_dev.h"
 #include "ppapi/c/dev/ppb_buffer_dev.h"
 #include "ppapi/c/dev/ppb_char_set_dev.h"
 #include "ppapi/c/dev/ppb_cursor_control_dev.h"
@@ -24,6 +22,8 @@
 #include "ppapi/c/dev/ppb_testing_dev.h"
 #include "ppapi/c/dev/ppb_var_deprecated.h"
 #include "ppapi/c/pp_errors.h"
+#include "ppapi/c/ppb_audio.h"
+#include "ppapi/c/ppb_audio_config.h"
 #include "ppapi/c/ppb_core.h"
 #include "ppapi/c/ppb_graphics_2d.h"
 #include "ppapi/c/ppb_image_data.h"
@@ -32,6 +32,8 @@
 #include "ppapi/c/ppb_url_request_info.h"
 #include "ppapi/c/ppb_url_response_info.h"
 #include "ppapi/c/ppp_instance.h"
+#include "ppapi/c/private/ppb_flash.h"
+#include "ppapi/c/private/ppb_pdf.h"
 #include "ppapi/c/trusted/ppb_url_loader_trusted.h"
 #include "ppapi/proxy/ppapi_messages.h"
 #include "ppapi/proxy/ppb_audio_config_proxy.h"
@@ -55,8 +57,6 @@
 #include "ppapi/proxy/ppp_class_proxy.h"
 #include "ppapi/proxy/ppp_instance_proxy.h"
 #include "ppapi/proxy/var_serialization_rules.h"
-#include "webkit/plugins/ppapi/ppb_pdf.h"
-#include "webkit/plugins/ppapi/ppb_flash.h"
 
 namespace pp {
 namespace proxy {
@@ -87,28 +87,32 @@ bool Dispatcher::InitWithChannel(MessageLoop* ipc_message_loop,
   return true;
 }
 
-void Dispatcher::OnMessageReceived(const IPC::Message& msg) {
+bool Dispatcher::OnMessageReceived(const IPC::Message& msg) {
   // Control messages.
   if (msg.routing_id() == MSG_ROUTING_CONTROL) {
+    bool handled = true;
     IPC_BEGIN_MESSAGE_MAP(Dispatcher, msg)
       IPC_MESSAGE_HANDLER(PpapiMsg_DeclareInterfaces,
                           OnMsgDeclareInterfaces)
       IPC_MESSAGE_HANDLER(PpapiMsg_SupportsInterface, OnMsgSupportsInterface)
       IPC_MESSAGE_FORWARD(PpapiMsg_ExecuteCallback, &callback_tracker_,
                           CallbackTracker::ReceiveExecuteSerializedCallback)
+      IPC_MESSAGE_UNHANDLED(handled = false)
     IPC_END_MESSAGE_MAP()
-    return;
+    return handled;
   }
 
   // Interface-specific messages.
   if (msg.routing_id() > 0 && msg.routing_id() < INTERFACE_ID_COUNT) {
     InterfaceProxy* proxy = id_to_proxy_[msg.routing_id()];
     if (proxy)
-      proxy->OnMessageReceived(msg);
-    else
-      NOTREACHED();
+      return proxy->OnMessageReceived(msg);
+
+    NOTREACHED();
     // TODO(brettw): kill the plugin if it starts sending invalid messages?
   }
+
+  return false;
 }
 
 void Dispatcher::SetSerializationRules(
@@ -225,9 +229,9 @@ void Dispatcher::OnMsgDeclareInterfaces(
 InterfaceProxy* Dispatcher::CreateProxyForInterface(
     const std::string& interface_name,
     const void* interface_functions) {
-  if (interface_name == PPB_AUDIO_CONFIG_DEV_INTERFACE)
+  if (interface_name == PPB_AUDIO_CONFIG_INTERFACE)
     return new PPB_AudioConfig_Proxy(this, interface_functions);
-  if (interface_name == PPB_AUDIO_DEV_INTERFACE)
+  if (interface_name == PPB_AUDIO_INTERFACE)
     return new PPB_Audio_Proxy(this, interface_functions);
   if (interface_name == PPB_BUFFER_DEV_INTERFACE)
     return new PPB_Buffer_Proxy(this, interface_functions);

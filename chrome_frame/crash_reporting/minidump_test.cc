@@ -1,6 +1,7 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
 #include <windows.h>
 #include <objbase.h>
 #include <dbghelp.h>
@@ -11,7 +12,7 @@
 #include "base/file_util.h"
 #include "base/file_version_info.h"
 #include "base/logging.h"
-#include "base/scoped_handle_win.h"
+#include "base/win/scoped_handle.h"
 #include "gtest/gtest.h"
 
 namespace {
@@ -277,8 +278,8 @@ class MinidumpTest: public testing::Test {
   }
 
  protected:
-  ScopedHandle dump_file_handle_;
-  ScopedHandle dump_file_mapping_;
+  base::win::ScopedHandle dump_file_handle_;
+  base::win::ScopedHandle dump_file_mapping_;
   void* dump_file_view_;
 
   FilePath dump_file_;
@@ -298,7 +299,7 @@ TEST_F(MinidumpTest, Version) {
                                   dbg_help_file,
                                   arraysize(dbg_help_file)));
   scoped_ptr<FileVersionInfo> file_info(
-      FileVersionInfo::CreateFileVersionInfo(dbg_help_file));
+      FileVersionInfo::CreateFileVersionInfo(FilePath(dbg_help_file)));
   ASSERT_TRUE(file_info != NULL);
 
   VLOG(1) << "DbgHelp.dll version: " << file_info->file_version();
@@ -433,9 +434,11 @@ int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   CommandLine::Init(argc, argv);
 
-  logging::InitLogging(L"CON",
-                       logging::LOG_TO_BOTH_FILE_AND_SYSTEM_DEBUG_LOG,
-                       logging::DONT_LOCK_LOG_FILE,
-                       logging::APPEND_TO_OLD_LOG_FILE);
+  logging::InitLogging(
+      L"CON",
+      logging::LOG_TO_BOTH_FILE_AND_SYSTEM_DEBUG_LOG,
+      logging::DONT_LOCK_LOG_FILE,
+      logging::APPEND_TO_OLD_LOG_FILE,
+      logging::DISABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
   return RUN_ALL_TESTS();
 }

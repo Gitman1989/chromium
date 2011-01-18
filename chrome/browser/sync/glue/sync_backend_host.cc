@@ -9,6 +9,7 @@
 #include "base/command_line.h"
 #include "base/file_util.h"
 #include "base/task.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_thread.h"
 #include "chrome/browser/net/gaia/token_service.h"
@@ -97,11 +98,17 @@ void SyncBackendHost::Initialize(
   // when a new type is synced as the worker may already exist and you just
   // need to update routing_info_.
   registrar_.workers[GROUP_DB] = new DatabaseModelWorker();
-  registrar_.workers[GROUP_HISTORY] =
-      new HistoryModelWorker(
-          profile_->GetHistoryService(Profile::IMPLICIT_ACCESS));
   registrar_.workers[GROUP_UI] = new UIModelWorker(frontend_loop_);
   registrar_.workers[GROUP_PASSIVE] = new ModelSafeWorker();
+
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableSyncTypedUrls) || types.count(syncable::TYPED_URLS)) {
+    // TODO(tim): Bug 53916.  HistoryModelWorker crashes, so avoid adding it
+    // unless specifically requested until bug is fixed.
+    registrar_.workers[GROUP_HISTORY] =
+        new HistoryModelWorker(
+            profile_->GetHistoryService(Profile::IMPLICIT_ACCESS));
+  }
 
   PasswordStore* password_store =
       profile_->GetPasswordStore(Profile::IMPLICIT_ACCESS);
@@ -123,8 +130,8 @@ void SyncBackendHost::Initialize(
   // TODO(tim): Remove this special case once NIGORI is populated by
   // default.  We piggy back off of the passwords flag for now to not
   // require both encryption and passwords flags.
-  bool enable_encryption = CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kEnableSyncPasswords) || types.count(syncable::PASSWORDS);
+  bool enable_encryption = !CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kDisableSyncPasswords) || types.count(syncable::PASSWORDS);
   if (enable_encryption)
     registrar_.routing_info[syncable::NIGORI] = GROUP_PASSIVE;
 
@@ -234,10 +241,14 @@ void SyncBackendHost::Shutdown(bool sync_disabled) {
   // thread (ui loop) can exit before DoShutdown finishes, at which point
   // virtually anything the sync backend does (or the post-back to
   // frontend_loop_ by our Core) will epically fail because the CRT won't be
-  // initialized. For now this only ever happens at sync-enabled-Chrome exit,
-  // meaning bug 1482548 applies to prolonged "waiting" that may occur in
-  // DoShutdown.
-  core_thread_.Stop();
+  // initialized.
+  // Since we are blocking the UI thread here, we need to turn ourselves in
+  // with the ThreadRestriction police.  For sentencing and how we plan to fix
+  // this, see bug 19757.
+  {
+    base::ThreadRestrictions::ScopedAllowIO allow_io;
+    core_thread_.Stop();
+  }
 
   registrar_.routing_info.clear();
   registrar_.workers[GROUP_DB] = NULL;

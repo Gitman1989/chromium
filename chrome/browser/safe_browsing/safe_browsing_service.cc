@@ -35,22 +35,42 @@
 using base::Time;
 using base::TimeDelta;
 
+namespace {
+
 // The default URL prefix where browser fetches chunk updates, hashes,
 // and reports safe browsing hits.
-static const char* const kSbDefaultInfoURLPrefix =
+const char* const kSbDefaultInfoURLPrefix =
     "http://safebrowsing.clients.google.com/safebrowsing";
 
 // The default URL prefix where browser fetches MAC client key and reports
 // malware details.
-static const char* const kSbDefaultMacKeyURLPrefix =
+const char* const kSbDefaultMacKeyURLPrefix =
     "https://sb-ssl.google.com/safebrowsing";
 
-static Profile* GetDefaultProfile() {
+// TODO(lzheng): Replace this with Profile* ProfileManager::GetDefaultProfile().
+Profile* GetDefaultProfile() {
   FilePath user_data_dir;
   PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
   ProfileManager* profile_manager = g_browser_process->profile_manager();
   return profile_manager->GetDefaultProfile(user_data_dir);
 }
+
+// Records disposition information about the check.  |hit| should be
+// |true| if there were any prefix hits in |full_hashes|.
+void RecordGetHashCheckStatus(
+    bool hit, const std::vector<SBFullHashResult>& full_hashes) {
+  SafeBrowsingProtocolManager::ResultType result;
+  if (full_hashes.empty()) {
+    result = SafeBrowsingProtocolManager::GET_HASH_FULL_HASH_EMPTY;
+  } else if (hit) {
+    result = SafeBrowsingProtocolManager::GET_HASH_FULL_HASH_HIT;
+  } else {
+    result = SafeBrowsingProtocolManager::GET_HASH_FULL_HASH_MISS;
+  }
+  SafeBrowsingProtocolManager::RecordGetHashResult(result);
+}
+
+}  // namespace
 
 // static
 SafeBrowsingServiceFactory* SafeBrowsingService::factory_ = NULL;
@@ -135,43 +155,50 @@ bool SafeBrowsingService::CanCheckUrl(const GURL& url) const {
          url.SchemeIs(chrome::kHttpsScheme);
 }
 
+// Only report SafeBrowsing related stats when UMA is enabled and
+// safe browsing is enabled.
+bool SafeBrowsingService::CanReportStats() const {
+  const MetricsService* metrics = g_browser_process->metrics_service();
+  const PrefService* pref_service = GetDefaultProfile()->GetPrefs();
+  return metrics && metrics->reporting_active() &&
+      pref_service && pref_service->GetBoolean(prefs::kSafeBrowsingEnabled);
+}
+
+// Binhash verification is only enabled for UMA users for now.
+bool SafeBrowsingService::DownloadBinHashNeeded() const {
+  return enable_download_protection_ && CanReportStats();
+}
+
 void SafeBrowsingService::CheckDownloadUrlDone(
-    Client* client, const GURL& url, UrlCheckResult result) {
+    SafeBrowsingCheck* check, UrlCheckResult result) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   DCHECK(enable_download_protection_);
   VLOG(1) << "CheckDownloadUrlDone: " << result;
-  client->OnSafeBrowsingResult(url, result);
+
+  if (checks_.find(check) == checks_.end() || !check->client)
+    return;
+  check->client->OnSafeBrowsingResult(check->url, result);
+  checks_.erase(check);
 }
 
-void SafeBrowsingService::CheckDownloadUrlOnSBThread(const GURL& url,
-                                                     Client* client) {
+void SafeBrowsingService::CheckDownloadUrlOnSBThread(SafeBrowsingCheck* check) {
   DCHECK_EQ(MessageLoop::current(), safe_browsing_thread_->message_loop());
   DCHECK(enable_download_protection_);
 
   std::vector<SBPrefix> prefix_hits;
 
-  if (!database_->ContainsDownloadUrl(url, &prefix_hits)) {
+  if (!database_->ContainsDownloadUrl(check->url, &prefix_hits)) {
     // Good, we don't have hash for this url prefix.
     BrowserThread::PostTask(
         BrowserThread::IO, FROM_HERE,
         NewRunnableMethod(this,
                           &SafeBrowsingService::CheckDownloadUrlDone,
-                          client, url, URL_SAFE));
+                          check, URL_SAFE));
     return;
   }
 
-  // Now, we need to fetch the url from the safebrowsing backends.
-  // Needs to be asynchronous, since we could be in the constructor of a
-  // ResourceDispatcherHost event handler which can't pause there.
-  SafeBrowsingCheck* check = new SafeBrowsingCheck();
-
-  check->url = url;
-  check->client = client;
-  check->result = URL_SAFE;
   check->need_get_hash = true;
   check->prefix_hits.swap(prefix_hits);
-  checks_.insert(check);
-
   BrowserThread::PostTask(
       BrowserThread::IO, FROM_HERE,
       NewRunnableMethod(this, &SafeBrowsingService::OnCheckDone, check));
@@ -183,8 +210,17 @@ bool SafeBrowsingService::CheckDownloadUrl(const GURL& url,
   if (!enabled_ || !enable_download_protection_)
     return true;
 
+  // We need to check the database for url prefix, and later may fetch the url
+  // from the safebrowsing backends. These need to be asynchronous.
+  SafeBrowsingCheck* check = new SafeBrowsingCheck();
+
+  check->url = url;
+  check->client = client;
+  check->result = URL_SAFE;
+  checks_.insert(check);
   safe_browsing_thread_->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(
-      this, &SafeBrowsingService::CheckDownloadUrlOnSBThread, url, client));
+      this, &SafeBrowsingService::CheckDownloadUrlOnSBThread, check));
+
   return false;
 }
 
@@ -638,7 +674,8 @@ void SafeBrowsingService::OnCheckDone(SafeBrowsingCheck* check) {
     check->start = Time::Now();
     protocol_manager_->GetFullHash(check, check->prefix_hits);
   } else {
-    // We may have cached results for previous GetHash queries.
+    // We may have cached results for previous GetHash queries.  Since
+    // this data comes from cache, don't histogram hits.
     HandleOneCheck(check, check->full_hits);
   }
 }
@@ -702,8 +739,7 @@ void SafeBrowsingService::DatabaseLoadComplete() {
 }
 
 void SafeBrowsingService::HandleChunkForDatabase(
-    const std::string& list_name,
-    SBChunkList* chunks) {
+    const std::string& list_name, SBChunkList* chunks) {
   DCHECK_EQ(MessageLoop::current(), safe_browsing_thread_->message_loop());
   if (chunks) {
     GetDatabase()->InsertChunks(list_name, *chunks);
@@ -816,36 +852,37 @@ void SafeBrowsingService::OnHandleGetHashResults(
   SBPrefix prefix = check->prefix_hits[0];
   GetHashRequests::iterator it = gethash_requests_.find(prefix);
   if (check->prefix_hits.size() > 1 || it == gethash_requests_.end()) {
-    HandleOneCheck(check, full_hashes);
+    const bool hit = HandleOneCheck(check, full_hashes);
+    RecordGetHashCheckStatus(hit, full_hashes);
     return;
   }
 
-  // Call back all interested parties.
+  // Call back all interested parties, noting if any has a hit.
   GetHashRequestors& requestors = it->second;
+  bool hit = false;
   for (GetHashRequestors::iterator r = requestors.begin();
        r != requestors.end(); ++r) {
-    HandleOneCheck(*r, full_hashes);
+    if (HandleOneCheck(*r, full_hashes))
+      hit = true;
   }
+  RecordGetHashCheckStatus(hit, full_hashes);
 
   gethash_requests_.erase(it);
 }
 
-void SafeBrowsingService::HandleOneCheck(
+bool SafeBrowsingService::HandleOneCheck(
     SafeBrowsingCheck* check,
     const std::vector<SBFullHashResult>& full_hashes) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+
+  // Always calculate the index, for recording hits.
+  int index = safe_browsing_util::CompareFullHashes(check->url, full_hashes);
+
+  // |client| is NULL if the request was cancelled.
   if (check->client) {
     UrlCheckResult result = URL_SAFE;
-    int index = safe_browsing_util::CompareFullHashes(check->url, full_hashes);
-    if (index != -1) {
+    if (index != -1)
       result = GetResultFromListname(full_hashes[index].list_name);
-    } else {
-      // Log the case where the SafeBrowsing servers return full hashes in the
-      // GetHash response that match the prefix we're looking up, but don't
-      // match the full hash of the URL.
-      if (!full_hashes.empty())
-        UMA_HISTOGRAM_COUNTS("SB2.GetHashServerMiss", 1);
-    }
 
     // Let the client continue handling the original request.
     check->client->OnSafeBrowsingResult(check->url, result);
@@ -853,6 +890,8 @@ void SafeBrowsingService::HandleOneCheck(
 
   checks_.erase(check);
   delete check;
+
+  return (index != -1);
 }
 
 void SafeBrowsingService::DoDisplayBlockingPage(

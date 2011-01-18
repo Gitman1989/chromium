@@ -20,7 +20,6 @@
 #include "base/string_number_conversions.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
-#include "base/win_util.h"
 #include "chrome/browser/browser_thread.h"
 #include "chrome/browser/history/history.h"
 #include "chrome/browser/history/top_sites.h"
@@ -226,9 +225,9 @@ int main(int argc, const char* argv[]) {
     dst_dir = current_dir.Append(dst_dir);
   }
   if (!file_util::CreateDirectory(dst_dir)) {
-    printf("Unable to create directory %ls: %ls\n",
+    printf("Unable to create directory %ls: %d\n",
            dst_dir.value().c_str(),
-           win_util::FormatLastWin32Error().c_str());
+           ::GetLastError());
   }
 
   icu_util::Initialize();
@@ -278,8 +277,7 @@ int main(int argc, const char* argv[]) {
     printf("Copying file %ls to %ls\n", path.value().c_str(),
            dst_file.value().c_str());
     if (!file_util::CopyFile(path, dst_file)) {
-      printf("Copying file failed: %ls\n",
-             win_util::FormatLastWin32Error().c_str());
+      printf("Copying file failed: %d\n", ::GetLastError());
       return -1;
     }
     path = file_iterator.Next();

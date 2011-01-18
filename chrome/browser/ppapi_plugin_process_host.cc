@@ -28,7 +28,7 @@ void PpapiPluginProcessHost::Init(const FilePath& path,
   reply_msg_.reset(reply_msg);
 
   if (!CreateChannel()) {
-    ReplyToRenderer(NULL, IPC::ChannelHandle());
+    ReplyToRenderer(base::kNullProcessHandle, IPC::ChannelHandle());
     return;
   }
 
@@ -38,7 +38,7 @@ void PpapiPluginProcessHost::Init(const FilePath& path,
 
   FilePath exe_path = ChildProcessHost::GetChildPath(plugin_launcher.empty());
   if (exe_path.empty()) {
-    ReplyToRenderer(NULL, IPC::ChannelHandle());
+    ReplyToRenderer(base::kNullProcessHandle, IPC::ChannelHandle());
     return;
   }
 
@@ -69,11 +69,14 @@ bool PpapiPluginProcessHost::CanShutdown() {
 void PpapiPluginProcessHost::OnProcessLaunched() {
 }
 
-void PpapiPluginProcessHost::OnMessageReceived(const IPC::Message& msg) {
+bool PpapiPluginProcessHost::OnMessageReceived(const IPC::Message& msg) {
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(PpapiPluginProcessHost, msg)
     IPC_MESSAGE_HANDLER(PpapiHostMsg_PluginLoaded, OnPluginLoaded)
-    IPC_MESSAGE_UNHANDLED_ERROR();
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
+  DCHECK(handled);
+  return handled;
 }
 
 void PpapiPluginProcessHost::OnChannelConnected(int32 peer_pid) {
@@ -89,13 +92,13 @@ void PpapiPluginProcessHost::OnChannelConnected(int32 peer_pid) {
   PpapiMsg_LoadPlugin* msg = new PpapiMsg_LoadPlugin(
       plugins_renderer_handle, plugin_path_, filter_->render_process_id());
   if (!Send(msg))  // Just send an empty handle on failure.
-    ReplyToRenderer(NULL, IPC::ChannelHandle());
+    ReplyToRenderer(base::kNullProcessHandle, IPC::ChannelHandle());
   // This function will result in OnChannelCreated getting called to finish.
 }
 
 void PpapiPluginProcessHost::OnChannelError() {
   if (reply_msg_.get())
-    ReplyToRenderer(NULL, IPC::ChannelHandle());
+    ReplyToRenderer(base::kNullProcessHandle, IPC::ChannelHandle());
 }
 
 void PpapiPluginProcessHost::OnPluginLoaded(

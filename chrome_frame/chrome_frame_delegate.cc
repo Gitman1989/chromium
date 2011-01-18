@@ -4,8 +4,7 @@
 
 #include "chrome_frame/chrome_frame_delegate.h"
 
-bool ChromeFrameDelegateImpl::IsTabMessage(const IPC::Message& message,
-                                           int* tab_handle) {
+bool ChromeFrameDelegateImpl::IsTabMessage(const IPC::Message& message) {
   bool is_tab_message = true;
   IPC_BEGIN_MESSAGE_MAP(ChromeFrameDelegateImpl, message)
     IPC_MESSAGE_HANDLER_GENERIC(AutomationMsg_NavigationStateChanged, )
@@ -31,22 +30,17 @@ bool ChromeFrameDelegateImpl::IsTabMessage(const IPC::Message& message,
     IPC_MESSAGE_UNHANDLED(is_tab_message = false);
   IPC_END_MESSAGE_MAP()
 
-  if (is_tab_message) {
-    // Read tab handle from the message.
-    void* iter = NULL;
-    is_tab_message = message.ReadInt(&iter, tab_handle);
-  }
-
   return is_tab_message;
 }
 
-void ChromeFrameDelegateImpl::OnMessageReceived(const IPC::Message& msg) {
+bool ChromeFrameDelegateImpl::OnMessageReceived(const IPC::Message& msg) {
   if (!IsValid()) {
     DLOG(WARNING) << __FUNCTION__
                   << " Msgs received for a NULL automation client instance";
-    return;
+    return false;
   }
 
+  bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(ChromeFrameDelegateImpl, msg)
     IPC_MESSAGE_HANDLER(AutomationMsg_NavigationStateChanged,
                         OnNavigationStateChanged)
@@ -73,5 +67,8 @@ void ChromeFrameDelegateImpl::OnMessageReceived(const IPC::Message& msg) {
         OnGoToHistoryEntryOffset)
     IPC_MESSAGE_HANDLER(AutomationMsg_GetCookiesFromHost, OnGetCookiesFromHost)
     IPC_MESSAGE_HANDLER(AutomationMsg_CloseExternalTab, OnCloseTab)
+    IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
+
+  return handled;
 }

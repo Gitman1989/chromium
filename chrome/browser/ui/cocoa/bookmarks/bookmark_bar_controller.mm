@@ -6,13 +6,12 @@
 
 #include "app/l10n_util_mac.h"
 #include "app/resource_bundle.h"
-#include "base/mac_util.h"
+#include "base/mac/mac_util.h"
 #include "base/sys_string_conversions.h"
 #include "chrome/browser/bookmarks/bookmark_editor.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
 #include "chrome/browser/bookmarks/bookmark_utils.h"
 #include "chrome/browser/metrics/user_metrics.h"
-#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/tab_contents/tab_contents_view.h"
@@ -41,7 +40,6 @@
 #import "chrome/browser/ui/cocoa/toolbar_controller.h"
 #import "chrome/browser/ui/cocoa/view_id_util.h"
 #import "chrome/browser/ui/cocoa/view_resizer.h"
-#include "chrome/common/pref_names.h"
 #include "grit/app_resources.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
@@ -211,7 +209,7 @@ const NSTimeInterval kBookmarkBarAnimationDuration = 0.12;
              delegate:(id<BookmarkBarControllerDelegate>)delegate
        resizeDelegate:(id<ViewResizer>)resizeDelegate {
   if ((self = [super initWithNibName:@"BookmarkBar"
-                              bundle:mac_util::MainAppBundle()])) {
+                              bundle:base::mac::MainAppBundle()])) {
     // Initialize to an invalid state.
     visualState_ = bookmarks::kInvalidState;
     lastVisualState_ = bookmarks::kInvalidState;

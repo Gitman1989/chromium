@@ -253,11 +253,17 @@ INSTANTIATE_TEST_CASE_P(
             kPolicyDefaultSearchProviderSuggestURL,
             key::kDefaultSearchProviderSuggestURL),
         ValueTestParams::ForStringPolicy(
+            kPolicyDefaultSearchProviderInstantURL,
+            key::kDefaultSearchProviderInstantURL),
+        ValueTestParams::ForStringPolicy(
             kPolicyDefaultSearchProviderIconURL,
             key::kDefaultSearchProviderIconURL),
         ValueTestParams::ForStringPolicy(
             kPolicyDefaultSearchProviderEncodings,
             key::kDefaultSearchProviderEncodings),
+        ValueTestParams::ForStringPolicy(
+            kPolicyProxyMode,
+            key::kProxyMode),
         ValueTestParams::ForIntegerPolicy(
             kPolicyProxyServerMode,
             key::kProxyServerMode),

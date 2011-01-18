@@ -2,23 +2,22 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "build/build_config.h"
-
 #include "chrome/browser/plugin_service.h"
+
+#include <vector>
 
 #include "base/command_line.h"
 #include "base/path_service.h"
 #include "base/string_util.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
-#include "base/waitable_event.h"
+#include "base/synchronization/waitable_event.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_thread.h"
 #include "chrome/browser/chrome_plugin_host.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/plugin_updater.h"
-#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_host/render_process_host.h"
 #include "chrome/common/chrome_plugin_lib.h"
@@ -32,7 +31,6 @@
 #include "chrome/common/notification_service.h"
 #include "chrome/common/pepper_plugin_registry.h"
 #include "chrome/common/plugin_messages.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/common/render_messages.h"
 #include "webkit/plugins/npapi/plugin_constants_win.h"
 #include "webkit/plugins/npapi/plugin_list.h"
@@ -353,7 +351,8 @@ void PluginService::Observe(NotificationType type,
     }
 
     case NotificationType::EXTENSION_UNLOADED: {
-      const Extension* extension = Details<const Extension>(details).ptr();
+      const Extension* extension =
+          Details<UnloadedExtensionInfo>(details)->extension;
       bool plugins_changed = false;
       for (size_t i = 0; i < extension->plugins().size(); ++i) {
         const Extension::PluginInfo& plugin = extension->plugins()[i];

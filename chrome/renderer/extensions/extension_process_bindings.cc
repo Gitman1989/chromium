@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,7 +14,6 @@
 #include "base/lazy_instance.h"
 #include "base/scoped_ptr.h"
 #include "base/string_util.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/url_pattern.h"
@@ -34,11 +33,11 @@
 #include "grit/renderer_resources.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURL.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebKit.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSecurityPolicy.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebView.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURL.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSecurityPolicy.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 
 using bindings_utils::GetStringResource;
 using bindings_utils::ContextInfo;
@@ -594,7 +593,7 @@ void ExtensionProcessBindings::HandleResponse(int request_id, bool success,
       request->second->context, "handleResponse", arraysize(argv), argv);
   // In debug, the js will validate the callback parameters and return a
   // string if a validation error has occured.
-#ifdef _DEBUG
+#ifndef NDEBUG
   if (!retval.IsEmpty() && !retval->IsUndefined()) {
     std::string error = *v8::String::AsciiValue(retval);
     DCHECK(false) << error;
@@ -677,4 +676,3 @@ v8::Handle<v8::Value>
   return v8::ThrowException(v8::Exception::Error(
       v8::String::New(error_msg.c_str())));
 }
-

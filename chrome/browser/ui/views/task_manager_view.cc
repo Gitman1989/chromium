@@ -1,12 +1,12 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/task_manager/task_manager.h"
 
 #include "app/l10n_util.h"
-#include "app/table_model_observer.h"
 #include "base/command_line.h"
+#include "base/compiler_specific.h"
 #include "base/metrics/stats_table.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
@@ -15,12 +15,13 @@
 #include "chrome/browser/browser_window.h"
 #include "chrome/browser/memory_purger.h"
 #include "chrome/browser/prefs/pref_service.h"
-#include "chrome/browser/views/browser_dialogs.h"
+#include "chrome/browser/ui/views/browser_dialogs.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "ui/base/models/table_model_observer.h"
 #include "views/accelerator.h"
 #include "views/background.h"
 #include "views/controls/button/native_button.h"
@@ -57,12 +58,12 @@ class TaskManagerTableModel : public views::GroupTableModel,
   }
 
   // GroupTableModel.
-  int RowCount();
-  std::wstring GetText(int row, int column);
-  SkBitmap GetIcon(int row);
-  void GetGroupRangeForItem(int item, views::GroupRange* range);
-  void SetObserver(TableModelObserver* observer);
-  virtual int CompareValues(int row1, int row2, int column_id);
+  int RowCount() OVERRIDE;
+  string16 GetText(int row, int column) OVERRIDE;
+  SkBitmap GetIcon(int row) OVERRIDE;
+  void GetGroupRangeForItem(int item, views::GroupRange* range) OVERRIDE;
+  void SetObserver(ui::TableModelObserver* observer) OVERRIDE;
+  virtual int CompareValues(int row1, int row2, int column_id) OVERRIDE;
 
   // TaskManagerModelObserver.
   virtual void OnModelChanged();
@@ -72,77 +73,77 @@ class TaskManagerTableModel : public views::GroupTableModel,
 
  private:
   TaskManagerModel* model_;
-  TableModelObserver* observer_;
+  ui::TableModelObserver* observer_;
 };
 
 int TaskManagerTableModel::RowCount() {
   return model_->ResourceCount();
 }
 
-std::wstring TaskManagerTableModel::GetText(int row, int col_id) {
+string16 TaskManagerTableModel::GetText(int row, int col_id) {
   switch (col_id) {
     case IDS_TASK_MANAGER_PAGE_COLUMN:  // Process
-      return UTF16ToWide(model_->GetResourceTitle(row));
+      return model_->GetResourceTitle(row);
 
     case IDS_TASK_MANAGER_NET_COLUMN:  // Net
-      return UTF16ToWide(model_->GetResourceNetworkUsage(row));
+      return model_->GetResourceNetworkUsage(row);
 
     case IDS_TASK_MANAGER_CPU_COLUMN:  // CPU
       if (!model_->IsResourceFirstInGroup(row))
-        return std::wstring();
-      return UTF16ToWide(model_->GetResourceCPUUsage(row));
+        return string16();
+      return model_->GetResourceCPUUsage(row);
 
     case IDS_TASK_MANAGER_PRIVATE_MEM_COLUMN:  // Memory
       if (!model_->IsResourceFirstInGroup(row))
-        return std::wstring();
-      return UTF16ToWide(model_->GetResourcePrivateMemory(row));
+        return string16();
+      return model_->GetResourcePrivateMemory(row);
 
     case IDS_TASK_MANAGER_SHARED_MEM_COLUMN:  // Memory
       if (!model_->IsResourceFirstInGroup(row))
-        return std::wstring();
-      return UTF16ToWide(model_->GetResourceSharedMemory(row));
+        return string16();
+      return model_->GetResourceSharedMemory(row);
 
     case IDS_TASK_MANAGER_PHYSICAL_MEM_COLUMN:  // Memory
       if (!model_->IsResourceFirstInGroup(row))
-        return std::wstring();
-      return UTF16ToWide(model_->GetResourcePhysicalMemory(row));
+        return string16();
+      return model_->GetResourcePhysicalMemory(row);
 
     case IDS_TASK_MANAGER_PROCESS_ID_COLUMN:
       if (!model_->IsResourceFirstInGroup(row))
-        return std::wstring();
-      return UTF16ToWide(model_->GetResourceProcessId(row));
+        return string16();
+      return model_->GetResourceProcessId(row);
 
     case IDS_TASK_MANAGER_GOATS_TELEPORTED_COLUMN:  // Goats Teleported!
-      return UTF16ToWide(model_->GetResourceGoatsTeleported(row));
+      return model_->GetResourceGoatsTeleported(row);
 
     case IDS_TASK_MANAGER_WEBCORE_IMAGE_CACHE_COLUMN:
       if (!model_->IsResourceFirstInGroup(row))
-        return std::wstring();
-      return UTF16ToWide(model_->GetResourceWebCoreImageCacheSize(row));
+        return string16();
+      return model_->GetResourceWebCoreImageCacheSize(row);
 
     case IDS_TASK_MANAGER_WEBCORE_SCRIPTS_CACHE_COLUMN:
       if (!model_->IsResourceFirstInGroup(row))
-        return std::wstring();
-      return UTF16ToWide(model_->GetResourceWebCoreScriptsCacheSize(row));
+        return string16();
+      return model_->GetResourceWebCoreScriptsCacheSize(row);
 
     case IDS_TASK_MANAGER_WEBCORE_CSS_CACHE_COLUMN:
       if (!model_->IsResourceFirstInGroup(row))
-        return std::wstring();
-      return UTF16ToWide(model_->GetResourceWebCoreCSSCacheSize(row));
+        return string16();
+      return model_->GetResourceWebCoreCSSCacheSize(row);
 
     case IDS_TASK_MANAGER_SQLITE_MEMORY_USED_COLUMN:
       if (!model_->IsResourceFirstInGroup(row))
-        return std::wstring();
-      return UTF16ToWide(model_->GetResourceSqliteMemoryUsed(row));
+        return string16();
+      return model_->GetResourceSqliteMemoryUsed(row);
 
     case IDS_TASK_MANAGER_JAVASCRIPT_MEMORY_ALLOCATED_COLUMN:
       if (!model_->IsResourceFirstInGroup(row))
-        return std::wstring();
-      return UTF16ToWide(model_->GetResourceV8MemoryAllocatedSize(row));
+        return string16();
+      return model_->GetResourceV8MemoryAllocatedSize(row);
 
     default:
       NOTREACHED();
-      return std::wstring();
+      return string16();
   }
 }
 
@@ -158,7 +159,7 @@ void TaskManagerTableModel::GetGroupRangeForItem(int item,
   range->length = range_pair.second;
 }
 
-void TaskManagerTableModel::SetObserver(TableModelObserver* observer) {
+void TaskManagerTableModel::SetObserver(ui::TableModelObserver* observer) {
   observer_ = observer;
 }
 
@@ -232,7 +233,7 @@ class TaskManagerView : public views::View,
   // views::TableViewObserver implementation.
   virtual void OnSelectionChanged();
   virtual void OnDoubleClick();
-  virtual void OnKeyDown(app::KeyboardCode keycode);
+  virtual void OnKeyDown(ui::KeyboardCode keycode);
 
   // views::LinkController implementation.
   virtual void LinkActivated(views::Link* source, int event_flags);
@@ -274,7 +275,7 @@ class TaskManagerView : public views::View,
   TaskManagerModel* model_;
 
   // all possible columns, not necessarily visible
-  std::vector<TableColumn> columns_;
+  std::vector<ui::TableColumn> columns_;
 
   scoped_ptr<TaskManagerTableModel> table_model_;
 
@@ -312,42 +313,44 @@ void TaskManagerView::Init() {
   table_model_.reset(new TaskManagerTableModel(model_));
 
   // Page column has no header label.
-  columns_.push_back(TableColumn(IDS_TASK_MANAGER_PAGE_COLUMN,
-                                 TableColumn::LEFT, -1, 1));
+  columns_.push_back(ui::TableColumn(IDS_TASK_MANAGER_PAGE_COLUMN,
+                                     ui::TableColumn::LEFT, -1, 1));
   columns_.back().sortable = true;
-  columns_.push_back(TableColumn(IDS_TASK_MANAGER_PHYSICAL_MEM_COLUMN,
-                                 TableColumn::RIGHT, -1, 0));
+  columns_.push_back(ui::TableColumn(IDS_TASK_MANAGER_PHYSICAL_MEM_COLUMN,
+                                     ui::TableColumn::RIGHT, -1, 0));
   columns_.back().sortable = true;
-  columns_.push_back(TableColumn(IDS_TASK_MANAGER_SHARED_MEM_COLUMN,
-                                 TableColumn::RIGHT, -1, 0));
+  columns_.push_back(ui::TableColumn(IDS_TASK_MANAGER_SHARED_MEM_COLUMN,
+                                     ui::TableColumn::RIGHT, -1, 0));
   columns_.back().sortable = true;
-  columns_.push_back(TableColumn(IDS_TASK_MANAGER_PRIVATE_MEM_COLUMN,
-                                 TableColumn::RIGHT, -1, 0));
+  columns_.push_back(ui::TableColumn(IDS_TASK_MANAGER_PRIVATE_MEM_COLUMN,
+                                     ui::TableColumn::RIGHT, -1, 0));
   columns_.back().sortable = true;
-  columns_.push_back(TableColumn(IDS_TASK_MANAGER_CPU_COLUMN,
-                                 TableColumn::RIGHT, -1, 0));
+  columns_.push_back(ui::TableColumn(IDS_TASK_MANAGER_CPU_COLUMN,
+                                     ui::TableColumn::RIGHT, -1, 0));
   columns_.back().sortable = true;
-  columns_.push_back(TableColumn(IDS_TASK_MANAGER_NET_COLUMN,
-                                 TableColumn::RIGHT, -1, 0));
+  columns_.push_back(ui::TableColumn(IDS_TASK_MANAGER_NET_COLUMN,
+                                     ui::TableColumn::RIGHT, -1, 0));
   columns_.back().sortable = true;
-  columns_.push_back(TableColumn(IDS_TASK_MANAGER_PROCESS_ID_COLUMN,
-                                 TableColumn::RIGHT, -1, 0));
+  columns_.push_back(ui::TableColumn(IDS_TASK_MANAGER_PROCESS_ID_COLUMN,
+                                     ui::TableColumn::RIGHT, -1, 0));
   columns_.back().sortable = true;
-  columns_.push_back(TableColumn(IDS_TASK_MANAGER_WEBCORE_IMAGE_CACHE_COLUMN,
-                                 TableColumn::RIGHT, -1, 0));
+  columns_.push_back(ui::TableColumn(
+      IDS_TASK_MANAGER_WEBCORE_IMAGE_CACHE_COLUMN,
+      ui::TableColumn::RIGHT, -1, 0));
   columns_.back().sortable = true;
-  columns_.push_back(TableColumn(IDS_TASK_MANAGER_WEBCORE_SCRIPTS_CACHE_COLUMN,
-                                 TableColumn::RIGHT, -1, 0));
+  columns_.push_back(ui::TableColumn(
+      IDS_TASK_MANAGER_WEBCORE_SCRIPTS_CACHE_COLUMN,
+      ui::TableColumn::RIGHT, -1, 0));
   columns_.back().sortable = true;
-  columns_.push_back(TableColumn(IDS_TASK_MANAGER_WEBCORE_CSS_CACHE_COLUMN,
-                                 TableColumn::RIGHT, -1, 0));
+  columns_.push_back(ui::TableColumn(IDS_TASK_MANAGER_WEBCORE_CSS_CACHE_COLUMN,
+                                     ui::TableColumn::RIGHT, -1, 0));
   columns_.back().sortable = true;
-  columns_.push_back(TableColumn(IDS_TASK_MANAGER_SQLITE_MEMORY_USED_COLUMN,
-                                 TableColumn::RIGHT, -1, 0));
+  columns_.push_back(ui::TableColumn(IDS_TASK_MANAGER_SQLITE_MEMORY_USED_COLUMN,
+                                     ui::TableColumn::RIGHT, -1, 0));
   columns_.back().sortable = true;
   columns_.push_back(
-      TableColumn(IDS_TASK_MANAGER_JAVASCRIPT_MEMORY_ALLOCATED_COLUMN,
-                  TableColumn::RIGHT, -1, 0));
+      ui::TableColumn(IDS_TASK_MANAGER_JAVASCRIPT_MEMORY_ALLOCATED_COLUMN,
+                      ui::TableColumn::RIGHT, -1, 0));
   columns_.back().sortable = true;
 
   tab_table_ = new views::GroupTableView(table_model_.get(), columns_,
@@ -379,15 +382,15 @@ void TaskManagerView::Init() {
   if (CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kPurgeMemoryButton)) {
     purge_memory_button_ = new views::NativeButton(this,
-        l10n_util::GetString(IDS_TASK_MANAGER_PURGE_MEMORY));
+        UTF16ToWide(l10n_util::GetStringUTF16(IDS_TASK_MANAGER_PURGE_MEMORY)));
   }
   kill_button_ = new views::NativeButton(
-      this, l10n_util::GetString(IDS_TASK_MANAGER_KILL));
-  kill_button_->AddAccelerator(views::Accelerator(app::VKEY_E,
+      this, UTF16ToWide(l10n_util::GetStringUTF16(IDS_TASK_MANAGER_KILL)));
+  kill_button_->AddAccelerator(views::Accelerator(ui::VKEY_E,
                                                   false, false, false));
   kill_button_->SetAccessibleKeyboardShortcut(L"E");
-  about_memory_link_ = new views::Link(
-      l10n_util::GetString(IDS_TASK_MANAGER_ABOUT_MEMORY_LINK));
+  about_memory_link_ = new views::Link(UTF16ToWide(
+      l10n_util::GetStringUTF16(IDS_TASK_MANAGER_ABOUT_MEMORY_LINK)));
   about_memory_link_->SetController(this);
 
   // Makes sure our state is consistent.
@@ -407,7 +410,8 @@ void TaskManagerView::UpdateStatsCounters() {
         // stat names not in the string table would be filtered out.
         // TODO(erikkay): Width is hard-coded right now, so many column
         // names are clipped.
-        TableColumn col(i, ASCIIToWide(row), TableColumn::RIGHT, 90, 0);
+        ui::TableColumn col(i, ASCIIToUTF16(row), ui::TableColumn::RIGHT, 90,
+                            0);
         col.sortable = true;
         columns_.push_back(col);
         tab_table_->AddColumn(col);
@@ -560,7 +564,7 @@ bool TaskManagerView::ExecuteWindowsCommand(int command_id) {
 }
 
 std::wstring TaskManagerView::GetWindowTitle() const {
-  return l10n_util::GetString(IDS_TASK_MANAGER_TITLE);
+  return UTF16ToWide(l10n_util::GetStringUTF16(IDS_TASK_MANAGER_TITLE));
 }
 
 std::wstring TaskManagerView::GetWindowName() const {
@@ -599,8 +603,8 @@ void TaskManagerView::OnDoubleClick() {
   ActivateFocusedTab();
 }
 
-void TaskManagerView::OnKeyDown(app::KeyboardCode keycode) {
-  if (keycode == app::VKEY_RETURN)
+void TaskManagerView::OnKeyDown(ui::KeyboardCode keycode) {
+  if (keycode == ui::VKEY_RETURN)
     ActivateFocusedTab();
 }
 
@@ -616,9 +620,9 @@ void TaskManagerView::ShowContextMenu(views::View* source,
   UpdateStatsCounters();
   scoped_ptr<views::Menu> menu(views::Menu::Create(
       this, views::Menu::TOPLEFT, source->GetWidget()->GetNativeView()));
-  for (std::vector<TableColumn>::iterator i =
+  for (std::vector<ui::TableColumn>::iterator i =
        columns_.begin(); i != columns_.end(); ++i) {
-    menu->AppendMenuItem(i->id, l10n_util::GetString(i->id),
+    menu->AppendMenuItem(i->id, l10n_util::GetStringUTF16(i->id),
         views::Menu::CHECKBOX);
   }
   menu->RunMenuAt(p.x(), p.y());
@@ -651,7 +655,8 @@ void TaskManagerView::ActivateFocusedTab() {
 
 void TaskManagerView::AddAlwaysOnTopSystemMenuItem() {
   // The Win32 API requires that we own the text.
-  always_on_top_menu_text_ = l10n_util::GetString(IDS_ALWAYS_ON_TOP);
+  always_on_top_menu_text_ =
+      UTF16ToWide(l10n_util::GetStringUTF16(IDS_ALWAYS_ON_TOP));
 
   // Let's insert a menu to the window.
   HMENU system_menu = ::GetSystemMenu(GetWindow()->GetNativeWindow(), FALSE);

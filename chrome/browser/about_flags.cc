@@ -122,13 +122,6 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kEnableVerticalTabs)
   },
   {
-    "tabbed-options",  // FLAGS:RECORD_UMA
-    IDS_FLAGS_TABBED_OPTIONS_NAME,
-    IDS_FLAGS_TABBED_OPTIONS_DESCRIPTION,
-    kOsWin | kOsLinux | kOsMac,  // Enabled by default on CrOS.
-    SINGLE_VALUE_TYPE(switches::kEnableTabbedOptions)
-  },
-  {
     "remoting",  // FLAGS:RECORD_UMA
     IDS_FLAGS_REMOTING_NAME,
 #if defined(OS_WIN)
@@ -150,13 +143,6 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_XSS_AUDITOR_DESCRIPTION,
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kEnableXSSAuditor)
-  },
-  {
-    "background-webapps",  // FLAGS:RECORD_UMA
-    IDS_FLAGS_BACKGROUND_WEBAPPS_NAME,
-    IDS_FLAGS_BACKGROUND_WEBAPPS_DESCRIPTION,
-    kOsMac | kOsLinux | kOsCrOS,  // Enabled by default on windows
-    SINGLE_VALUE_TYPE(switches::kEnableBackgroundMode)
   },
   {
     "conflicting-modules-check",  // FLAGS:RECORD_UMA
@@ -279,6 +265,20 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_INSTANT_TYPE_DESCRIPTION,
     kOsWin,
     MULTI_VALUE_TYPE(kInstantChoices)
+  },
+  {
+    "instant-autocomplete-immediately",  // FLAGS:RECORD_UMA
+    IDS_FLAGS_INSTANT_AUTOCOMPLETE_IMMEDIATELY_NAME,
+    IDS_FLAGS_INSTANT_AUTOCOMPLETE_IMMEDIATELY_DESCRIPTION,
+    kOsWin | kOsLinux,
+    SINGLE_VALUE_TYPE(switches::kInstantAutocompleteImmediately)
+  },
+  {
+    "block-reading-third-party-cookies",
+    IDS_FLAGS_BLOCK_ALL_THIRD_PARTY_COOKIES_NAME,
+    IDS_FLAGS_BLOCK_ALL_THIRD_PARTY_COOKIES_DESCRIPTION,
+    kOsAll,
+    SINGLE_VALUE_TYPE(switches::kBlockReadingThirdPartyCookies)
   },
 };
 

@@ -6,16 +6,16 @@
 #define WEBKIT_TOOLS_TEST_SHELL_TEST_SHELL_WEBKIT_INIT_H_
 
 #include "base/utf_string_conversions.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebGraphicsContext3D.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebIDBFactory.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebIDBKey.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebIDBKeyPath.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSerializedScriptValue.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebStorageNamespace.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBFactory.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBKey.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBKeyPath.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSerializedScriptValue.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebStorageNamespace.h"
 #include "webkit/glue/webclipboard_impl.h"
 #include "webkit/glue/webfileutilities_impl.h"
 #include "webkit/glue/webkit_glue.h"
 #include "webkit/glue/webkitclient_impl.h"
+#include "webkit/gpu/webgraphicscontext3d_in_process_impl.h"
 #include "webkit/tools/test_shell/mock_webclipboard_impl.h"
 #include "webkit/tools/test_shell/simple_appcache_system.h"
 #include "webkit/tools/test_shell/simple_database_system.h"
@@ -161,7 +161,7 @@ class TestShellWebKitInit : public webkit_glue::WebKitClientImpl {
   }
 
   virtual WebKit::WebGraphicsContext3D* createGraphicsContext3D() {
-    return WebKit::WebGraphicsContext3D::createDefault();
+    return new webkit::gpu::WebGraphicsContext3DInProcessImpl();
   }
 
  private:

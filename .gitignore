@@ -8,6 +8,10 @@
 *.suo
 *.user
 *.vcproj
+*.vpj
+*.vpw
+*.vpwhistu
+*.vtg
 *.xcodeproj
 *~
 .*.sw?
@@ -17,8 +21,9 @@
 .gdbinit
 .metadata
 .project
-v8.log
 tags
+Thumbs.db
+v8.log
 /Makefile
 /_out
 /breakpad/src/
@@ -70,6 +75,7 @@ tags
 /third_party/cros
 /third_party/cygwin
 /third_party/directxsdk
+/third_party/flac
 /third_party/ffmpeg
 /third_party/gles2_conform
 /third_party/googlemac

@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,9 +12,9 @@
 #include "base/process_util.h"
 #include "base/shared_memory.h"
 #include "base/sys_string_conversions.h"
-#include "base/thread.h"
+#include "base/threading/worker_pool.h"
+#include "base/threading/thread.h"
 #include "base/utf_string_conversions.h"
-#include "base/worker_pool.h"
 #include "chrome/browser/automation/automation_resource_message_filter.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_thread.h"
@@ -26,6 +26,7 @@
 #include "chrome/browser/gpu_process_host.h"
 #include "chrome/browser/host_zoom_map.h"
 #include "chrome/browser/metrics/histogram_synchronizer.h"
+#include "chrome/browser/metrics/user_metrics.h"
 #include "chrome/browser/nacl_host/nacl_process_host.h"
 #include "chrome/browser/net/chrome_url_request_context.h"
 #include "chrome/browser/net/predictor_api.h"
@@ -61,7 +62,7 @@
 #include "net/http/http_cache.h"
 #include "net/http/http_network_layer.h"
 #include "net/url_request/url_request_context.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebNotificationPresenter.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebNotificationPresenter.h"
 #include "webkit/glue/context_menu.h"
 #include "webkit/glue/webcookie.h"
 #include "webkit/glue/webkit_glue.h"
@@ -82,6 +83,9 @@
 #endif
 #if defined(OS_WIN)
 #include "chrome/common/child_process_host.h"
+#endif
+#if defined(USE_NSS)
+#include "chrome/browser/ui/pk11_password_dialog.h"
 #endif
 #if defined(USE_TCMALLOC)
 #include "chrome/browser/browser_about_handler.h"
@@ -130,7 +134,7 @@ class ContextMenuMessageDispatcher : public Task {
 // contents.
 class WriteClipboardTask : public Task {
  public:
-  explicit WriteClipboardTask(Clipboard::ObjectMap* objects)
+  explicit WriteClipboardTask(ui::Clipboard::ObjectMap* objects)
       : objects_(objects) {}
   ~WriteClipboardTask() {}
 
@@ -139,7 +143,7 @@ class WriteClipboardTask : public Task {
   }
 
  private:
-  scoped_ptr<Clipboard::ObjectMap> objects_;
+  scoped_ptr<ui::Clipboard::ObjectMap> objects_;
 };
 
 void RenderParamsFromPrintSettings(const printing::PrintSettings& settings,
@@ -161,6 +165,7 @@ void RenderParamsFromPrintSettings(const printing::PrintSettings& settings,
   // Always use an invalid cookie.
   params->document_cookie = 0;
   params->selection_only = settings.selection_only;
+  params->supports_alpha_blend = settings.supports_alpha_blend();
 }
 
 class ClearCacheCompletion : public net::CompletionCallback {
@@ -278,6 +283,8 @@ bool RenderMessageFilter::OnMessageReceived(const IPC::Message& message,
     IPC_MESSAGE_HANDLER_DELAY_REPLY(ViewHostMsg_GetRootWindowRect,
                                     OnGetRootWindowRect)
 #endif
+
+    IPC_MESSAGE_HANDLER(ViewHostMsg_GenerateRoutingID, OnGenerateRoutingID)
 
     IPC_MESSAGE_HANDLER(ViewHostMsg_CreateWindow, OnMsgCreateWindow)
     IPC_MESSAGE_HANDLER(ViewHostMsg_CreateWidget, OnMsgCreateWidget)
@@ -554,7 +561,7 @@ void RenderMessageFilter::OnGetRawCookies(
 
 void RenderMessageFilter::OnDeleteCookie(const GURL& url,
                                          const std::string& cookie_name) {
-  URLRequestContext* context = GetRequestContextForURL(url);
+  net::URLRequestContext* context = GetRequestContextForURL(url);
   context->cookie_store()->DeleteCookie(url, cookie_name);
 }
 
@@ -562,7 +569,7 @@ void RenderMessageFilter::OnCookiesEnabled(
     const GURL& url,
     const GURL& first_party_for_cookies,
     IPC::Message* reply_msg) {
-  URLRequestContext* context = GetRequestContextForURL(url);
+  net::URLRequestContext* context = GetRequestContextForURL(url);
   CookiesEnabledCompletion* callback =
       new CookiesEnabledCompletion(reply_msg, this);
   int policy = net::OK;
@@ -723,10 +730,14 @@ void RenderMessageFilter::OnLaunchNaCl(
   host->Launch(this, channel_descriptor, reply_msg);
 }
 
+void RenderMessageFilter::OnGenerateRoutingID(int* route_id) {
+  *route_id = render_widget_helper_->GetNextRoutingID();
+}
+
 void RenderMessageFilter::OnDownloadUrl(const IPC::Message& message,
                                         const GURL& url,
                                         const GURL& referrer) {
-  URLRequestContext* context = request_context_->GetURLRequestContext();
+  net::URLRequestContext* context = request_context_->GetURLRequestContext();
 
   // Don't show "Save As" UI.
   bool prompt_for_save_location = false;
@@ -740,7 +751,7 @@ void RenderMessageFilter::OnDownloadUrl(const IPC::Message& message,
 }
 
 void RenderMessageFilter::OnClipboardWriteObjectsSync(
-    const Clipboard::ObjectMap& objects,
+    const ui::Clipboard::ObjectMap& objects,
     base::SharedMemoryHandle bitmap_handle) {
   DCHECK(base::SharedMemory::IsHandleValid(bitmap_handle))
       << "Bad bitmap handle";
@@ -748,11 +759,12 @@ void RenderMessageFilter::OnClipboardWriteObjectsSync(
   // on the UI thread. We'll copy the relevant data and get a handle to any
   // shared memory so it doesn't go away when we resume the renderer, and post
   // a task to perform the write on the UI thread.
-  Clipboard::ObjectMap* long_living_objects = new Clipboard::ObjectMap(objects);
+  ui::Clipboard::ObjectMap* long_living_objects =
+      new ui::Clipboard::ObjectMap(objects);
 
   // Splice the shared memory handle into the clipboard data.
-  Clipboard::ReplaceSharedMemHandle(long_living_objects, bitmap_handle,
-                                    peer_handle());
+  ui::Clipboard::ReplaceSharedMemHandle(long_living_objects, bitmap_handle,
+                                        peer_handle());
 
   BrowserThread::PostTask(
       BrowserThread::UI,
@@ -761,15 +773,16 @@ void RenderMessageFilter::OnClipboardWriteObjectsSync(
 }
 
 void RenderMessageFilter::OnClipboardWriteObjectsAsync(
-    const Clipboard::ObjectMap& objects) {
+    const ui::Clipboard::ObjectMap& objects) {
   // We cannot write directly from the IO thread, and cannot service the IPC
   // on the UI thread. We'll copy the relevant data and post a task to preform
   // the write on the UI thread.
-  Clipboard::ObjectMap* long_living_objects = new Clipboard::ObjectMap(objects);
+  ui::Clipboard::ObjectMap* long_living_objects =
+      new ui::Clipboard::ObjectMap(objects);
 
   // This async message doesn't support shared-memory based bitmaps; they must
   // be removed otherwise we might dereference a rubbish pointer.
-  long_living_objects->erase(Clipboard::CBF_SMBITMAP);
+  long_living_objects->erase(ui::Clipboard::CBF_SMBITMAP);
 
   BrowserThread::PostTask(
       BrowserThread::UI,
@@ -790,14 +803,14 @@ void RenderMessageFilter::OnClipboardWriteObjectsAsync(
 // functions.
 
 void RenderMessageFilter::OnClipboardIsFormatAvailable(
-    Clipboard::FormatType format, Clipboard::Buffer buffer,
+    ui::Clipboard::FormatType format, ui::Clipboard::Buffer buffer,
     IPC::Message* reply) {
   const bool result = GetClipboard()->IsFormatAvailable(format, buffer);
   ViewHostMsg_ClipboardIsFormatAvailable::WriteReplyParams(reply, result);
   Send(reply);
 }
 
-void RenderMessageFilter::OnClipboardReadText(Clipboard::Buffer buffer,
+void RenderMessageFilter::OnClipboardReadText(ui::Clipboard::Buffer buffer,
                                               IPC::Message* reply) {
   string16 result;
   GetClipboard()->ReadText(buffer, &result);
@@ -805,7 +818,7 @@ void RenderMessageFilter::OnClipboardReadText(Clipboard::Buffer buffer,
   Send(reply);
 }
 
-void RenderMessageFilter::OnClipboardReadAsciiText(Clipboard::Buffer buffer,
+void RenderMessageFilter::OnClipboardReadAsciiText(ui::Clipboard::Buffer buffer,
                                                    IPC::Message* reply) {
   std::string result;
   GetClipboard()->ReadAsciiText(buffer, &result);
@@ -813,7 +826,7 @@ void RenderMessageFilter::OnClipboardReadAsciiText(Clipboard::Buffer buffer,
   Send(reply);
 }
 
-void RenderMessageFilter::OnClipboardReadHTML(Clipboard::Buffer buffer,
+void RenderMessageFilter::OnClipboardReadHTML(ui::Clipboard::Buffer buffer,
                                               IPC::Message* reply) {
   std::string src_url_str;
   string16 markup;
@@ -825,7 +838,7 @@ void RenderMessageFilter::OnClipboardReadHTML(Clipboard::Buffer buffer,
 }
 
 void RenderMessageFilter::OnClipboardReadAvailableTypes(
-    Clipboard::Buffer buffer, IPC::Message* reply) {
+    ui::Clipboard::Buffer buffer, IPC::Message* reply) {
   std::vector<string16> types;
   bool contains_filenames = false;
   bool result = ClipboardDispatcher::ReadAvailableTypes(
@@ -836,7 +849,7 @@ void RenderMessageFilter::OnClipboardReadAvailableTypes(
 }
 
 void RenderMessageFilter::OnClipboardReadData(
-    Clipboard::Buffer buffer, const string16& type, IPC::Message* reply) {
+    ui::Clipboard::Buffer buffer, const string16& type, IPC::Message* reply) {
   string16 data;
   string16 metadata;
   bool result = ClipboardDispatcher::ReadData(buffer, type, &data, &metadata);
@@ -846,7 +859,7 @@ void RenderMessageFilter::OnClipboardReadData(
 }
 
 void RenderMessageFilter::OnClipboardReadFilenames(
-    Clipboard::Buffer buffer, IPC::Message* reply) {
+    ui::Clipboard::Buffer buffer, IPC::Message* reply) {
   std::vector<string16> filenames;
   bool result = ClipboardDispatcher::ReadFilenames(buffer, &filenames);
   ViewHostMsg_ClipboardReadFilenames::WriteReplyParams(
@@ -1108,10 +1121,10 @@ void RenderMessageFilter::OnScriptedPrintReply(
 }
 
 // static
-Clipboard* RenderMessageFilter::GetClipboard() {
+ui::Clipboard* RenderMessageFilter::GetClipboard() {
   // We have a static instance of the clipboard service for use by all message
   // filters.  This instance lives for the life of the browser processes.
-  static Clipboard* clipboard = new Clipboard;
+  static ui::Clipboard* clipboard = new ui::Clipboard;
 
   return clipboard;
 }
@@ -1351,7 +1364,7 @@ void RenderMessageFilter::OnKeygen(uint32 key_size_index,
 
   VLOG(1) << "Dispatching keygen task to worker pool.";
   // Dispatch to worker pool, so we do not block the IO thread.
-  if (!WorkerPool::PostTask(
+  if (!base::WorkerPool::PostTask(
            FROM_HERE,
            NewRunnableMethod(
                this, &RenderMessageFilter::OnKeygenOnWorkerThread,
@@ -1373,6 +1386,13 @@ void RenderMessageFilter::OnKeygenOnWorkerThread(
 
   // Generate a signed public key and challenge, then send it back.
   net::KeygenHandler keygen_handler(key_size_in_bits, challenge_string, url);
+
+#if defined(USE_NSS)
+  // Attach a password delegate so we can authenticate.
+  keygen_handler.set_pk11_password_delegate(
+      browser::NewPK11BlockingDialogDelegate(browser::kPK11PasswordKeygen,
+                                             url.host()));
+#endif  // defined(USE_NSS)
 
   ViewHostMsg_Keygen::WriteReplyParams(
       reply_msg,
@@ -1463,7 +1483,8 @@ void RenderMessageFilter::OnAsyncOpenFile(const IPC::Message& msg,
   if (!ChildProcessSecurityPolicy::GetInstance()->HasPermissionsForFile(
           render_process_id_, path, flags)) {
     DLOG(ERROR) << "Bad flags in ViewMsgHost_AsyncOpenFile message: " << flags;
-    BadMessageReceived(ViewHostMsg_AsyncOpenFile::ID);
+    UserMetrics::RecordAction(UserMetricsAction("BadMessageTerminate_AOF"));
+    BadMessageReceived();
     return;
   }
 

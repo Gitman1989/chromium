@@ -5,11 +5,12 @@
 #ifndef WEBKIT_PLUGINS_PPAPI_PPAPI_PLUGIN_INSTANCE_H_
 #define WEBKIT_PLUGINS_PPAPI_PPAPI_PLUGIN_INSTANCE_H_
 
+#include <map>
+#include <set>
 #include <string>
 #include <vector>
 
 #include "base/basictypes.h"
-#include "base/observer_list.h"
 #include "base/ref_counted.h"
 #include "base/scoped_ptr.h"
 #include "base/string16.h"
@@ -20,8 +21,10 @@
 #include "ppapi/c/pp_instance.h"
 #include "ppapi/c/pp_resource.h"
 #include "third_party/skia/include/core/SkBitmap.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebCanvas.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCanvas.h"
+#include "webkit/plugins/ppapi/plugin_delegate.h"
 
+typedef struct NPObject NPObject;
 struct PP_Var;
 struct PPB_Instance;
 struct PPB_Find_Dev;
@@ -50,11 +53,13 @@ namespace webkit {
 namespace ppapi {
 
 class FullscreenContainer;
+class ObjectVar;
 class PluginDelegate;
 class PluginModule;
+class PluginObject;
 class PPB_Graphics2D_Impl;
-class PPB_Graphics3D_Impl;
 class PPB_ImageData_Impl;
+class PPB_Surface3D_Impl;
 class PPB_URLLoader_Impl;
 class Resource;
 
@@ -64,14 +69,6 @@ class Resource;
 // ResourceTracker.
 class PluginInstance : public base::RefCounted<PluginInstance> {
  public:
-  class Observer {
-   public:
-    // Indicates that the instance is being destroyed. This will be called from
-    // the instance's destructor so don't do anything in this callback that
-    // uses the instance.
-    virtual void InstanceDestroyed(PluginInstance* instance) = 0;
-  };
-
   PluginInstance(PluginDelegate* delegate,
                  PluginModule* module,
                  const PPP_Instance* instance_interface);
@@ -100,12 +97,6 @@ class PluginInstance : public base::RefCounted<PluginInstance> {
   // Returns the PP_Instance uniquely identifying this instance. Guaranteed
   // nonzero.
   PP_Instance pp_instance() const { return pp_instance_; }
-
-  // Other classes can register an observer for instance events. These pointers
-  // are NOT owned by the Instance. If the object implementing the observer
-  // goes away, it must take care to unregister itself.
-  void AddObserver(Observer* observer);
-  void RemoveObserver(Observer* observer);
 
   // Paints the current backing store to the web page.
   void Paint(WebKit::WebCanvas* canvas,
@@ -171,6 +162,10 @@ class PluginInstance : public base::RefCounted<PluginInstance> {
       gfx::Rect* dib_bounds,
       gfx::Rect* clip);
 
+  // Tracks all live PluginObjects.
+  void AddPluginObject(PluginObject* plugin_object);
+  void RemovePluginObject(PluginObject* plugin_object);
+
   string16 GetSelectedText(bool html);
   string16 GetLinkAtPosition(const gfx::Point& point);
   void Zoom(double factor, bool text_only);
@@ -193,6 +188,20 @@ class PluginInstance : public base::RefCounted<PluginInstance> {
 
   // Implementation of PPB_Flash.
   bool NavigateToURL(const char* url, const char* target);
+
+  PluginDelegate::PlatformContext3D* CreateContext3D();
+
+  // Tracks all live ObjectVar. This is so we can map between PluginModule +
+  // NPObject and get the ObjectVar corresponding to it. This Add/Remove
+  // function should be called by the ObjectVar when it is created and
+  // destroyed.
+  void AddNPObjectVar(ObjectVar* object_var);
+  void RemoveNPObjectVar(ObjectVar* object_var);
+
+  // Looks up a previously registered ObjectVar for the given NPObject and
+  // module. Returns NULL if there is no ObjectVar corresponding to the given
+  // NPObject for the given module. See AddNPObjectVar above.
+  ObjectVar* ObjectVarForNPObject(NPObject* np_object) const;
 
  private:
   bool LoadFindInterface();
@@ -225,9 +234,14 @@ class PluginInstance : public base::RefCounted<PluginInstance> {
   // null if the context is not 2D.
   PPB_Graphics2D_Impl* bound_graphics_2d() const;
 
-  // Get the bound graphics context as a concrete 3D graphics context or returns
-  // null if the context is not 3D.
-  PPB_Graphics3D_Impl* bound_graphics_3d() const;
+  // Get the bound 3D graphics surface.
+  // Returns NULL if bound graphics is not a 3D surface.
+  PPB_Surface3D_Impl* bound_graphics_3d() const;
+
+  // Internal helper function for PrintPage().
+  bool PrintPageHelper(PP_PrintPageNumberRange_Dev* page_ranges,
+                       int num_ranges,
+                       WebKit::WebCanvas* canvas);
 
   PluginDelegate* delegate_;
   scoped_refptr<PluginModule> module_;
@@ -280,16 +294,18 @@ class PluginInstance : public base::RefCounted<PluginInstance> {
   // variable to hold on to the pixels.
   scoped_refptr<PPB_ImageData_Impl> last_printed_page_;
 #elif defined(OS_LINUX)
-  // On Linux, we always send all pages from the renderer to the browser.
-  // So, if the plugin supports printPagesAsPDF we print the entire output
-  // in one shot in the first call to PrintPage.
-  // (This is a temporary hack until we change the WebFrame and WebPlugin print
-  // interfaces).
-  // Specifies the total number of pages to be printed. It it set in PrintBegin.
-  int32 num_pages_;
-  // Specifies whether we have already output all pages. This is used to ignore
-  // subsequent PrintPage requests.
-  bool pdf_output_done_;
+  // On Linux, all pages need to be written to a PDF file in one shot. However,
+  // when users print only a subset of all the pages, it is impossible to know
+  // if a call to PrintPage() is the last call. Thus in PrintPage(), just store
+  // the page number in |ranges_|.
+  // The hack is in PrintEnd(), where a valid |canvas_| is preserved in
+  // PrintWebViewHelper::PrintPages. This makes it possible to generate the
+  // entire PDF given the variables below:
+  //
+  // The most recently used WebCanvas, guaranteed to be valid.
+  WebKit::WebCanvas* canvas_;
+  // An array of page ranges.
+  std::vector<PP_PrintPageNumberRange_Dev> ranges_;
 #endif  // defined(OS_LINUX)
 
   // The plugin print interface.
@@ -308,8 +324,13 @@ class PluginInstance : public base::RefCounted<PluginInstance> {
   // Plugin container for fullscreen mode. NULL if not in fullscreen mode.
   FullscreenContainer* fullscreen_container_;
 
-  // Non-owning pointers to all active observers.
-  ObserverList<Observer, false> observers_;
+  typedef std::set<PluginObject*> PluginObjectSet;
+  PluginObjectSet live_plugin_objects_;
+
+  // Tracks all live ObjectVars used by this module so we can map NPObjects to
+  // the corresponding object. These are non-owning references.
+  typedef std::map<NPObject*, ObjectVar*> NPObjectToObjectVarMap;
+  NPObjectToObjectVarMap np_object_to_object_var_;
 
   DISALLOW_COPY_AND_ASSIGN(PluginInstance);
 };

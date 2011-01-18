@@ -12,8 +12,8 @@
 #include "base/time.h"
 #include "gfx/size.h"
 #include "printing/native_metafile.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrameClient.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebViewClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrameClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebViewClient.h"
 
 #if defined(OS_MACOSX)
 #include "base/shared_memory.h"
@@ -27,6 +27,12 @@ namespace IPC {
 class Message;
 }
 
+#if defined(USE_X11)
+namespace skia {
+class VectorCanvas;
+}
+#endif
+
 class RenderView;
 struct ViewMsg_Print_Params;
 struct ViewMsg_PrintPage_Params;
@@ -39,8 +45,11 @@ struct ViewHostMsg_DidPreviewDocument_Params;
 // this class because it will cause flicker.
 class PrepareFrameAndViewForPrint {
  public:
+  // Prints |frame|.  If |node| is not NULL, then only that node will be
+  // printed.
   PrepareFrameAndViewForPrint(const ViewMsg_Print_Params& print_params,
                               WebKit::WebFrame* frame,
+                              WebKit::WebNode* node,
                               WebKit::WebView* web_view);
   ~PrepareFrameAndViewForPrint();
 
@@ -77,7 +86,13 @@ class PrintWebViewHelper : public WebKit::WebViewClient,
   explicit PrintWebViewHelper(RenderView* render_view);
   virtual ~PrintWebViewHelper();
 
-  void Print(WebKit::WebFrame* frame, bool script_initiated, bool is_preview);
+  void PrintFrame(WebKit::WebFrame* frame,
+                  bool script_initiated,
+                  bool is_preview);
+
+  void PrintNode(WebKit::WebNode* node,
+                 bool script_initiated,
+                 bool is_preview);
 
   // Is there a background print in progress?
   bool IsPrinting() {
@@ -95,7 +110,8 @@ class PrintWebViewHelper : public WebKit::WebViewClient,
   void PrintPage(const ViewMsg_PrintPage_Params& params,
                  const gfx::Size& canvas_size,
                  WebKit::WebFrame* frame,
-                 printing::NativeMetafile* metafile);
+                 printing::NativeMetafile* metafile,
+                 skia::VectorCanvas** canvas);
 #else
   void PrintPage(const ViewMsg_PrintPage_Params& params,
                  const gfx::Size& canvas_size,
@@ -105,7 +121,8 @@ class PrintWebViewHelper : public WebKit::WebViewClient,
   // Prints all the pages listed in |params|.
   // It will implicitly revert the document to display CSS media type.
   void PrintPages(const ViewMsg_PrintPages_Params& params,
-                  WebKit::WebFrame* frame);
+                  WebKit::WebFrame* frame,
+                  WebKit::WebNode* node);
 
   // IPC::Message::Sender
   bool Send(IPC::Message* msg);
@@ -127,14 +144,22 @@ class PrintWebViewHelper : public WebKit::WebViewClient,
       double* margin_bottom_in_points,
       double* margin_left_in_points);
 
+  void Print(WebKit::WebFrame* frame,
+             WebKit::WebNode* node,
+             bool script_initiated,
+             bool is_preview);
+
   void UpdatePrintableSizeInPrintParameters(WebKit::WebFrame* frame,
+                                            WebKit::WebNode* node,
                                             ViewMsg_Print_Params* params);
 
   // Initialize print page settings with default settings.
-  bool InitPrintSettings(WebKit::WebFrame* frame);
+  bool InitPrintSettings(WebKit::WebFrame* frame,
+                         WebKit::WebNode* node);
 
   // Get the default printer settings.
   bool GetDefaultPrintSettings(WebKit::WebFrame* frame,
+                               WebKit::WebNode* node,
                                ViewMsg_Print_Params* params);
 
   // Get final print settings from the user.
@@ -144,7 +169,8 @@ class PrintWebViewHelper : public WebKit::WebViewClient,
                                 bool use_browser_overlays);
 
   // Render the frame for printing.
-  void RenderPagesForPrint(WebKit::WebFrame* frame);
+  void RenderPagesForPrint(WebKit::WebFrame* frame,
+                           WebKit::WebNode* node);
 
   // Render the frame for preview.
   void RenderPagesForPreview(WebKit::WebFrame* frame);

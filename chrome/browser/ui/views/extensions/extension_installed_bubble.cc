@@ -1,8 +1,10 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/extensions/extension_installed_bubble.h"
+#include "chrome/browser/ui/views/extensions/extension_installed_bubble.h"
+
+#include <algorithm>
 
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
@@ -11,11 +13,10 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_window.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/views/browser_actions_container.h"
-#include "chrome/browser/views/frame/browser_view.h"
-#include "chrome/browser/views/location_bar/location_bar_view.h"
-#include "chrome/browser/views/toolbar_view.h"
+#include "chrome/browser/ui/views/browser_actions_container.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/location_bar/location_bar_view.h"
+#include "chrome/browser/ui/views/toolbar_view.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_action.h"
 #include "chrome/common/notification_details.h"
@@ -84,19 +85,19 @@ class InstalledBubbleContent : public views::View,
     icon_->SetImage(*icon);
     AddChildView(icon_);
 
-    std::wstring extension_name = UTF8ToWide(extension->name());
+    string16 extension_name = UTF8ToUTF16(extension->name());
     base::i18n::AdjustStringForLocaleDirection(&extension_name);
-    heading_ = new views::Label(
-        l10n_util::GetStringF(IDS_EXTENSION_INSTALLED_HEADING,
-                              extension_name));
+    heading_ = new views::Label(UTF16ToWide(
+        l10n_util::GetStringFUTF16(IDS_EXTENSION_INSTALLED_HEADING,
+                                   extension_name)));
     heading_->SetFont(rb.GetFont(ResourceBundle::MediumFont));
     heading_->SetMultiLine(true);
     heading_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
     AddChildView(heading_);
 
     if (type_ == ExtensionInstalledBubble::PAGE_ACTION) {
-      info_ = new views::Label(l10n_util::GetString(
-          IDS_EXTENSION_INSTALLED_PAGE_ACTION_INFO));
+      info_ = new views::Label(UTF16ToWide(l10n_util::GetStringUTF16(
+          IDS_EXTENSION_INSTALLED_PAGE_ACTION_INFO)));
       info_->SetFont(font);
       info_->SetMultiLine(true);
       info_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
@@ -104,17 +105,17 @@ class InstalledBubbleContent : public views::View,
     }
 
     if (type_ == ExtensionInstalledBubble::OMNIBOX_KEYWORD) {
-      info_ = new views::Label(l10n_util::GetStringF(
+      info_ = new views::Label(UTF16ToWide(l10n_util::GetStringFUTF16(
           IDS_EXTENSION_INSTALLED_OMNIBOX_KEYWORD_INFO,
-          UTF8ToWide(extension->omnibox_keyword())));
+          UTF8ToUTF16(extension->omnibox_keyword()))));
       info_->SetFont(font);
       info_->SetMultiLine(true);
       info_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
       AddChildView(info_);
     }
 
-    manage_ = new views::Label(
-        l10n_util::GetString(IDS_EXTENSION_INSTALLED_MANAGE_INFO));
+    manage_ = new views::Label(UTF16ToWide(
+        l10n_util::GetStringUTF16(IDS_EXTENSION_INSTALLED_MANAGE_INFO)));
     manage_->SetFont(font);
     manage_->SetMultiLine(true);
     manage_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
@@ -268,7 +269,8 @@ void ExtensionInstalledBubble::Observe(NotificationType type,
           &ExtensionInstalledBubble::ShowInternal));
     }
   } else if (type == NotificationType::EXTENSION_UNLOADED) {
-    const Extension* extension = Details<const Extension>(details).ptr();
+    const Extension* extension =
+        Details<UnloadedExtensionInfo>(details)->extension;
     if (extension == extension_)
       extension_ = NULL;
   } else {

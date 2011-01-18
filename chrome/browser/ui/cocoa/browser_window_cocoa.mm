@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/message_loop.h"
+#include "base/mac/mac_util.h"
 #include "base/sys_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/bookmarks/bookmark_utils.h"
@@ -26,13 +27,13 @@
 #import "chrome/browser/ui/cocoa/chrome_event_processing_window.h"
 #import "chrome/browser/ui/cocoa/clear_browsing_data_controller.h"
 #import "chrome/browser/ui/cocoa/collected_cookies_mac.h"
-#import "chrome/browser/ui/cocoa/content_settings_dialog_controller.h"
 #import "chrome/browser/ui/cocoa/download/download_shelf_controller.h"
-#import "chrome/browser/ui/cocoa/edit_search_engine_cocoa_controller.h"
 #import "chrome/browser/ui/cocoa/html_dialog_window_controller.h"
 #import "chrome/browser/ui/cocoa/import_settings_dialog.h"
-#import "chrome/browser/ui/cocoa/keyword_editor_cocoa_controller.h"
 #import "chrome/browser/ui/cocoa/location_bar/location_bar_view_mac.h"
+#import "chrome/browser/ui/cocoa/options/content_settings_dialog_controller.h"
+#import "chrome/browser/ui/cocoa/options/edit_search_engine_cocoa_controller.h"
+#import "chrome/browser/ui/cocoa/options/keyword_editor_cocoa_controller.h"
 #import "chrome/browser/ui/cocoa/nsmenuitem_additions.h"
 #include "chrome/browser/ui/cocoa/repost_form_warning_mac.h"
 #include "chrome/browser/ui/cocoa/restart_browser.h"
@@ -41,7 +42,6 @@
 #import "chrome/browser/ui/cocoa/theme_install_bubble_view.h"
 #import "chrome/browser/ui/cocoa/toolbar_controller.h"
 #include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/native_web_keyboard_event.h"
 #include "chrome/common/notification_service.h"
 #include "chrome/common/pref_names.h"
@@ -328,13 +328,6 @@ DownloadShelf* BrowserWindowCocoa::GetDownloadShelf() {
   return [shelfController bridge];
 }
 
-void BrowserWindowCocoa::ShowReportBugDialog() {
-  TabContents* current_tab = browser_->GetSelectedTabContents();
-  if (current_tab && current_tab->controller().GetActiveEntry()) {
-    browser_->ShowBrokenPageTab(current_tab);
-  }
-}
-
 void BrowserWindowCocoa::ShowClearBrowsingDataDialog() {
   [ClearBrowsingDataController
       showClearBrowsingDialogForProfile:browser_->profile()];
@@ -605,6 +598,13 @@ gfx::Rect BrowserWindowCocoa::GetInstantBounds() {
   gfx::Rect bounds(NSRectToCGRect(frame));
   bounds.set_y(NSHeight(monitorFrame) - bounds.y() - bounds.height());
   return bounds;
+}
+
+gfx::Rect BrowserWindowCocoa::GrabWindowSnapshot(std::vector<unsigned char>*
+                                                 png_representation) {
+  int width = 0, height = 0;
+  base::mac::GrabWindowSnapshot(window(), png_representation, &width, &height);
+  return gfx::Rect(width, height);
 }
 
 void BrowserWindowCocoa::Observe(NotificationType type,

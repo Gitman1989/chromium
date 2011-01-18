@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,12 +11,12 @@
 #ifdef IPC_MESSAGE_LOG_ENABLED
 #define IPC_MESSAGE_MACROS_LOG_ENABLED
 
-#include "chrome/browser/views/about_ipc_dialog.h"
+#include "chrome/browser/ui/views/about_ipc_dialog.h"
 
 #include <set>
 
 #include "base/string_util.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"

@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -42,6 +42,10 @@ PackagePropertiesImpl::PackagePropertiesImpl(
 PackagePropertiesImpl::~PackagePropertiesImpl() {
 }
 
+const std::wstring& PackagePropertiesImpl::GetAppGuid() {
+  return guid_;
+}
+
 const std::wstring& PackagePropertiesImpl::GetStateKey() {
   return state_key_;
 }
@@ -54,11 +58,15 @@ const std::wstring& PackagePropertiesImpl::GetVersionKey() {
   return version_key_;
 }
 
-void PackagePropertiesImpl::UpdateDiffInstallStatus(bool system_level,
-                                                    bool incremental_install,
-                                                    InstallStatus status) {
-  GoogleUpdateSettings::UpdateDiffInstallStatus(system_level,
-      incremental_install, InstallUtil::GetInstallReturnCode(status), guid_);
+void PackagePropertiesImpl::UpdateInstallStatus(bool system_level,
+                                                bool incremental_install,
+                                                bool multi_install,
+                                                InstallStatus status) {
+  if (ReceivesUpdates()) {
+    GoogleUpdateSettings::UpdateInstallStatus(system_level,
+        incremental_install, multi_install,
+        InstallUtil::GetInstallReturnCode(status), guid_);
+  }
 }
 
 ChromiumPackageProperties::ChromiumPackageProperties()

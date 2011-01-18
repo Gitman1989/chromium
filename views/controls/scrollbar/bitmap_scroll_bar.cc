@@ -8,14 +8,16 @@
 #include "views/screen.h"
 #endif
 
-#include "app/keyboard_codes.h"
 #include "app/l10n_util.h"
 #include "base/callback.h"
 #include "base/compiler_specific.h"
 #include "base/message_loop.h"
+#include "base/string16.h"
+#include "base/utf_string_conversions.h"
 #include "gfx/canvas.h"
 #include "grit/app_strings.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/base/keycodes/keyboard_codes.h"
 #include "views/controls/menu/menu.h"
 #include "views/controls/scroll_view.h"
 #include "views/widget/widget.h"
@@ -496,32 +498,32 @@ bool BitmapScrollBar::OnMouseWheel(const MouseWheelEvent& event) {
 bool BitmapScrollBar::OnKeyPressed(const KeyEvent& event) {
   ScrollAmount amount = SCROLL_NONE;
   switch (event.GetKeyCode()) {
-    case app::VKEY_UP:
+    case ui::VKEY_UP:
       if (!IsHorizontal())
         amount = SCROLL_PREV_LINE;
       break;
-    case app::VKEY_DOWN:
+    case ui::VKEY_DOWN:
       if (!IsHorizontal())
         amount = SCROLL_NEXT_LINE;
       break;
-    case app::VKEY_LEFT:
+    case ui::VKEY_LEFT:
       if (IsHorizontal())
         amount = SCROLL_PREV_LINE;
       break;
-    case app::VKEY_RIGHT:
+    case ui::VKEY_RIGHT:
       if (IsHorizontal())
         amount = SCROLL_NEXT_LINE;
       break;
-    case app::VKEY_PRIOR:
+    case ui::VKEY_PRIOR:
       amount = SCROLL_PREV_PAGE;
       break;
-    case app::VKEY_NEXT:
+    case ui::VKEY_NEXT:
       amount = SCROLL_NEXT_PAGE;
       break;
-    case app::VKEY_HOME:
+    case ui::VKEY_HOME:
       amount = SCROLL_START;
       break;
-    case app::VKEY_END:
+    case ui::VKEY_END:
       amount = SCROLL_END;
       break;
   }
@@ -574,36 +576,38 @@ void BitmapScrollBar::ShowContextMenu(View* source,
 // BitmapScrollBar, Menu::Delegate implementation:
 
 std::wstring BitmapScrollBar::GetLabel(int id) const {
+  int ids_value = 0;
   switch (id) {
     case ScrollBarContextMenuCommand_ScrollHere:
-      return l10n_util::GetString(IDS_APP_SCROLLBAR_CXMENU_SCROLLHERE);
+      ids_value = IDS_APP_SCROLLBAR_CXMENU_SCROLLHERE;
+      break;
     case ScrollBarContextMenuCommand_ScrollStart:
-      if (IsHorizontal())
-        return l10n_util::GetString(IDS_APP_SCROLLBAR_CXMENU_SCROLLLEFTEDGE);
-      return l10n_util::GetString(IDS_APP_SCROLLBAR_CXMENU_SCROLLHOME);
+      ids_value = IsHorizontal() ? IDS_APP_SCROLLBAR_CXMENU_SCROLLLEFTEDGE
+                                 : IDS_APP_SCROLLBAR_CXMENU_SCROLLHOME;
+      break;
     case ScrollBarContextMenuCommand_ScrollEnd:
-      if (IsHorizontal())
-        return l10n_util::GetString(IDS_APP_SCROLLBAR_CXMENU_SCROLLRIGHTEDGE);
-      return l10n_util::GetString(IDS_APP_SCROLLBAR_CXMENU_SCROLLEND);
+      ids_value = IsHorizontal() ? IDS_APP_SCROLLBAR_CXMENU_SCROLLRIGHTEDGE
+                                 : IDS_APP_SCROLLBAR_CXMENU_SCROLLEND;
+      break;
     case ScrollBarContextMenuCommand_ScrollPageUp:
-      if (IsHorizontal())
-        return l10n_util::GetString(IDS_APP_SCROLLBAR_CXMENU_SCROLLPAGEUP);
-      return l10n_util::GetString(IDS_APP_SCROLLBAR_CXMENU_SCROLLPAGEUP);
+      ids_value = IDS_APP_SCROLLBAR_CXMENU_SCROLLPAGEUP;
+      break;
     case ScrollBarContextMenuCommand_ScrollPageDown:
-      if (IsHorizontal())
-        return l10n_util::GetString(IDS_APP_SCROLLBAR_CXMENU_SCROLLPAGEDOWN);
-      return l10n_util::GetString(IDS_APP_SCROLLBAR_CXMENU_SCROLLPAGEDOWN);
+      ids_value = IDS_APP_SCROLLBAR_CXMENU_SCROLLPAGEDOWN;
+      break;
     case ScrollBarContextMenuCommand_ScrollPrev:
-      if (IsHorizontal())
-        return l10n_util::GetString(IDS_APP_SCROLLBAR_CXMENU_SCROLLLEFT);
-      return l10n_util::GetString(IDS_APP_SCROLLBAR_CXMENU_SCROLLUP);
+      ids_value = IsHorizontal() ? IDS_APP_SCROLLBAR_CXMENU_SCROLLLEFT
+                                 : IDS_APP_SCROLLBAR_CXMENU_SCROLLUP;
+      break;
     case ScrollBarContextMenuCommand_ScrollNext:
-      if (IsHorizontal())
-        return l10n_util::GetString(IDS_APP_SCROLLBAR_CXMENU_SCROLLRIGHT);
-      return l10n_util::GetString(IDS_APP_SCROLLBAR_CXMENU_SCROLLDOWN);
+      ids_value = IsHorizontal() ? IDS_APP_SCROLLBAR_CXMENU_SCROLLRIGHT
+                                 : IDS_APP_SCROLLBAR_CXMENU_SCROLLDOWN;
+      break;
+    default:
+      NOTREACHED() << "Invalid BitmapScrollBar Context Menu command!";
   }
-  NOTREACHED() << "Invalid BitmapScrollBar Context Menu command!";
-  return L"";
+
+  return ids_value ? UTF16ToWide(l10n_util::GetStringUTF16(ids_value)) : L"";
 }
 
 bool BitmapScrollBar::IsCommandEnabled(int id) const {

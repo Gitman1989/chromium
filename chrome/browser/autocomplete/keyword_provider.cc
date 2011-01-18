@@ -42,14 +42,16 @@ class KeywordProvider::ScopedEndExtensionKeywordMode {
 
 // static
 std::wstring KeywordProvider::SplitReplacementStringFromInput(
-    const std::wstring& input) {
+    const std::wstring& input,
+    bool trim_leading_whitespace) {
   // The input may contain leading whitespace, strip it.
   std::wstring trimmed_input;
   TrimWhitespace(input, TRIM_LEADING, &trimmed_input);
 
   // And extract the replacement string.
   std::wstring remaining_input;
-  SplitKeywordFromInput(trimmed_input, &remaining_input);
+  SplitKeywordFromInput(trimmed_input, trim_leading_whitespace,
+                        &remaining_input);
   return remaining_input;
 }
 
@@ -275,13 +277,14 @@ bool KeywordProvider::ExtractKeywordFromInput(const AutocompleteInput& input,
     return false;
 
   *keyword = TemplateURLModel::CleanUserInputKeyword(
-      SplitKeywordFromInput(input.text(), remaining_input));
+      SplitKeywordFromInput(input.text(), true, remaining_input));
   return !keyword->empty();
 }
 
 // static
 std::wstring KeywordProvider::SplitKeywordFromInput(
     const std::wstring& input,
+    bool trim_leading_whitespace,
     std::wstring* remaining_input) {
   // Find end of first token.  The AutocompleteController has trimmed leading
   // whitespace, so we need not skip over that.
@@ -292,10 +295,11 @@ std::wstring KeywordProvider::SplitKeywordFromInput(
 
   // Set |remaining_input| to everything after the first token.
   DCHECK(remaining_input != NULL);
-  const size_t first_nonwhite(input.find_first_not_of(kWhitespaceWide,
-                                                      first_white));
-  if (first_nonwhite != std::wstring::npos)
-    remaining_input->assign(input.begin() + first_nonwhite, input.end());
+  const size_t remaining_start = trim_leading_whitespace ?
+    input.find_first_not_of(kWhitespaceWide, first_white) : first_white + 1;
+
+  if (remaining_start < input.length())
+    remaining_input->assign(input.begin() + remaining_start, input.end());
 
   // Return first token as keyword.
   return input.substr(0, first_white);
@@ -318,9 +322,10 @@ void KeywordProvider::FillInURLAndContents(
     if (element->url()->SupportsReplacement() &&
         !element->IsExtensionKeyword()) {
       // No query input; return a generic, no-destination placeholder.
-      match->contents.assign(l10n_util::GetStringF(message_id,
-          element->AdjustedShortNameForLocaleDirection(),
-          l10n_util::GetString(IDS_EMPTY_KEYWORD_VALUE)));
+      match->contents.assign(UTF16ToWideHack(
+          l10n_util::GetStringFUTF16(message_id,
+              WideToUTF16Hack(element->AdjustedShortNameForLocaleDirection()),
+              l10n_util::GetStringUTF16(IDS_EMPTY_KEYWORD_VALUE))));
       match->contents_class.push_back(
           ACMatchClassification(0, ACMatchClassification::DIM));
     } else {
@@ -341,10 +346,11 @@ void KeywordProvider::FillInURLAndContents(
       *element, remaining_input, TemplateURLRef::NO_SUGGESTIONS_AVAILABLE,
       std::wstring()));
     std::vector<size_t> content_param_offsets;
-    match->contents.assign(l10n_util::GetStringF(message_id,
-                                                 element->short_name(),
-                                                 remaining_input,
-                                                 &content_param_offsets));
+    match->contents.assign(UTF16ToWideHack(
+        l10n_util::GetStringFUTF16(message_id,
+                                   WideToUTF16Hack(element->short_name()),
+                                   WideToUTF16Hack(remaining_input),
+                                   &content_param_offsets)));
     if (content_param_offsets.size() == 2) {
       AutocompleteMatch::ClassifyLocationInString(content_param_offsets[1],
           remaining_input.length(), match->contents.length(),
@@ -420,15 +426,16 @@ AutocompleteMatch KeywordProvider::CreateAutocompleteMatch(
 
   // Create popup entry description based on the keyword name.
   if (!element->IsExtensionKeyword()) {
-    result.description.assign(l10n_util::GetStringF(
-        IDS_AUTOCOMPLETE_KEYWORD_DESCRIPTION, keyword));
-    static const std::wstring kKeywordDesc(
-        l10n_util::GetString(IDS_AUTOCOMPLETE_KEYWORD_DESCRIPTION));
-    AutocompleteMatch::ClassifyLocationInString(kKeywordDesc.find(L"%s"),
-                                                prefix_length,
-                                                result.description.length(),
-                                                ACMatchClassification::DIM,
-                                                &result.description_class);
+    result.description.assign(UTF16ToWideHack(l10n_util::GetStringFUTF16(
+        IDS_AUTOCOMPLETE_KEYWORD_DESCRIPTION, WideToUTF16Hack(keyword))));
+    string16 keyword_desc(
+        l10n_util::GetStringUTF16(IDS_AUTOCOMPLETE_KEYWORD_DESCRIPTION));
+    AutocompleteMatch::ClassifyLocationInString(
+        keyword_desc.find(ASCIIToUTF16("%s")),
+        prefix_length,
+        result.description.length(),
+        ACMatchClassification::DIM,
+        &result.description_class);
   }
 
   return result;

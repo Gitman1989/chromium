@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -23,10 +23,10 @@
 #include "net/base/upload_data.h"
 #include "net/http/http_response_headers.h"
 #include "net/url_request/url_request_status.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebString.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLRequest.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebView.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLRequest.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "webkit/glue/webkit_glue.h"
 
 namespace safe_browsing {
@@ -36,13 +36,14 @@ const int32 RenderViewFakeResourcesTest::kViewId = 5;
 RenderViewFakeResourcesTest::RenderViewFakeResourcesTest() {}
 RenderViewFakeResourcesTest::~RenderViewFakeResourcesTest() {}
 
-void RenderViewFakeResourcesTest::OnMessageReceived(
+bool RenderViewFakeResourcesTest::OnMessageReceived(
     const IPC::Message& message) {
   IPC_BEGIN_MESSAGE_MAP(RenderViewFakeResourcesTest, message)
     IPC_MESSAGE_HANDLER(ViewHostMsg_RenderViewReady, OnRenderViewReady)
     IPC_MESSAGE_HANDLER(ViewHostMsg_DidStopLoading, OnDidStopLoading)
     IPC_MESSAGE_HANDLER(ViewHostMsg_RequestResource, OnRequestResource)
   IPC_END_MESSAGE_MAP()
+  return true;
 }
 
 bool RenderViewFakeResourcesTest::Visit(RenderView* render_view) {
@@ -162,7 +163,7 @@ void RenderViewFakeResourcesTest::OnRequestResource(
   ASSERT_TRUE(channel_->Send(new ViewMsg_Resource_RequestComplete(
       message.routing_id(),
       request_id,
-      URLRequestStatus(),
+      net::URLRequestStatus(),
       std::string(),
       base::Time())));
 }

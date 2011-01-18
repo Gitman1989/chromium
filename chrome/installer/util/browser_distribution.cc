@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -16,7 +16,6 @@
 #include "base/lock.h"
 #include "base/logging.h"
 #include "base/win/registry.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/env_vars.h"
 #include "chrome/installer/util/chrome_frame_distribution.h"
 #include "chrome/installer/util/google_chrome_distribution.h"
@@ -33,7 +32,6 @@ namespace {
 // The BrowserDistribution objects are never freed.
 BrowserDistribution* g_browser_distribution = NULL;
 BrowserDistribution* g_chrome_frame_distribution = NULL;
-BrowserDistribution* g_ceee_distribution = NULL;
 
 // Returns true if currently running in npchrome_frame.dll
 bool IsChromeFrameModule() {
@@ -203,8 +201,9 @@ bool BrowserDistribution::GetChromeChannel(std::wstring* channel) {
   return false;
 }
 
-void BrowserDistribution::UpdateDiffInstallStatus(bool system_install,
-    bool incremental_install, installer::InstallStatus install_status) {
+void BrowserDistribution::UpdateInstallStatus(bool system_install,
+    bool incremental_install, bool multi_install,
+    installer::InstallStatus install_status) {
 }
 
 void BrowserDistribution::LaunchUserExperiment(
@@ -231,4 +230,14 @@ void BrowserDistribution::AppendUninstallCommandLineFlags(
     CommandLine* cmd_line) {
   DCHECK(cmd_line);
   cmd_line->AppendSwitch(installer::switches::kChrome);
+}
+
+bool BrowserDistribution::ShouldCreateUninstallEntry() {
+  return true;
+}
+
+bool BrowserDistribution::SetChannelFlags(
+    bool set,
+    installer::ChannelInfo* channel_info) {
+  return false;
 }

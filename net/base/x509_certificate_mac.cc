@@ -400,6 +400,16 @@ X509Certificate* X509Certificate::CreateFromPickle(const Pickle& pickle,
   return CreateFromBytes(data, length);
 }
 
+// static
+X509Certificate* X509Certificate::CreateSelfSigned(
+    base::RSAPrivateKey* key,
+    const std::string& subject,
+    uint32 serial_number,
+    base::TimeDelta valid_duration) {
+  // TODO(port): Implement.
+  return NULL;
+}
+
 void X509Certificate::Persist(Pickle* pickle) {
   CSSM_DATA cert_data;
   OSStatus status = SecCertificateGetData(cert_handle_, &cert_data);
@@ -639,6 +649,17 @@ int X509Certificate::Verify(const std::string& hostname, int flags,
   }
 
   return OK;
+}
+
+bool X509Certificate::GetDEREncoded(std::string* encoded) {
+  encoded->clear();
+  CSSM_DATA der_data;
+  if(SecCertificateGetData(cert_handle_, &der_data) == noErr) {
+    encoded->append(reinterpret_cast<char*>(der_data.Data),
+                    der_data.Length);
+    return true;
+  }
+  return false;
 }
 
 bool X509Certificate::VerifyEV() const {

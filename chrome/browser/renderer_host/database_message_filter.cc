@@ -7,13 +7,15 @@
 #include <string>
 
 #include "base/string_util.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
+#include "chrome/browser/metrics/user_metrics.h"
 #include "chrome/browser/net/chrome_url_request_context.h"
 #include "chrome/common/database_messages.h"
+#include "chrome/common/result_codes.h"
 #include "googleurl/src/gurl.h"
 #include "third_party/sqlite/sqlite3.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSecurityOrigin.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSecurityOrigin.h"
 #include "webkit/database/database_util.h"
 #include "webkit/database/vfs_backend.h"
 
@@ -257,7 +259,8 @@ void DatabaseMessageFilter::OnDatabaseModified(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
   if (!database_connections_.IsDatabaseOpened(
           origin_identifier, database_name)) {
-    BadMessageReceived(DatabaseHostMsg_Modified::ID);
+    UserMetrics::RecordAction(UserMetricsAction("BadMessageTerminate_DBMF"));
+    BadMessageReceived();
     return;
   }
 
@@ -269,7 +272,8 @@ void DatabaseMessageFilter::OnDatabaseClosed(const string16& origin_identifier,
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
   if (!database_connections_.IsDatabaseOpened(
           origin_identifier, database_name)) {
-    BadMessageReceived(DatabaseHostMsg_Closed::ID);
+    UserMetrics::RecordAction(UserMetricsAction("BadMessageTerminate_DBMF"));
+    BadMessageReceived();
     return;
   }
 

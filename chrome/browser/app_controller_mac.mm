@@ -9,7 +9,7 @@
 #include "base/auto_reset.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
-#include "base/mac_util.h"
+#include "base/mac/mac_util.h"
 #include "base/message_loop.h"
 #include "base/string_number_conversions.h"
 #include "base/sys_string_conversions.h"
@@ -21,7 +21,6 @@
 #include "chrome/browser/command_updater.h"
 #include "chrome/browser/download/download_manager.h"
 #include "chrome/browser/metrics/user_metrics.h"
-#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/printing/print_job_manager.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/sessions/tab_restore_service.h"
@@ -43,7 +42,7 @@
 #import "chrome/browser/ui/cocoa/encoding_menu_controller_delegate_mac.h"
 #import "chrome/browser/ui/cocoa/history_menu_bridge.h"
 #import "chrome/browser/ui/cocoa/import_settings_dialog.h"
-#import "chrome/browser/ui/cocoa/preferences_window_controller.h"
+#import "chrome/browser/ui/cocoa/options/preferences_window_controller.h"
 #import "chrome/browser/ui/cocoa/tab_strip_controller.h"
 #import "chrome/browser/ui/cocoa/tab_window_controller.h"
 #include "chrome/browser/ui/cocoa/task_manager_mac.h"
@@ -52,7 +51,6 @@
 #include "chrome/common/chrome_paths_internal.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/notification_service.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
@@ -995,7 +993,7 @@ void RecordLastRunAppBundlePath() {
       static BOOL doneOnce = NO;
       if (!doneOnce) {
         doneOnce = YES;
-        if (mac_util::WasLaunchedAsHiddenLoginItem()) {
+        if (base::mac::WasLaunchedAsHiddenLoginItem()) {
           SessionService* sessionService =
               [self defaultProfile]->GetSessionService();
           if (sessionService &&
@@ -1120,7 +1118,7 @@ void RecordLastRunAppBundlePath() {
 // visible.
 - (IBAction)showPreferences:(id)sender {
   const CommandLine& parsed_command_line = *CommandLine::ForCurrentProcess();
-  if (parsed_command_line.HasSwitch(switches::kEnableTabbedOptions)) {
+  if (!parsed_command_line.HasSwitch(switches::kDisableTabbedOptions)) {
     if (Browser* browser = ActivateBrowser([self defaultProfile])) {
       // Show options tab in the active browser window.
       browser->ShowOptionsTab(chrome::kDefaultOptionsSubPage);

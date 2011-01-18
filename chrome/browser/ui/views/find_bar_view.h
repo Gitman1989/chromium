@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,7 +8,7 @@
 
 #include "base/string16.h"
 #include "chrome/browser/ui/find_bar/find_notification_details.h"
-#include "chrome/browser/views/dropdown_bar_view.h"
+#include "chrome/browser/ui/views/dropdown_bar_view.h"
 #include "gfx/size.h"
 #include "views/controls/button/button.h"
 #include "views/controls/textfield/textfield.h"
@@ -78,8 +78,8 @@ class FindBarView : public DropdownBarView,
   // Overridden from views::Textfield::Controller:
   virtual void ContentsChanged(views::Textfield* sender,
                                const string16& new_contents);
-  virtual bool HandleKeystroke(views::Textfield* sender,
-                               const views::Textfield::Keystroke& key);
+  virtual bool HandleKeyEvent(views::Textfield* sender,
+                              const views::KeyEvent& key_event);
 
  private:
   // Update the appearance for the match count label.
@@ -108,19 +108,6 @@ class FindBarView : public DropdownBarView,
     DISALLOW_COPY_AND_ASSIGN(FocusForwarderView);
   };
 
-  // A wrapper of views::TextField that allows us to select all text when we
-  // get focus. Represents the text field where the user enters a search term.
-  class SearchTextfieldView : public views::Textfield {
-   public:
-     SearchTextfieldView();
-     virtual ~SearchTextfieldView();
-
-     virtual void RequestFocus();
-
-   private:
-     DISALLOW_COPY_AND_ASSIGN(SearchTextfieldView);
-  };
-
   // Returns the OS-specific view for the find bar that acts as an intermediary
   // between us and the TabContentsView.
   FindBarHost* find_bar_host() const;
@@ -135,7 +122,7 @@ class FindBarView : public DropdownBarView,
 #endif
 
   // The controls in the window.
-  SearchTextfieldView* find_text_;
+  views::Textfield* find_text_;
   views::Label* match_count_text_;
   FocusForwarderView* focus_forwarder_view_;
   views::ImageButton* find_previous_button_;

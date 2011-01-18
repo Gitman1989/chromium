@@ -8,11 +8,12 @@
 #include <winspool.h>
 
 #include "base/file_path.h"
-#include "base/object_watcher.h"
 #include "base/scoped_ptr.h"
 #include "base/utf_string_conversions.h"
+#include "base/win/object_watcher.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
+#include "base/win/scoped_hdc.h"
 #include "chrome/service/cloud_print/cloud_print_consts.h"
 #include "chrome/service/service_process.h"
 #include "chrome/service/service_utility_process_host.h"
@@ -75,6 +76,11 @@ HRESULT PrintTicketToDevMode(const std::string& printer_name,
                              const std::string& print_ticket,
                              DevMode* dev_mode) {
   DCHECK(dev_mode);
+  printing::ScopedXPSInitializer xps_initializer;
+  if (!xps_initializer.initialized()) {
+    // TODO(sanjeevr): Handle legacy proxy case (with no prntvpt.dll)
+    return E_FAIL;
+  }
 
   ScopedComPtr<IStream> pt_stream;
   HRESULT hr = StreamFromPrintTicket(print_ticket, pt_stream.Receive());
@@ -109,8 +115,7 @@ HRESULT PrintTicketToDevMode(const std::string& printer_name,
 
 namespace cloud_print {
 
-class PrintSystemWatcherWin
-    : public base::ObjectWatcher::Delegate {
+class PrintSystemWatcherWin : public base::win::ObjectWatcher::Delegate {
  public:
   PrintSystemWatcherWin()
       : printer_(NULL),
@@ -223,7 +228,7 @@ class PrintSystemWatcherWin
   }
 
  private:
-  base::ObjectWatcher watcher_;
+  base::win::ObjectWatcher watcher_;
   HANDLE printer_;            // The printer being watched
   HANDLE printer_change_;     // Returned by FindFirstPrinterChangeNotifier
   Delegate* delegate_;        // Delegate to notify
@@ -383,10 +388,6 @@ class PrintSystemWin : public PrintSystem {
           return false;
         }
 
-        if (!printing::XPSModule::Init()) {
-          // TODO(sanjeevr): Handle legacy proxy case (with no prntvpt.dll)
-          return false;
-        }
         DevMode pt_dev_mode;
         HRESULT hr = PrintTicketToDevMode(printer_name, print_ticket,
                                           &pt_dev_mode);
@@ -394,6 +395,7 @@ class PrintSystemWin : public PrintSystem {
           NOTREACHED();
           return false;
         }
+
         HDC dc = CreateDC(L"WINSPOOL", UTF8ToWide(printer_name).c_str(),
                           NULL, pt_dev_mode.dm_);
         if (!dc) {
@@ -508,7 +510,7 @@ class PrintSystemWin : public PrintSystem {
       PlatformJobId job_id_;
       PrintSystem::JobSpooler::Delegate* delegate_;
       int saved_dc_;
-      ScopedHDC printer_dc_;
+      base::win::ScopedHDC printer_dc_;
       FilePath print_data_file_path_;
       DISALLOW_COPY_AND_ASSIGN(JobSpoolerWin::Core);
     };
@@ -618,7 +620,8 @@ bool PrintSystemWin::IsValidPrinter(const std::string& printer_name) {
 bool PrintSystemWin::ValidatePrintTicket(
     const std::string& printer_name,
     const std::string& print_ticket_data) {
-  if (!printing::XPSModule::Init()) {
+  printing::ScopedXPSInitializer xps_initializer;
+  if (!xps_initializer.initialized()) {
     // TODO(sanjeevr): Handle legacy proxy case (with no prntvpt.dll)
     return false;
   }

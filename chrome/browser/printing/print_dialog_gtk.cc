@@ -13,7 +13,7 @@
 #include "base/lazy_instance.h"
 #include "base/lock.h"
 #include "base/logging.h"
-#include "base/thread_restrictions.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_list.h"
 #include "chrome/browser/browser_thread.h"
@@ -88,8 +88,13 @@ void PrintDialogGtk::CreateDialogImpl(const FilePath& path) {
   //
   //   while(true){print();}
   AutoLock lock(DialogLock());
-  if (g_print_dialog)
+  if (g_print_dialog) {
+    // Clean up the temporary file.
+    base::FileUtilProxy::Delete(
+        BrowserThread::GetMessageLoopProxyForThread(BrowserThread::FILE),
+        path, false, NULL);
     return;
+  }
 
   g_print_dialog = new PrintDialogGtk(path);
 }

@@ -14,13 +14,12 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/testing_browser_process.h"
 #include "net/base/net_errors.h"
 
 #if defined(OS_MACOSX)
-#include "base/mac_util.h"
+#include "base/mac/mac_util.h"
 #endif
 
 #if defined(OS_POSIX)
@@ -107,7 +106,7 @@ void ChromeTestSuite::Initialize() {
   FilePath path;
   PathService::Get(base::DIR_EXE, &path);
   path = path.Append(chrome::kFrameworkName);
-  mac_util::SetOverrideAppBundlePath(path);
+  base::mac::SetOverrideAppBundlePath(path);
 #endif
 
   // Force unittests to run using en-US so if we test against string
@@ -128,7 +127,7 @@ void ChromeTestSuite::Shutdown() {
   ResourceBundle::CleanupSharedInstance();
 
 #if defined(OS_MACOSX)
-  mac_util::SetOverrideAppBundle(NULL);
+  base::mac::SetOverrideAppBundle(NULL);
 #endif
 
   delete g_browser_process;

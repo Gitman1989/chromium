@@ -109,7 +109,6 @@ struct IdMaps {
   scoped_ptr<LanguageCodeToIdsMap> language_code_to_ids;
   scoped_ptr<std::map<std::string, std::string> > id_to_language_code;
   scoped_ptr<std::map<std::string, std::string> > id_to_display_name;
-  scoped_ptr<std::map<std::string, std::string> > id_to_keyboard_overlay_id;
 
   // Returns the singleton instance.
   static IdMaps* GetInstance() {
@@ -129,7 +128,6 @@ struct IdMaps {
     language_code_to_ids->clear();
     id_to_language_code->clear();
     id_to_display_name->clear();
-    id_to_keyboard_overlay_id->clear();
 
     // Build the id to descriptor map for handling kExtraLanguages later.
     typedef std::map<std::string,
@@ -145,13 +143,6 @@ struct IdMaps {
       // Remember the pair.
       id_to_descriptor_map.insert(
           std::make_pair(input_method.id, &input_method));
-    }
-
-    for (size_t i = 0; i < arraysize(kInputMethodIdToKeyboardOverlayId); ++i) {
-      InputMethodIdToKeyboardOverlayId id_pair =
-          kInputMethodIdToKeyboardOverlayId[i];
-      id_to_keyboard_overlay_id->insert(
-          std::make_pair(id_pair.input_method_id, id_pair.keyboard_overlay_id));
     }
 
     // Go through the languages listed in kExtraLanguages.
@@ -172,8 +163,7 @@ struct IdMaps {
  private:
   IdMaps() : language_code_to_ids(new LanguageCodeToIdsMap),
              id_to_language_code(new std::map<std::string, std::string>),
-             id_to_display_name(new std::map<std::string, std::string>),
-             id_to_keyboard_overlay_id(new std::map<std::string, std::string>) {
+             id_to_display_name(new std::map<std::string, std::string>) {
     ReloadMaps();
   }
 
@@ -349,11 +339,11 @@ struct CompareLanguageCodesByLanguageName
   // efficient, but acceptable as the function is cheap, and the language
   // list is short (about 40 at most).
   bool operator()(const std::string& s1, const std::string& s2) const {
-    const std::wstring key1 =
+    const string16 key1 =
         chromeos::input_method::GetLanguageDisplayNameFromCode(s1);
-    const std::wstring key2 =
+    const string16 key2 =
         chromeos::input_method::GetLanguageDisplayNameFromCode(s2);
-    return l10n_util::StringComparator<std::wstring>(collator_)(key1, key2);
+    return l10n_util::StringComparator<string16>(collator_)(key1, key2);
   }
 
  private:
@@ -561,14 +551,6 @@ std::string GetKeyboardLayoutName(const std::string& input_method_id) {
   return (splitted_id.size() > 1) ? splitted_id[1] : "";
 }
 
-std::string GetKeyboardOverlayId(const std::string& input_method_id) {
-  const std::map<std::string, std::string>& id_map =
-      *(IdMaps::GetInstance()->id_to_keyboard_overlay_id);
-  std::map<std::string, std::string>::const_iterator iter =
-      id_map.find(input_method_id);
-  return (iter == id_map.end() ? "" : iter->second);
-}
-
 std::string GetInputMethodDisplayNameFromId(
     const std::string& input_method_id) {
   static const char kDefaultDisplayName[] = "USA";
@@ -578,18 +560,17 @@ std::string GetInputMethodDisplayNameFromId(
       kDefaultDisplayName : iter->second;
 }
 
-std::wstring GetLanguageDisplayNameFromCode(const std::string& language_code) {
+string16 GetLanguageDisplayNameFromCode(const std::string& language_code) {
   if (!g_browser_process) {
-    return L"";
+    return string16();
   }
-  return UTF16ToWide(l10n_util::GetDisplayNameForLocale(
-      language_code, g_browser_process->GetApplicationLocale(), true));
+  return l10n_util::GetDisplayNameForLocale(
+      language_code, g_browser_process->GetApplicationLocale(), true);
 }
 
-std::wstring GetLanguageNativeDisplayNameFromCode(
+string16 GetLanguageNativeDisplayNameFromCode(
     const std::string& language_code) {
-  return UTF16ToWide(l10n_util::GetDisplayNameForLocale(
-      language_code, language_code, true));
+  return l10n_util::GetDisplayNameForLocale(language_code, language_code, true);
 }
 
 void SortLanguageCodesByNames(std::vector<std::string>* language_codes) {

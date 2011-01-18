@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CHROME_TEST_AUTOMATION_AUTOMATION_PROXY_H__
-#define CHROME_TEST_AUTOMATION_AUTOMATION_PROXY_H__
+#ifndef CHROME_TEST_AUTOMATION_AUTOMATION_PROXY_H_
+#define CHROME_TEST_AUTOMATION_AUTOMATION_PROXY_H_
 #pragma once
 
 #include <string>
@@ -12,11 +12,12 @@
 #include "app/message_box_flags.h"
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
+#include "base/threading/platform_thread.h"
 #include "base/process_util.h"
 #include "base/scoped_ptr.h"
 #include "base/time.h"
-#include "base/thread.h"
-#include "base/waitable_event.h"
+#include "base/threading/thread.h"
+#include "base/synchronization/waitable_event.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/common/automation_constants.h"
 #include "chrome/test/automation/automation_handle_tracker.h"
@@ -31,10 +32,7 @@ class BrowserProxy;
 class ExtensionProxy;
 class TabProxy;
 class WindowProxy;
-
-namespace IPC {
 struct ExternalTabSettings;
-}
 
 // This is an interface that AutomationProxy-related objects can use to
 // access the message-sending abilities of the Proxy.
@@ -61,8 +59,19 @@ class AutomationProxy : public IPC::Channel::Listener,
   AutomationProxy(int command_execution_timeout_ms, bool disconnect_on_failure);
   virtual ~AutomationProxy();
 
+  // Creates a previously unused channel id.
+  static std::string GenerateChannelID();
+
+  // Initializes a channel for a connection to an AutomationProvider.
+  // If use_named_interface is false, it will act as a client
+  // and connect to the named IPC socket with channel_id as its path.
+  // If use_named_interface is true, it will act as a server and
+  // use an anonymous socketpair instead.
+  void InitializeChannel(const std::string& channel_id,
+                         bool use_named_interface);
+
   // IPC callback
-  virtual void OnMessageReceived(const IPC::Message& msg);
+  virtual bool OnMessageReceived(const IPC::Message& msg);
   virtual void OnChannelError();
 
   // Close the automation IPC channel.
@@ -208,10 +217,6 @@ class AutomationProxy : public IPC::Channel::Listener,
                             const std::string& password) WARN_UNUSED_RESULT;
 #endif
 
-  // Returns the ID of the automation IPC channel, so that it can be
-  // passed to the app as a launch parameter.
-  const std::string& channel_id() const { return channel_id_; }
-
 #if defined(OS_POSIX)
   base::file_handle_mapping_vector fds_to_map() const;
 #endif
@@ -228,7 +233,7 @@ class AutomationProxy : public IPC::Channel::Listener,
   // returns a TabProxy representing the tab as well as a window handle
   // that can be reparented in another process.
   scoped_refptr<TabProxy> CreateExternalTab(
-      const IPC::ExternalTabSettings& settings,
+      const ExternalTabSettings& settings,
       gfx::NativeWindow* external_tab_container,
       gfx::NativeWindow* tab);
 
@@ -263,12 +268,9 @@ class AutomationProxy : public IPC::Channel::Listener,
 
  protected:
   template <class T> scoped_refptr<T> ProxyObjectFromHandle(int handle);
-  void InitializeChannelID();
   void InitializeThread();
-  void InitializeChannel();
   void InitializeHandleTracker();
 
-  std::string channel_id_;
   scoped_ptr<base::Thread> thread_;
   scoped_ptr<IPC::SyncChannel> channel_;
   scoped_ptr<AutomationHandleTracker> tracker_;
@@ -300,9 +302,9 @@ class AutomationProxy : public IPC::Channel::Listener,
   // Delay to let the browser execute the command.
   base::TimeDelta command_execution_timeout_;
 
-  PlatformThreadId listener_thread_id_;
+  base::PlatformThreadId listener_thread_id_;
 
   DISALLOW_COPY_AND_ASSIGN(AutomationProxy);
 };
 
-#endif  // CHROME_TEST_AUTOMATION_AUTOMATION_PROXY_H__
+#endif  // CHROME_TEST_AUTOMATION_AUTOMATION_PROXY_H_

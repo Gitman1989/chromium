@@ -22,13 +22,13 @@
 #include "base/dir_reader_posix.h"
 #include "base/eintr_wrapper.h"
 #include "base/logging.h"
-#include "base/platform_thread.h"
 #include "base/process_util.h"
 #include "base/scoped_ptr.h"
 #include "base/stringprintf.h"
-#include "base/thread_restrictions.h"
+#include "base/synchronization/waitable_event.h"
+#include "base/threading/platform_thread.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/time.h"
-#include "base/waitable_event.h"
 
 #if defined(OS_MACOSX)
 #include <crt_externs.h>
@@ -877,7 +877,7 @@ bool GetAppOutputRestricted(const CommandLine& cl,
   return GetAppOutputInternal(cl, &empty_environ, output, max_output, false);
 }
 
-bool WaitForProcessesToExit(const std::wstring& executable_name,
+bool WaitForProcessesToExit(const FilePath::StringType& executable_name,
                             int64 wait_milliseconds,
                             const ProcessFilter* filter) {
   bool result = false;
@@ -893,13 +893,13 @@ bool WaitForProcessesToExit(const std::wstring& executable_name,
       result = true;
       break;
     }
-    PlatformThread::Sleep(100);
+    base::PlatformThread::Sleep(100);
   } while ((base::Time::Now() - end_time) > base::TimeDelta());
 
   return result;
 }
 
-bool CleanupProcesses(const std::wstring& executable_name,
+bool CleanupProcesses(const FilePath::StringType& executable_name,
                       int64 wait_milliseconds,
                       int exit_code,
                       const ProcessFilter* filter) {

@@ -7,10 +7,10 @@
 #include "base/ref_counted.h"
 #include "ppapi/c/dev/ppb_file_system_dev.h"
 #include "ppapi/c/pp_completion_callback.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDocument.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebElement.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPluginContainer.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebElement.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginContainer.h"
 #include "webkit/fileapi/file_system_types.h"
 #include "webkit/plugins/ppapi/file_callbacks.h"
 #include "webkit/plugins/ppapi/plugin_delegate.h"
@@ -75,7 +75,7 @@ const PPB_FileSystem_Dev ppb_filesystem = {
 
 PPB_FileSystem_Impl::PPB_FileSystem_Impl(PluginInstance* instance,
                                          PP_FileSystemType_Dev type)
-    : Resource(instance->module()),
+    : Resource(instance),
       instance_(instance),
       type_(type),
       opened_(false) {

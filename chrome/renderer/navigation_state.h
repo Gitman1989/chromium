@@ -13,8 +13,8 @@
 #include "base/time.h"
 #include "chrome/common/extensions/url_pattern.h"
 #include "chrome/common/page_transition_types.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDataSource.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLRequest.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDataSource.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLRequest.h"
 
 namespace webkit_glue {
 struct PasswordForm;
@@ -160,6 +160,13 @@ class NavigationState : public WebKit::WebDataSource::ExtraData {
     load_histograms_recorded_ = value;
   }
 
+  bool web_timing_histograms_recorded() const {
+    return web_timing_histograms_recorded_;
+  }
+  void set_web_timing_histograms_recorded(bool value) {
+    web_timing_histograms_recorded_ = value;
+  }
+
   // True if we have already processed the "DidCommitLoad" event for this
   // request.  Used by session history.
   bool request_committed() const { return request_committed_; }
@@ -281,6 +288,7 @@ class NavigationState : public WebKit::WebDataSource::ExtraData {
   base::Time first_paint_time_;
   base::Time first_paint_after_load_time_;
   bool load_histograms_recorded_;
+  bool web_timing_histograms_recorded_;
   bool request_committed_;
   bool is_content_initiated_;
   int32 pending_page_id_;

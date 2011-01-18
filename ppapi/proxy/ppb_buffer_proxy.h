@@ -5,7 +5,7 @@
 #ifndef PPAPI_PPB_BUFFER_PROXY_H_
 #define PPAPI_PPB_BUFFER_PROXY_H_
 
-#include "ppapi/c/pp_module.h"
+#include "ppapi/c/pp_instance.h"
 #include "ppapi/proxy/interface_proxy.h"
 
 struct PPB_Buffer_Dev;
@@ -25,11 +25,11 @@ class PPB_Buffer_Proxy : public InterfaceProxy {
   // InterfaceProxy implementation.
   virtual const void* GetSourceInterface() const;
   virtual InterfaceID GetInterfaceId() const;
-  virtual void OnMessageReceived(const IPC::Message& msg);
+  virtual bool OnMessageReceived(const IPC::Message& msg);
 
  private:
   // Message handlers.
-  void OnMsgCreate(PP_Module module,
+  void OnMsgCreate(PP_Instance instance,
                    uint32_t size,
                    PP_Resource* result_resource,
                    int* result_shm_handle);

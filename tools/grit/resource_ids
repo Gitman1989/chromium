@@ -14,7 +14,7 @@
   "chrome/browser/browser_resources.grd": {
     "includes": [500],
   },
-  "chrome/browser/resources/bookmark_manager_resources.grd": {
+  "chrome/browser/resources/component_extension_resources.grd": {
     "includes": [1000],
   },
   "chrome/browser/resources/net_internals_resources.grd": {
@@ -52,7 +52,7 @@
   },
   # WebKit.grd can be in two different places depending on whether we are
   # in a chromium checkout or a webkit-only checkout.
-  "third_party/WebKit/WebKit/chromium/WebKit.grd": {
+  "third_party/WebKit/Source/WebKit/chromium/WebKit.grd": {
     "includes": [7000],
   },
   "WebKit.grd": {
@@ -122,5 +122,12 @@
   "chrome/app/policy/policy_templates.grd": {
     "structures": [19000],
     "messages": [19010],
+  },
+
+  "chrome/browser/autofill/autofill_resources.grd": {
+    "messages": [19500],
+  },
+  "chrome/browser/resources/sync_internals_resources.grd": {
+    "includes": [20000],
   },
 }

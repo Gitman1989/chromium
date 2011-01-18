@@ -9,6 +9,7 @@
 #include <string>
 
 #include "base/ref_counted.h"
+#include "base/string16.h"
 #include "gfx/native_widget_types.h"
 
 namespace gfx {
@@ -42,7 +43,7 @@ class Font {
   explicit Font(PlatformFont* platform_font);
 
   // Creates a font with the specified name and size.
-  Font(const std::wstring& font_name, int font_size);
+  Font(const string16& font_name, int font_size);
 
   ~Font();
 
@@ -73,7 +74,7 @@ class Font {
 
   // Returns the number of horizontal pixels needed to display the specified
   // string.
-  int GetStringWidth(const std::wstring& text) const;
+  int GetStringWidth(const string16& text) const;
 
   // Returns the expected number of horizontal pixels needed to display the
   // specified length of characters. Call GetStringWidth() to retrieve the
@@ -84,7 +85,7 @@ class Font {
   int GetStyle() const;
 
   // Returns the font name.
-  const std::wstring& GetFontName() const;
+  string16 GetFontName() const;
 
   // Returns the font size in pixels.
   int GetFontSize() const;

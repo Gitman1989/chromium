@@ -13,6 +13,7 @@
 #include "base/ref_counted.h"
 #include "base/string16.h"
 #include "googleurl/src/gurl.h"
+#include "net/http/http_auth.h"
 
 namespace net {
 
@@ -28,6 +29,13 @@ class HttpAuthCache {
  public:
   class Entry;
 
+  // Prevent unbounded memory growth. These are safeguards for abuse; it is
+  // not expected that the limits will be reached in ordinary usage.
+  // This also defines the worst-case lookup times (which grow linearly
+  // with number of elements in the cache).
+  enum { kMaxNumPathsPerRealmEntry = 10 };
+  enum { kMaxNumRealmEntries = 10 };
+
   HttpAuthCache();
   ~HttpAuthCache();
 
@@ -35,10 +43,11 @@ class HttpAuthCache {
   // scheme |scheme|.
   //   |origin| - the {scheme, host, port} of the server.
   //   |realm|  - case sensitive realm string.
-  //   |scheme| - case sensitive authentication scheme, should be lower-case.
+  //   |scheme| - the authentication scheme (i.e. basic, negotiate).
   //   returns  - the matched entry or NULL.
-  Entry* Lookup(const GURL& origin, const std::string& realm,
-                const std::string& scheme);
+  Entry* Lookup(const GURL& origin,
+                const std::string& realm,
+                HttpAuth::Scheme scheme);
 
   // Find the entry on server |origin| whose protection space includes
   // |path|. This uses the assumption in RFC 2617 section 2 that deeper
@@ -55,7 +64,7 @@ class HttpAuthCache {
   // paths list.
   //   |origin|   - the {scheme, host, port} of the server.
   //   |realm|    - the auth realm for the challenge.
-  //   |scheme|   - the authentication scheme for the challenge.
+  //   |scheme|   - the authentication scheme (i.e. basic, negotiate).
   //   |username| - login information for the realm.
   //   |password| - login information for the realm.
   //   |path|     - absolute path for a resource contained in the protection
@@ -63,7 +72,7 @@ class HttpAuthCache {
   //   returns    - the entry that was just added/updated.
   Entry* Add(const GURL& origin,
              const std::string& realm,
-             const std::string& scheme,
+             HttpAuth::Scheme scheme,
              const std::string& auth_challenge,
              const string16& username,
              const string16& password,
@@ -73,13 +82,13 @@ class HttpAuthCache {
   // if one exists AND if the cached identity matches (|username|, |password|).
   //   |origin|   - the {scheme, host, port} of the server.
   //   |realm|    - case sensitive realm string.
-  //   |scheme|   - authentication scheme
+  //   |scheme|   - the authentication scheme (i.e. basic, negotiate).
   //   |username| - condition to match.
   //   |password| - condition to match.
   //   returns    - true if an entry was removed.
   bool Remove(const GURL& origin,
               const std::string& realm,
-              const std::string& scheme,
+              HttpAuth::Scheme scheme,
               const string16& username,
               const string16& password);
 
@@ -90,15 +99,8 @@ class HttpAuthCache {
   // cache, false otherwise.
   bool UpdateStaleChallenge(const GURL& origin,
                             const std::string& realm,
-                            const std::string& scheme,
+                            HttpAuth::Scheme scheme,
                             const std::string& auth_challenge);
-
-  // Prevent unbounded memory growth. These are safeguards for abuse; it is
-  // not expected that the limits will be reached in ordinary usage.
-  // This also defines the worst-case lookup times (which grow linearly
-  // with number of elements in the cache).
-  enum { kMaxNumPathsPerRealmEntry = 10 };
-  enum { kMaxNumRealmEntries = 10 };
 
  private:
   typedef std::list<Entry> EntryList;
@@ -108,6 +110,8 @@ class HttpAuthCache {
 // An authentication realm entry.
 class HttpAuthCache::Entry {
  public:
+  ~Entry();
+
   const GURL& origin() const {
     return origin_;
   }
@@ -117,8 +121,8 @@ class HttpAuthCache::Entry {
     return realm_;
   }
 
-  // The authentication scheme string of the challenge
-  const std::string scheme() const {
+  // The authentication scheme of the challenge.
+  HttpAuth::Scheme scheme() const {
     return scheme_;
   }
 
@@ -143,12 +147,12 @@ class HttpAuthCache::Entry {
 
   void UpdateStaleChallenge(const std::string& auth_challenge);
 
-  ~Entry();
-
  private:
   friend class HttpAuthCache;
   FRIEND_TEST_ALL_PREFIXES(HttpAuthCacheTest, AddPath);
   FRIEND_TEST_ALL_PREFIXES(HttpAuthCacheTest, AddToExistingEntry);
+
+  typedef std::list<std::string> PathList;
 
   Entry();
 
@@ -159,10 +163,10 @@ class HttpAuthCache::Entry {
   // Returns true if |dir| is contained within the realm's protection space.
   bool HasEnclosingPath(const std::string& dir);
 
-  // |origin_| contains the {scheme, host, port} of the server.
+  // |origin_| contains the {protocol, host, port} of the server.
   GURL origin_;
   std::string realm_;
-  std::string scheme_;
+  HttpAuth::Scheme scheme_;
 
   // Identity.
   std::string auth_challenge_;
@@ -172,7 +176,6 @@ class HttpAuthCache::Entry {
   int nonce_count_;
 
   // List of paths that define the realm's protection space.
-  typedef std::list<std::string> PathList;
   PathList paths_;
 };
 

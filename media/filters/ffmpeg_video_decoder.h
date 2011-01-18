@@ -25,7 +25,8 @@ class VideoDecodeEngine;
 class FFmpegVideoDecoder : public VideoDecoder,
                            public VideoDecodeEngine::EventHandler {
  public:
-  explicit FFmpegVideoDecoder(VideoDecodeContext* decode_context);
+  FFmpegVideoDecoder(MessageLoop* message_loop,
+                     VideoDecodeContext* decode_context);
   virtual ~FFmpegVideoDecoder();
 
   // Filter implementation.
@@ -72,6 +73,7 @@ class FFmpegVideoDecoder : public VideoDecoder,
 
   enum DecoderState {
     kUnInitialized,
+    kInitializing,
     kNormal,
     kFlushCodec,
     kDecodeFinished,
@@ -108,6 +110,7 @@ class FFmpegVideoDecoder : public VideoDecoder,
   // the provided engine.
   virtual void SetVideoDecodeEngineForTest(VideoDecodeEngine* engine);
 
+  MessageLoop* message_loop_;
   size_t width_;
   size_t height_;
   MediaFormat media_format_;

@@ -1,10 +1,11 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/infobars/infobar_container.h"
+#include "chrome/browser/ui/views/infobars/infobar_container.h"
 
 #include "app/l10n_util.h"
+#include "base/utf_string_conversions.h"
 #include "chrome/browser/tab_contents/infobar_delegate.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/view_ids.h"
@@ -19,7 +20,8 @@ InfoBarContainer::InfoBarContainer(Delegate* delegate)
     : delegate_(delegate),
       tab_contents_(NULL) {
   SetID(VIEW_ID_INFO_BAR_CONTAINER);
-  SetAccessibleName(l10n_util::GetString(IDS_ACCNAME_INFOBAR_CONTAINER));
+  SetAccessibleName(
+      l10n_util::GetStringUTF16(IDS_ACCNAME_INFOBAR_CONTAINER));
 }
 
 InfoBarContainer::~InfoBarContainer() {

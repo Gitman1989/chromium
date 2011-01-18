@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -43,8 +43,8 @@
 #include "base/ref_counted.h"
 #include "base/time.h"
 #include "base/timer.h"
-#include "base/thread.h"
-#include "base/waitable_event.h"
+#include "base/threading/thread.h"
+#include "base/synchronization/waitable_event.h"
 #include "net/base/cookie_store.h"
 #include "net/base/file_stream.h"
 #include "net/base/io_buffer.h"
@@ -166,7 +166,7 @@ class IOThread : public base::Thread {
   void SetAcceptAllCookies(bool accept_all_cookies) {
     StaticCookiePolicy::Type policy_type = accept_all_cookies ?
         StaticCookiePolicy::ALLOW_ALL_COOKIES :
-        StaticCookiePolicy::BLOCK_THIRD_PARTY_COOKIES;
+        StaticCookiePolicy::BLOCK_SETTING_THIRD_PARTY_COOKIES;
     static_cast<StaticCookiePolicy*>(g_request_context->cookie_policy())->
         set_type(policy_type);
   }
@@ -291,7 +291,7 @@ class RequestProxy : public net::URLRequest::Delegate,
     peer_->OnDownloadedData(bytes_read);
   }
 
-  void NotifyCompletedRequest(const URLRequestStatus& status,
+  void NotifyCompletedRequest(const net::URLRequestStatus& status,
                               const std::string& security_info,
                               const base::Time& complete_time) {
     if (peer_) {
@@ -423,7 +423,7 @@ class RequestProxy : public net::URLRequest::Delegate,
         this, &RequestProxy::NotifyReceivedData, bytes_read));
   }
 
-  virtual void OnCompletedRequest(const URLRequestStatus& status,
+  virtual void OnCompletedRequest(const net::URLRequestStatus& status,
                                   const std::string& security_info,
                                   const base::Time& complete_time) {
     if (download_to_file_)
@@ -611,7 +611,7 @@ class SyncRequestProxy : public RequestProxy {
     AsyncReadData();  // read more (may recurse)
   }
 
-  virtual void OnCompletedRequest(const URLRequestStatus& status,
+  virtual void OnCompletedRequest(const net::URLRequestStatus& status,
                                   const std::string& security_info,
                                   const base::Time& complete_time) {
     if (download_to_file_)

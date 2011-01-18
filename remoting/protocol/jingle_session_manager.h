@@ -10,6 +10,7 @@
 
 #include "base/lock.h"
 #include "base/ref_counted.h"
+#include "net/base/x509_certificate.h"
 #include "remoting/protocol/jingle_session.h"
 #include "remoting/protocol/session_manager.h"
 #include "third_party/libjingle/source/talk/p2p/base/session.h"
@@ -17,6 +18,10 @@
 #include "third_party/libjingle/source/talk/p2p/base/sessiondescription.h"
 
 class MessageLoop;
+
+namespace base {
+class RSAPrivateKey;
+}  // namespace base
 
 namespace cricket {
 class SessionManager;
@@ -36,7 +41,8 @@ namespace protocol {
 class ContentDescription : public cricket::ContentDescription {
  public:
   explicit ContentDescription(const CandidateSessionConfig* config,
-                              const std::string& auth_token);
+                              const std::string& auth_token,
+                              scoped_refptr<net::X509Certificate> certificate);
   ~ContentDescription();
 
   const CandidateSessionConfig* config() const {
@@ -45,12 +51,18 @@ class ContentDescription : public cricket::ContentDescription {
 
   const std::string& auth_token() const { return auth_token_; }
 
+  scoped_refptr<net::X509Certificate> certificate() const {
+    return certificate_;
+  }
+
  private:
   scoped_ptr<const CandidateSessionConfig> candidate_config_;
 
   // This may contain the initiating, or the accepting token depending on
   // context.
   std::string auth_token_;
+
+  scoped_refptr<net::X509Certificate> certificate_;
 };
 
 // This class implements SessionClient for Chromoting sessions. It acts as a
@@ -93,6 +105,11 @@ class JingleSessionManager
                             buzz::XmlElement** elem,
                             cricket::WriteError* error);
 
+  // Set the certificate and private key if they are provided externally.
+  // TODO(hclam): Combine these two methods.
+  virtual void SetCertificate(net::X509Certificate* certificate);
+  virtual void SetPrivateKey(base::RSAPrivateKey* private_key);
+
  protected:
   virtual ~JingleSessionManager();
 
@@ -118,17 +135,20 @@ class JingleSessionManager
   // Creates outgoing session description for an incoming session.
   cricket::SessionDescription* CreateSessionDescription(
       const CandidateSessionConfig* candidate_config,
-      const std::string& auth_token);
+      const std::string& auth_token,
+      scoped_refptr<net::X509Certificate> certificate);
 
   std::string local_jid_;  // Full jid for the local side of the session.
   JingleThread* jingle_thread_;
   cricket::SessionManager* cricket_session_manager_;
   scoped_ptr<IncomingSessionCallback> incoming_session_callback_;
   bool allow_local_ips_;
-
   bool closed_;
 
   std::list<scoped_refptr<JingleSession> > sessions_;
+
+  scoped_refptr<net::X509Certificate> certificate_;
+  scoped_ptr<base::RSAPrivateKey> private_key_;
 
   DISALLOW_COPY_AND_ASSIGN(JingleSessionManager);
 };

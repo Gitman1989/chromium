@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <vector>
 
-#include "app/animation.h"
 #include "app/l10n_util.h"
 #include "app/resource_bundle.h"
 #include "app/theme_provider.h"
@@ -41,9 +40,10 @@
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
 #include "grit/theme_resources.h"
+#include "ui/base/animation/animation.h"
 
 #if defined(OS_WIN) || defined(TOOLKIT_VIEWS)
-#include "chrome/browser/views/bookmark_bar_view.h"
+#include "chrome/browser/ui/views/bookmark_bar_view.h"
 #elif defined(OS_MACOSX)
 #include "chrome/browser/ui/cocoa/bookmarks/bookmark_bar_constants.h"
 #elif defined(OS_POSIX)
@@ -352,7 +352,7 @@ void NTPResourceCache::CreateNewTabHTML() {
 
   // Control fade and resize animations.
   std::string anim =
-      Animation::ShouldRenderRichAnimation() ? "true" : "false";
+      ui::Animation::ShouldRenderRichAnimation() ? "true" : "false";
   localized_strings.SetString("anim", anim);
 
   // Pass the shown_sections pref early so that we can prevent flicker.

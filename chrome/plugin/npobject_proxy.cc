@@ -7,7 +7,7 @@
 #include "chrome/common/plugin_messages.h"
 #include "chrome/plugin/npobject_util.h"
 #include "chrome/plugin/plugin_channel.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebBindings.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebBindings.h"
 #include "webkit/glue/webkit_glue.h"
 #include "webkit/plugins/npapi/plugin_instance.h"
 
@@ -104,8 +104,9 @@ void NPObjectProxy::NPDeallocate(NPObject* npObj) {
   delete obj;
 }
 
-void NPObjectProxy::OnMessageReceived(const IPC::Message& msg) {
+bool NPObjectProxy::OnMessageReceived(const IPC::Message& msg) {
   NOTREACHED();
+  return false;
 }
 
 void NPObjectProxy::OnChannelError() {

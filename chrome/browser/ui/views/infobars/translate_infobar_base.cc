@@ -1,19 +1,19 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/views/infobars/translate_infobar_base.h"
+#include "chrome/browser/ui/views/infobars/translate_infobar_base.h"
 
 #include "app/resource_bundle.h"
-#include "app/slide_animation.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/translate/translate_infobar_delegate.h"
-#include "chrome/browser/views/infobars/after_translate_infobar.h"
-#include "chrome/browser/views/infobars/before_translate_infobar.h"
-#include "chrome/browser/views/infobars/translate_message_infobar.h"
-#include "chrome/browser/views/infobars/infobar_button_border.h"
+#include "chrome/browser/ui/views/infobars/after_translate_infobar.h"
+#include "chrome/browser/ui/views/infobars/before_translate_infobar.h"
+#include "chrome/browser/ui/views/infobars/infobar_button_border.h"
+#include "chrome/browser/ui/views/infobars/translate_message_infobar.h"
 #include "gfx/canvas_skia.h"
 #include "grit/theme_resources.h"
+#include "ui/base/animation/slide_animation.h"
 #include "views/controls/button/menu_button.h"
 #include "views/controls/image_view.h"
 
@@ -31,8 +31,8 @@ TranslateInfoBarBase::TranslateInfoBarBase(
   TranslateInfoBarDelegate::BackgroundAnimationType animation =
       delegate->background_animation_type();
   if (animation != TranslateInfoBarDelegate::NONE) {
-    background_color_animation_.reset(new SlideAnimation(this));
-    background_color_animation_->SetTweenType(Tween::LINEAR);
+    background_color_animation_.reset(new ui::SlideAnimation(this));
+    background_color_animation_->SetTweenType(ui::Tween::LINEAR);
     background_color_animation_->SetSlideDuration(500);
     if (animation == TranslateInfoBarDelegate::NORMAL_TO_ERROR) {
       background_color_animation_->Show();
@@ -81,7 +81,7 @@ void TranslateInfoBarBase::PaintBackground(gfx::Canvas* canvas) {
                  error_background_);
 }
 
-void TranslateInfoBarBase::AnimationProgressed(const Animation* animation) {
+void TranslateInfoBarBase::AnimationProgressed(const ui::Animation* animation) {
   if (background_color_animation_.get() == animation)
     SchedulePaint();  // That'll trigger a PaintBackgroud.
   else

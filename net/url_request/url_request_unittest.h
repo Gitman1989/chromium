@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -17,7 +17,7 @@
 #include "base/process_util.h"
 #include "base/string_util.h"
 #include "base/string16.h"
-#include "base/thread.h"
+#include "base/threading/thread.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "net/base/cert_verifier.h"
@@ -122,7 +122,7 @@ class TestCookiePolicy : public net::CookiePolicy {
 
 //-----------------------------------------------------------------------------
 
-class TestURLRequestContext : public URLRequestContext {
+class TestURLRequestContext : public net::URLRequestContext {
  public:
   TestURLRequestContext() {
     host_resolver_ =
@@ -173,6 +173,7 @@ class TestURLRequestContext : public URLRequestContext {
                                              http_auth_handler_factory_,
                                              network_delegate_,
                                              NULL),
+        NULL /* net_log */,
         net::HttpCache::DefaultBackend::InMemory(0));
     // In-memory cookie store.
     cookie_store_ = new net::CookieMonster(NULL, NULL);
@@ -237,8 +238,8 @@ class TestDelegate : public net::URLRequest::Delegate {
       request->Cancel();
       OnResponseCompleted(request);
     } else if (!request->status().is_success()) {
-      DCHECK(request->status().status() == URLRequestStatus::FAILED ||
-             request->status().status() == URLRequestStatus::CANCELED);
+      DCHECK(request->status().status() == net::URLRequestStatus::FAILED ||
+             request->status().status() == net::URLRequestStatus::CANCELED);
       request_failed_ = true;
       OnResponseCompleted(request);
     } else {

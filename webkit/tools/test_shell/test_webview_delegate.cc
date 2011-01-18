@@ -19,40 +19,42 @@
 #include "gfx/native_widget_types.h"
 #include "gfx/point.h"
 #include "media/base/filter_collection.h"
+#include "media/base/message_loop_factory_impl.h"
 #include "net/base/net_errors.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebAccessibilityObject.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebConsoleMessage.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebContextMenuData.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDeviceOrientationClientMock.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebCString.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebData.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDataSource.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebDragData.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebHistoryItem.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebImage.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFileError.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFileSystemCallbacks.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFrame.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebKit.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebKitClient.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebNode.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebNotificationPresenter.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPluginParams.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPoint.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPopupMenu.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebRange.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebScreenInfo.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSpeechInputController.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSpeechInputControllerMock.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebSpeechInputListener.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebStorageNamespace.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebString.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURL.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLError.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLRequest.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebURLResponse.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebView.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebWindowFeatures.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebAccessibilityObject.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebConsoleMessage.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebContextMenuData.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDeviceOrientationClientMock.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebCString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebData.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDataSource.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebDragData.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebHistoryItem.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebImage.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFileError.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFileSystemCallbacks.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebGeolocationClientMock.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebKitClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebNode.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebNotificationPresenter.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginParams.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPoint.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPopupMenu.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebRange.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebScreenInfo.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSpeechInputController.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSpeechInputControllerMock.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSpeechInputListener.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebStorageNamespace.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURL.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLError.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLRequest.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebURLResponse.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebWindowFeatures.h"
 #include "webkit/appcache/web_application_cache_host_impl.h"
 #include "webkit/glue/glue_serialize.h"
 #include "webkit/glue/media/video_renderer_impl.h"
@@ -69,14 +71,9 @@
 #include "webkit/tools/test_shell/notification_presenter.h"
 #include "webkit/tools/test_shell/simple_appcache_system.h"
 #include "webkit/tools/test_shell/simple_file_system.h"
-#include "webkit/tools/test_shell/test_geolocation_service.h"
 #include "webkit/tools/test_shell/test_navigation_controller.h"
 #include "webkit/tools/test_shell/test_shell.h"
 #include "webkit/tools/test_shell/test_web_worker.h"
-
-#if defined(ENABLE_CLIENT_BASED_GEOLOCATION)
-#include "third_party/WebKit/WebKit/chromium/public/WebGeolocationClientMock.h"
-#endif
 
 #if defined(OS_WIN)
 // TODO(port): make these files work everywhere.
@@ -335,6 +332,7 @@ void TestWebViewDelegate::SetAuthorAndUserStylesEnabled(bool is_enabled) {
 // WebViewClient -------------------------------------------------------------
 WebView* TestWebViewDelegate::createView(
     WebFrame* creator,
+    const WebURLRequest& request,
     const WebWindowFeatures& window_features,
     const WebString& frame_name) {
   return shell_->CreateWebView();
@@ -655,15 +653,9 @@ WebNotificationPresenter* TestWebViewDelegate::notificationPresenter() {
   return shell_->notification_presenter();
 }
 
-#if defined(ENABLE_CLIENT_BASED_GEOLOCATION)
 WebKit::WebGeolocationClient* TestWebViewDelegate::geolocationClient() {
   return shell_->geolocation_client_mock();
 }
-#else
-WebKit::WebGeolocationService* TestWebViewDelegate::geolocationService() {
-  return GetTestGeolocationService();
-}
-#endif
 
 WebKit::WebDeviceOrientationClient*
 TestWebViewDelegate::deviceOrientationClient() {
@@ -733,6 +725,9 @@ WebWorker* TestWebViewDelegate::createWorker(WebFrame* frame,
 
 WebMediaPlayer* TestWebViewDelegate::createMediaPlayer(
     WebFrame* frame, WebMediaPlayerClient* client) {
+  scoped_ptr<media::MessageLoopFactory> message_loop_factory(
+      new media::MessageLoopFactoryImpl());
+
   scoped_ptr<media::FilterCollection> collection(
       new media::FilterCollection());
 
@@ -741,7 +736,9 @@ WebMediaPlayer* TestWebViewDelegate::createMediaPlayer(
   collection->AddVideoRenderer(video_renderer);
 
   scoped_ptr<webkit_glue::WebMediaPlayerImpl> result(
-      new webkit_glue::WebMediaPlayerImpl(client, collection.release()));
+      new webkit_glue::WebMediaPlayerImpl(client,
+                                          collection.release(),
+                                          message_loop_factory.release()));
   if (!result->Initialize(frame, false, video_renderer)) {
     return NULL;
   }
@@ -1210,12 +1207,6 @@ void TestWebViewDelegate::WaitForPolicyDelegate() {
   policy_delegate_should_notify_done_ = true;
 }
 
-#if !defined(ENABLE_CLIENT_BASED_GEOLOCATION)
-void TestWebViewDelegate::SetGeolocationPermission(bool allowed) {
-  GetTestGeolocationService()->SetGeolocationPermission(allowed);
-}
-#endif
-
 // Private methods -----------------------------------------------------------
 
 void TestWebViewDelegate::UpdateAddressBar(WebView* webView) {
@@ -1335,14 +1326,6 @@ std::wstring TestWebViewDelegate::GetFrameDescription(WebFrame* webframe) {
       return L"frame (anonymous)";
   }
 }
-
-#if !defined(ENABLE_CLIENT_BASED_GEOLOCATION)
-TestGeolocationService* TestWebViewDelegate::GetTestGeolocationService() {
-  if (!test_geolocation_service_.get())
-    test_geolocation_service_.reset(new TestGeolocationService);
-  return test_geolocation_service_.get();
-}
-#endif
 
 void TestWebViewDelegate::set_fake_window_rect(const WebRect& rect) {
   fake_rect_ = rect;

@@ -1,4 +1,4 @@
-// Copyright (c) 2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -17,10 +17,10 @@
 
 namespace chromeos {
 
-class GViewURLRequestTestJob : public URLRequestTestJob {
+class GViewURLRequestTestJob : public net::URLRequestTestJob {
  public:
   explicit GViewURLRequestTestJob(net::URLRequest* request)
-      : URLRequestTestJob(request, true) {
+      : net::URLRequestTestJob(request, true) {
   }
 
   virtual bool GetMimeType(std::string* mime_type) const {
@@ -66,10 +66,7 @@ class GViewRequestInterceptorTest : public testing::Test {
   }
 
   void RegisterPDFPlugin() {
-    webkit::npapi::PluginVersionInfo info;
-    info.path = pdf_path_;
-    memset(&info.entry_points, 0, sizeof(info.entry_points));
-    webkit::npapi::PluginList::Singleton()->RegisterInternalPlugin(info);
+    webkit::npapi::PluginList::Singleton()->RegisterInternalPlugin(pdf_path_);
     webkit::npapi::PluginList::Singleton()->RefreshPlugins();
   }
 

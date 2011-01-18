@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,6 +14,7 @@
 #include "base/time.h"
 #include "ppapi/c/dev/ppb_buffer_dev.h"
 #include "ppapi/c/dev/ppb_char_set_dev.h"
+#include "ppapi/c/dev/ppb_context_3d_dev.h"
 #include "ppapi/c/dev/ppb_cursor_control_dev.h"
 #include "ppapi/c/dev/ppb_directory_reader_dev.h"
 #include "ppapi/c/dev/ppb_file_io_dev.h"
@@ -22,6 +23,7 @@
 #include "ppapi/c/dev/ppb_find_dev.h"
 #include "ppapi/c/dev/ppb_font_dev.h"
 #include "ppapi/c/dev/ppb_fullscreen_dev.h"
+#include "ppapi/c/dev/ppb_gles_chromium_texture_mapping_dev.h"
 #include "ppapi/c/dev/ppb_graphics_3d_dev.h"
 #include "ppapi/c/dev/ppb_opengles_dev.h"
 #include "ppapi/c/dev/ppb_scrollbar_dev.h"
@@ -46,12 +48,13 @@
 #include "ppapi/c/ppb_var.h"
 #include "ppapi/c/ppp.h"
 #include "ppapi/c/ppp_instance.h"
+#include "ppapi/c/private/ppb_flash.h"
+#include "ppapi/c/private/ppb_pdf.h"
 #include "ppapi/c/private/ppb_nacl_private.h"
 #include "ppapi/c/trusted/ppb_image_data_trusted.h"
 #include "ppapi/c/trusted/ppb_url_loader_trusted.h"
 #include "webkit/plugins/ppapi/callbacks.h"
 #include "webkit/plugins/ppapi/common.h"
-#include "webkit/plugins/ppapi/plugin_object.h"
 #include "webkit/plugins/ppapi/ppapi_plugin_instance.h"
 #include "webkit/plugins/ppapi/ppb_audio_impl.h"
 #include "webkit/plugins/ppapi/ppb_buffer_impl.h"
@@ -62,13 +65,11 @@
 #include "webkit/plugins/ppapi/ppb_file_io_impl.h"
 #include "webkit/plugins/ppapi/ppb_file_ref_impl.h"
 #include "webkit/plugins/ppapi/ppb_file_system_impl.h"
-#include "webkit/plugins/ppapi/ppb_flash.h"
 #include "webkit/plugins/ppapi/ppb_flash_impl.h"
 #include "webkit/plugins/ppapi/ppb_font_impl.h"
 #include "webkit/plugins/ppapi/ppb_graphics_2d_impl.h"
 #include "webkit/plugins/ppapi/ppb_image_data_impl.h"
 #include "webkit/plugins/ppapi/ppb_nacl_private_impl.h"
-#include "webkit/plugins/ppapi/ppb_pdf.h"
 #include "webkit/plugins/ppapi/ppb_pdf_impl.h"
 #include "webkit/plugins/ppapi/ppb_scrollbar_impl.h"
 #include "webkit/plugins/ppapi/ppb_transport_impl.h"
@@ -83,7 +84,11 @@
 #include "webkit/plugins/ppapi/var_object_class.h"
 
 #ifdef ENABLE_GPU
+#include "webkit/plugins/ppapi/ppb_context_3d_impl.h"
+#include "webkit/plugins/ppapi/ppb_gles_chromium_texture_mapping_impl.h"
 #include "webkit/plugins/ppapi/ppb_graphics_3d_impl.h"
+#include "webkit/plugins/ppapi/ppb_opengles_impl.h"
+#include "webkit/plugins/ppapi/ppb_surface_3d_impl.h"
 #endif  // ENABLE_GPU
 
 namespace webkit {
@@ -205,11 +210,11 @@ const PPB_Testing_Dev testing_interface = {
 const void* GetInterface(const char* name) {
   // Please keep alphabetized by interface macro name with "special" stuff at
   // the bottom.
-  if (strcmp(name, PPB_AUDIO_CONFIG_DEV_INTERFACE) == 0)
+  if (strcmp(name, PPB_AUDIO_CONFIG_INTERFACE) == 0)
     return PPB_AudioConfig_Impl::GetInterface();
-  if (strcmp(name, PPB_AUDIO_DEV_INTERFACE) == 0)
+  if (strcmp(name, PPB_AUDIO_INTERFACE) == 0)
     return PPB_Audio_Impl::GetInterface();
-  if (strcmp(name, PPB_AUDIO_TRUSTED_DEV_INTERFACE) == 0)
+  if (strcmp(name, PPB_AUDIO_TRUSTED_INTERFACE) == 0)
     return PPB_Audio_Impl::GetTrustedInterface();
   if (strcmp(name, PPB_BUFFER_DEV_INTERFACE) == 0)
     return PPB_Buffer_Impl::GetInterface();
@@ -283,10 +288,21 @@ const void* GetInterface(const char* name) {
   if (!CommandLine::ForCurrentProcess()->HasSwitch("disable-3d-apis")) {
     if (strcmp(name, PPB_GRAPHICS_3D_DEV_INTERFACE) == 0)
       return PPB_Graphics3D_Impl::GetInterface();
+    if (strcmp(name, PPB_CONTEXT_3D_DEV_INTERFACE) == 0)
+      return PPB_Context3D_Impl::GetInterface();
+    if (strcmp(name, PPB_GLES_CHROMIUM_TEXTURE_MAPPING_DEV_INTERFACE) == 0)
+      return PPB_GLESChromiumTextureMapping_Impl::GetInterface();
     if (strcmp(name, PPB_OPENGLES2_DEV_INTERFACE) == 0)
-      return PPB_Graphics3D_Impl::GetOpenGLES2Interface();
+      return PPB_OpenGLES_Impl::GetInterface();
+    if (strcmp(name, PPB_SURFACE_3D_DEV_INTERFACE) == 0)
+      return PPB_Surface3D_Impl::GetInterface();
   }
 #endif  // ENABLE_GPU
+
+#ifdef ENABLE_FLAPPER_HACKS
+  if (strcmp(name, PPB_FLASH_NETCONNECTOR_INTERFACE) == 0)
+    return PPB_Flash_NetConnector_Impl::GetInterface();
+#endif  // ENABLE_FLAPPER_HACKS
 
   // Only support the testing interface when the command line switch is
   // specified. This allows us to prevent people from (ab)using this interface
@@ -340,8 +356,9 @@ PluginModule::EntryPoints::EntryPoints()
 
 // PluginModule ----------------------------------------------------------------
 
-PluginModule::PluginModule()
-    : callback_tracker_(new CallbackTracker),
+PluginModule::PluginModule(PluginDelegate::ModuleLifetime* lifetime_delegate)
+    : lifetime_delegate_(lifetime_delegate),
+      callback_tracker_(new CallbackTracker),
       library_(NULL) {
   pp_module_ = ResourceTracker::Get()->AddModule(this);
   GetMainThreadMessageLoop();  // Initialize the main thread message loop.
@@ -349,17 +366,6 @@ PluginModule::PluginModule()
 }
 
 PluginModule::~PluginModule() {
-  // Free all the plugin objects. This will automatically clear the back-
-  // pointer from the NPObject so WebKit can't call into the plugin any more.
-  //
-  // Swap out the set so we can delete from it (the objects will try to
-  // unregister themselves inside the delete call).
-  PluginObjectSet plugin_object_copy;
-  live_plugin_objects_.swap(plugin_object_copy);
-  for (PluginObjectSet::iterator i = live_plugin_objects_.begin();
-       i != live_plugin_objects_.end(); ++i)
-    delete *i;
-
   // When the module is being deleted, there should be no more instances still
   // holding a reference to us.
   DCHECK(instances_.empty());
@@ -375,6 +381,7 @@ PluginModule::~PluginModule() {
     base::UnloadNativeLibrary(library_);
 
   ResourceTracker::Get()->ModuleDeleted(pp_module_);
+  lifetime_delegate_->PluginModuleDestroyed(this);
 }
 
 bool PluginModule::InitAsInternalPlugin(const EntryPoints& entry_points) {
@@ -453,46 +460,6 @@ void PluginModule::InstanceDeleted(PluginInstance* instance) {
   if (out_of_process_proxy_.get())
     out_of_process_proxy_->RemoveInstance(instance->pp_instance());
   instances_.erase(instance);
-}
-
-void PluginModule::AddNPObjectVar(ObjectVar* object_var) {
-  DCHECK(np_object_to_object_var_.find(object_var->np_object()) ==
-         np_object_to_object_var_.end()) << "ObjectVar already in map";
-  np_object_to_object_var_[object_var->np_object()] = object_var;
-}
-
-void PluginModule::RemoveNPObjectVar(ObjectVar* object_var) {
-  NPObjectToObjectVarMap::iterator found =
-      np_object_to_object_var_.find(object_var->np_object());
-  if (found == np_object_to_object_var_.end()) {
-    NOTREACHED() << "ObjectVar not registered.";
-    return;
-  }
-  if (found->second != object_var) {
-    NOTREACHED() << "ObjectVar doesn't match.";
-    return;
-  }
-  np_object_to_object_var_.erase(found);
-}
-
-ObjectVar* PluginModule::ObjectVarForNPObject(NPObject* np_object) const {
-  NPObjectToObjectVarMap::const_iterator found =
-      np_object_to_object_var_.find(np_object);
-  if (found == np_object_to_object_var_.end())
-    return NULL;
-  return found->second;
-}
-
-void PluginModule::AddPluginObject(PluginObject* plugin_object) {
-  DCHECK(live_plugin_objects_.find(plugin_object) ==
-         live_plugin_objects_.end());
-  live_plugin_objects_.insert(plugin_object);
-}
-
-void PluginModule::RemovePluginObject(PluginObject* plugin_object) {
-  // Don't actually verify that the object is in the set since during module
-  // deletion we'll be in the process of freeing them.
-  live_plugin_objects_.erase(plugin_object);
 }
 
 scoped_refptr<CallbackTracker> PluginModule::GetCallbackTracker() {

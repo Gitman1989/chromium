@@ -11,7 +11,6 @@
 #include "base/command_line.h"
 #include "base/i18n/rtl.h"
 #include "base/json/json_reader.h"
-#include "base/metrics/stats_counters.h"
 #include "base/string_util.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
@@ -25,6 +24,7 @@
 #include "chrome/browser/dom_operation_notification_details.h"
 #include "chrome/browser/extensions/extension_message_service.h"
 #include "chrome/browser/in_process_webkit/session_storage_namespace.h"
+#include "chrome/browser/metrics/user_metrics.h"
 #include "chrome/browser/net/predictor_api.h"
 #include "chrome/browser/notifications/desktop_notification_service.h"
 #include "chrome/browser/printing/printer_query.h"
@@ -55,7 +55,7 @@
 #include "net/base/net_util.h"
 #include "printing/native_metafile.h"
 #include "third_party/skia/include/core/SkBitmap.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebFindOptions.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebFindOptions.h"
 #include "webkit/glue/context_menu.h"
 #include "webkit/glue/form_data.h"
 #include "webkit/glue/form_field.h"
@@ -79,25 +79,6 @@ using WebKit::WebMediaPlayerAction;
 using WebKit::WebTextDirection;
 
 namespace {
-
-void FilterURL(ChildProcessSecurityPolicy* policy, int renderer_id, GURL* url) {
-  if (!url->is_valid())
-    return;  // We don't need to block invalid URLs.
-
-  if (url->SchemeIs(chrome::kAboutScheme)) {
-    // The renderer treats all URLs in the about: scheme as being about:blank.
-    // Canonicalize about: URLs to about:blank.
-    *url = GURL(chrome::kAboutBlankURL);
-  }
-
-  if (!policy->CanRequestURL(renderer_id, *url)) {
-    // If this renderer is not permitted to request this URL, we invalidate the
-    // URL.  This prevents us from storing the blocked URL and becoming confused
-    // later.
-    VLOG(1) << "Blocked URL " << url->spec();
-    *url = GURL();
-  }
-}
 
 // Delay to wait on closing the tab for a beforeunload/unload handler to fire.
 const int kUnloadTimeoutMS = 1000;
@@ -140,7 +121,6 @@ RenderViewHost::RenderViewHost(SiteInstance* instance,
       sudden_termination_allowed_(false),
       session_storage_namespace_(session_storage),
       is_extension_process_(false),
-      autofill_query_id_(0),
       save_accessibility_tree_for_testing_(false),
       render_view_termination_status_(base::TERMINATION_STATUS_STILL_RUNNING) {
   if (!session_storage_namespace_) {
@@ -737,7 +717,7 @@ bool RenderViewHost::SuddenTerminationAllowed() const {
 ///////////////////////////////////////////////////////////////////////////////
 // RenderViewHost, IPC message handlers:
 
-void RenderViewHost::OnMessageReceived(const IPC::Message& msg) {
+bool RenderViewHost::OnMessageReceived(const IPC::Message& msg) {
 #if defined(OS_WIN)
   // On Windows there's a potential deadlock with sync messsages going in
   // a circle from browser -> plugin -> renderer -> browser.
@@ -755,10 +735,14 @@ void RenderViewHost::OnMessageReceived(const IPC::Message& msg) {
     IPC::Message* reply = IPC::SyncMessage::GenerateReply(&msg);
     reply->set_reply_error();
     Send(reply);
-    return;
+    return true;
   }
 #endif
 
+  if (delegate_->OnMessageReceived(msg))
+    return true;
+
+  bool handled = true;
   bool msg_is_ok = true;
   IPC_BEGIN_MESSAGE_MAP_EX(RenderViewHost, msg, msg_is_ok)
     IPC_MESSAGE_HANDLER(ViewHostMsg_ShowView, OnMsgShowView)
@@ -776,7 +760,7 @@ void RenderViewHost::OnMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(ViewHostMsg_Thumbnail, OnMsgThumbnail)
     IPC_MESSAGE_HANDLER(ViewHostMsg_Snapshot, OnMsgScreenshot)
     IPC_MESSAGE_HANDLER(ViewHostMsg_UpdateInspectorSetting,
-                        OnUpdateInspectorSetting);
+                        OnUpdateInspectorSetting)
     IPC_MESSAGE_HANDLER(ViewHostMsg_Close, OnMsgClose)
     IPC_MESSAGE_HANDLER(ViewHostMsg_RequestMove, OnMsgRequestMove)
     IPC_MESSAGE_HANDLER(ViewHostMsg_DidStartLoading, OnMsgDidStartLoading)
@@ -787,18 +771,6 @@ void RenderViewHost::OnMessageReceived(const IPC::Message& msg) {
                         OnMsgDocumentAvailableInMainFrame)
     IPC_MESSAGE_HANDLER(ViewHostMsg_DocumentOnLoadCompletedInMainFrame,
                         OnMsgDocumentOnLoadCompletedInMainFrame)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_DidLoadResourceFromMemoryCache,
-                        OnMsgDidLoadResourceFromMemoryCache)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_DidDisplayInsecureContent,
-                        OnMsgDidDisplayInsecureContent)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_DidRunInsecureContent,
-                        OnMsgDidRunInsecureContent)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_DidRedirectProvisionalLoad,
-                        OnMsgDidRedirectProvisionalLoad)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_DidStartProvisionalLoadForFrame,
-                        OnMsgDidStartProvisionalLoadForFrame)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_DidFailProvisionalLoadWithError,
-                        OnMsgDidFailProvisionalLoadWithError)
     IPC_MESSAGE_HANDLER(ViewHostMsg_Find_Reply, OnMsgFindReply)
     IPC_MESSAGE_HANDLER(ViewMsg_ExecuteCodeFinished,
                         OnExecuteCodeFinished)
@@ -810,16 +782,10 @@ void RenderViewHost::OnMessageReceived(const IPC::Message& msg) {
                         OnMsgDidContentsPreferredSizeChange)
     IPC_MESSAGE_HANDLER(ViewHostMsg_DomOperationResponse,
                         OnMsgDomOperationResponse)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_DOMUISend,
-                        OnMsgDOMUISend)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_DOMUISend, OnMsgDOMUISend)
     IPC_MESSAGE_HANDLER(ViewHostMsg_ForwardMessageToExternalHost,
                         OnMsgForwardMessageToExternalHost)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_DocumentLoadedInFrame,
-                        OnMsgDocumentLoadedInFrame)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_DidFinishLoad,
-                        OnMsgDidFinishLoad)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_GoToEntryAtOffset,
-                        OnMsgGoToEntryAtOffset)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_GoToEntryAtOffset, OnMsgGoToEntryAtOffset)
     IPC_MESSAGE_HANDLER(ViewHostMsg_SetTooltipText, OnMsgSetTooltipText)
     IPC_MESSAGE_HANDLER(ViewHostMsg_RunFileChooser, OnMsgRunFileChooser)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(ViewHostMsg_RunJavaScriptMessage,
@@ -828,11 +794,9 @@ void RenderViewHost::OnMessageReceived(const IPC::Message& msg) {
                                     OnMsgRunBeforeUnloadConfirm)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(ViewHostMsg_ShowModalHTMLDialog,
                                     OnMsgShowModalHTMLDialog)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_FormsSeen, OnMsgFormsSeen)
     IPC_MESSAGE_HANDLER(ViewHostMsg_PasswordFormsFound, OnMsgPasswordFormsFound)
     IPC_MESSAGE_HANDLER(ViewHostMsg_PasswordFormsVisible,
                         OnMsgPasswordFormsVisible)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_FormSubmitted, OnMsgFormSubmitted)
     IPC_MESSAGE_HANDLER(ViewHostMsg_StartDragging, OnMsgStartDragging)
     IPC_MESSAGE_HANDLER(ViewHostMsg_UpdateDragCursor, OnUpdateDragCursor)
     IPC_MESSAGE_HANDLER(ViewHostMsg_TakeFocus, OnTakeFocus)
@@ -842,46 +806,34 @@ void RenderViewHost::OnMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(ViewHostMsg_DidPrintPage, DidPrintPage)
     IPC_MESSAGE_HANDLER(ViewHostMsg_AddMessageToConsole, OnAddMessageToConsole)
     IPC_MESSAGE_HANDLER(ViewHostMsg_ForwardToDevToolsAgent,
-                        OnForwardToDevToolsAgent);
+                        OnForwardToDevToolsAgent)
     IPC_MESSAGE_HANDLER(ViewHostMsg_ForwardToDevToolsClient,
-                        OnForwardToDevToolsClient);
+                        OnForwardToDevToolsClient)
     IPC_MESSAGE_HANDLER(ViewHostMsg_ActivateDevToolsWindow,
-                        OnActivateDevToolsWindow);
+                        OnActivateDevToolsWindow)
     IPC_MESSAGE_HANDLER(ViewHostMsg_CloseDevToolsWindow,
-                        OnCloseDevToolsWindow);
+                        OnCloseDevToolsWindow)
     IPC_MESSAGE_HANDLER(ViewHostMsg_RequestDockDevToolsWindow,
-                        OnRequestDockDevToolsWindow);
+                        OnRequestDockDevToolsWindow)
     IPC_MESSAGE_HANDLER(ViewHostMsg_RequestUndockDevToolsWindow,
-                        OnRequestUndockDevToolsWindow);
+                        OnRequestUndockDevToolsWindow)
     IPC_MESSAGE_HANDLER(ViewHostMsg_DevToolsRuntimePropertyChanged,
-                        OnDevToolsRuntimePropertyChanged);
-    IPC_MESSAGE_HANDLER(ViewHostMsg_MissingPluginStatus, OnMissingPluginStatus);
-    IPC_MESSAGE_HANDLER(ViewHostMsg_CrashedPlugin, OnCrashedPlugin);
+                        OnDevToolsRuntimePropertyChanged)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_MissingPluginStatus, OnMissingPluginStatus)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_CrashedPlugin, OnCrashedPlugin)
     IPC_MESSAGE_HANDLER(ViewHostMsg_BlockedOutdatedPlugin,
-                        OnBlockedOutdatedPlugin);
+                        OnBlockedOutdatedPlugin)
     IPC_MESSAGE_HANDLER(ViewHostMsg_SendCurrentPageAllSavableResourceLinks,
-                        OnReceivedSavableResourceLinksForCurrentPage);
+                        OnReceivedSavableResourceLinksForCurrentPage)
     IPC_MESSAGE_HANDLER(ViewHostMsg_SendSerializedHtmlData,
-                        OnReceivedSerializedHtmlData);
+                        OnReceivedSerializedHtmlData)
     IPC_MESSAGE_HANDLER(ViewHostMsg_DidGetApplicationInfo,
-                        OnDidGetApplicationInfo);
+                        OnDidGetApplicationInfo)
     IPC_MESSAGE_HANDLER(ViewHostMsg_InstallApplication,
-                        OnInstallApplication);
+                        OnInstallApplication)
     IPC_MESSAGE_FORWARD(ViewHostMsg_JSOutOfMemory, delegate_,
-                        RenderViewHostDelegate::OnJSOutOfMemory);
-    IPC_MESSAGE_HANDLER(ViewHostMsg_ShouldClose_ACK, OnMsgShouldCloseACK);
-    IPC_MESSAGE_HANDLER(ViewHostMsg_QueryFormFieldAutoFill,
-                        OnQueryFormFieldAutoFill)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_DidShowAutoFillSuggestions,
-                        OnDidShowAutoFillSuggestions)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_RemoveAutocompleteEntry,
-                        OnRemoveAutocompleteEntry)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_ShowAutoFillDialog,
-                        OnShowAutoFillDialog)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_FillAutoFillFormData,
-                        OnFillAutoFillFormData)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_DidFillAutoFillFormData,
-                        OnDidFillAutoFillFormData)
+                        RenderViewHostDelegate::OnJSOutOfMemory)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_ShouldClose_ACK, OnMsgShouldCloseACK)
     IPC_MESSAGE_HANDLER(ViewHostMsg_ShowDesktopNotification,
                         OnShowDesktopNotification)
     IPC_MESSAGE_HANDLER(ViewHostMsg_CancelDesktopNotification,
@@ -916,14 +868,17 @@ void RenderViewHost::OnMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(ViewHostMsg_PagesReadyForPreview,
                         OnPagesReadyForPreview)
     // Have the super handle all other messages.
-    IPC_MESSAGE_UNHANDLED(RenderWidgetHost::OnMessageReceived(msg))
+    IPC_MESSAGE_UNHANDLED(handled = RenderWidgetHost::OnMessageReceived(msg))
   IPC_END_MESSAGE_MAP_EX()
 
   if (!msg_is_ok) {
     // The message had a handler, but its de-serialization failed.
     // Kill the renderer.
-    process()->ReceivedBadMessage(msg.type());
+    UserMetrics::RecordAction(UserMetricsAction("BadMessageTerminate_RVH"));
+    process()->ReceivedBadMessage();
   }
+
+  return handled;
 }
 
 void RenderViewHost::Shutdown() {
@@ -1150,17 +1105,6 @@ void RenderViewHost::OnMsgRequestMove(const gfx::Rect& pos) {
   Send(new ViewMsg_Move_ACK(routing_id()));
 }
 
-void RenderViewHost::OnMsgDidRedirectProvisionalLoad(int32 page_id,
-                                                     const GURL& source_url,
-                                                     const GURL& target_url) {
-  RenderViewHostDelegate::Resource* resource_delegate =
-      delegate_->GetResourceDelegate();
-  if (resource_delegate) {
-    resource_delegate->DidRedirectProvisionalLoad(page_id,
-                                                  source_url, target_url);
-  }
-}
-
 void RenderViewHost::OnMsgDidStartLoading() {
   delegate_->DidStartLoading();
 }
@@ -1179,77 +1123,6 @@ void RenderViewHost::OnMsgDocumentAvailableInMainFrame() {
 
 void RenderViewHost::OnMsgDocumentOnLoadCompletedInMainFrame(int32 page_id) {
   delegate_->DocumentOnLoadCompletedInMainFrame(this, page_id);
-}
-
-void RenderViewHost::OnMsgDidLoadResourceFromMemoryCache(
-    const GURL& url,
-    const std::string& frame_origin,
-    const std::string& main_frame_origin,
-    const std::string& security_info) {
-  static base::StatsCounter cache("WebKit.CacheHit");
-  cache.Increment();
-
-  RenderViewHostDelegate::Resource* resource_delegate =
-      delegate_->GetResourceDelegate();
-  if (resource_delegate) {
-    resource_delegate->DidLoadResourceFromMemoryCache(
-        url, frame_origin, main_frame_origin, security_info);
-  }
-}
-
-void RenderViewHost::OnMsgDidDisplayInsecureContent() {
-  RenderViewHostDelegate::Resource* resource_delegate =
-      delegate_->GetResourceDelegate();
-  if (resource_delegate)
-    resource_delegate->DidDisplayInsecureContent();
-}
-
-void RenderViewHost::OnMsgDidRunInsecureContent(
-    const std::string& security_origin) {
-  RenderViewHostDelegate::Resource* resource_delegate =
-      delegate_->GetResourceDelegate();
-  if (resource_delegate)
-    resource_delegate->DidRunInsecureContent(security_origin);
-}
-
-void RenderViewHost::OnMsgDidStartProvisionalLoadForFrame(int64 frame_id,
-                                                          bool is_main_frame,
-                                                          const GURL& url) {
-  bool is_error_page = (url.spec() == chrome::kUnreachableWebDataURL);
-  GURL validated_url(url);
-  FilterURL(ChildProcessSecurityPolicy::GetInstance(),
-            process()->id(), &validated_url);
-
-  RenderViewHostDelegate::Resource* resource_delegate =
-      delegate_->GetResourceDelegate();
-  if (resource_delegate) {
-    resource_delegate->DidStartProvisionalLoadForFrame(
-        this, frame_id, is_main_frame, is_error_page, validated_url);
-  }
-}
-
-void RenderViewHost::OnMsgDidFailProvisionalLoadWithError(
-    int64 frame_id,
-    bool is_main_frame,
-    int error_code,
-    const GURL& url,
-    bool showing_repost_interstitial) {
-  VLOG(1) << "Failed Provisional Load: " << url.possibly_invalid_spec()
-          << ", error_code: " << error_code
-          << " is_main_frame: " << is_main_frame
-          << " showing_repost_interstitial: " << showing_repost_interstitial
-          << " frame_id: " << frame_id;
-  GURL validated_url(url);
-  FilterURL(ChildProcessSecurityPolicy::GetInstance(),
-            process()->id(), &validated_url);
-
-  RenderViewHostDelegate::Resource* resource_delegate =
-      delegate_->GetResourceDelegate();
-  if (resource_delegate) {
-    resource_delegate->DidFailProvisionalLoadWithError(
-        this, frame_id, is_main_frame, error_code, validated_url,
-        showing_repost_interstitial);
-  }
 }
 
 void RenderViewHost::OnMsgFindReply(int request_id,
@@ -1391,20 +1264,6 @@ void RenderViewHost::OnMsgForwardMessageToExternalHost(
   delegate_->ProcessExternalHostMessage(message, origin, target);
 }
 
-void RenderViewHost::OnMsgDocumentLoadedInFrame(int64 frame_id) {
-  RenderViewHostDelegate::Resource* resource_delegate =
-      delegate_->GetResourceDelegate();
-  if (resource_delegate)
-    resource_delegate->DocumentLoadedInFrame(frame_id);
-}
-
-void RenderViewHost::OnMsgDidFinishLoad(int64 frame_id) {
-  RenderViewHostDelegate::Resource* resource_delegate =
-      delegate_->GetResourceDelegate();
-  if (resource_delegate)
-    resource_delegate->DidFinishLoad(frame_id);
-}
-
 void RenderViewHost::DisassociateFromPopupCount() {
   Send(new ViewMsg_DisassociateFromPopupCount(routing_id()));
 }
@@ -1504,11 +1363,12 @@ void RenderViewHost::MediaPlayerActionAt(const gfx::Point& location,
   Send(new ViewMsg_MediaPlayerActionAt(routing_id(), location, action));
 }
 
-void RenderViewHost::OnMsgFormsSeen(const std::vector<FormData>& forms) {
-  RenderViewHostDelegate::AutoFill* autofill_delegate =
-      delegate_->GetAutoFillDelegate();
-  if (autofill_delegate)
-    autofill_delegate->FormsSeen(forms);
+void RenderViewHost::ContextMenuClosed() {
+  Send(new ViewMsg_ContextMenuClosed(routing_id()));
+}
+
+void RenderViewHost::PrintNodeUnderContextMenu() {
+  Send(new ViewMsg_PrintNodeUnderContextMenu(routing_id()));
 }
 
 void RenderViewHost::OnMsgPasswordFormsFound(
@@ -1519,18 +1379,6 @@ void RenderViewHost::OnMsgPasswordFormsFound(
 void RenderViewHost::OnMsgPasswordFormsVisible(
     const std::vector<PasswordForm>& visible_forms) {
   delegate_->PasswordFormsVisible(visible_forms);
-}
-
-void RenderViewHost::OnMsgFormSubmitted(const FormData& form) {
-  RenderViewHostDelegate::Autocomplete* autocomplete_delegate =
-      delegate_->GetAutocompleteDelegate();
-  if (autocomplete_delegate)
-    autocomplete_delegate->FormSubmitted(form);
-
-  RenderViewHostDelegate::AutoFill* autofill_delegate =
-      delegate_->GetAutoFillDelegate();
-  if (autofill_delegate)
-    autofill_delegate->FormSubmitted(form);
 }
 
 void RenderViewHost::OnMsgStartDragging(
@@ -1725,136 +1573,6 @@ void RenderViewHost::OnMsgShouldCloseACK(bool proceed) {
   }
 }
 
-void RenderViewHost::OnQueryFormFieldAutoFill(int query_id,
-                                              const FormData& form,
-                                              const FormField& field) {
-  ResetAutoFillState(query_id);
-
-  // We first query the autofill delegate for suggestions. We keep track of the
-  // results it gives us, which we will later combine with the autocomplete
-  // suggestions.
-  RenderViewHostDelegate::AutoFill* autofill_delegate =
-      delegate_->GetAutoFillDelegate();
-  if (autofill_delegate)
-    autofill_delegate->GetAutoFillSuggestions(form, field);
-
-  // Now query the Autocomplete delegate for suggestions. These will be combined
-  // with the saved autofill suggestions in |AutocompleteSuggestionsReturned()|.
-  RenderViewHostDelegate::Autocomplete* autocomplete_delegate =
-      delegate_->GetAutocompleteDelegate();
-  if (autocomplete_delegate) {
-      autocomplete_delegate->GetAutocompleteSuggestions(field.name(),
-                                                        field.value());
-  } else {
-    AutocompleteSuggestionsReturned(std::vector<string16>());
-  }
-}
-
-void RenderViewHost::OnDidShowAutoFillSuggestions() {
-  NotificationService::current()->Notify(
-      NotificationType::AUTOFILL_DID_SHOW_SUGGESTIONS,
-      Source<RenderViewHost>(this),
-      NotificationService::NoDetails());
-}
-
-void RenderViewHost::OnRemoveAutocompleteEntry(const string16& field_name,
-                                               const string16& value) {
-  RenderViewHostDelegate::Autocomplete* autocomplete_delegate =
-      delegate_->GetAutocompleteDelegate();
-  if (autocomplete_delegate)
-    autocomplete_delegate->RemoveAutocompleteEntry(field_name, value);
-}
-
-void RenderViewHost::OnShowAutoFillDialog() {
-  if (CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kEnableTabbedOptions)) {
-    Browser* browser = BrowserList::GetLastActive();
-    if (!browser)
-      return;
-    browser->ShowOptionsTab(chrome::kAutoFillSubPage);
-  } else {
-    RenderViewHostDelegate::AutoFill* autofill_delegate =
-      delegate_->GetAutoFillDelegate();
-    if (!autofill_delegate)
-      return;
-
-    autofill_delegate->ShowAutoFillDialog();
-  }
-}
-
-void RenderViewHost::OnFillAutoFillFormData(int query_id,
-                                            const FormData& form,
-                                            const FormField& field,
-                                            int unique_id) {
-  RenderViewHostDelegate::AutoFill* autofill_delegate =
-      delegate_->GetAutoFillDelegate();
-  if (!autofill_delegate)
-    return;
-
-  autofill_delegate->FillAutoFillFormData(query_id, form, field, unique_id);
-}
-
-void RenderViewHost::OnDidFillAutoFillFormData() {
-  NotificationService::current()->Notify(
-      NotificationType::AUTOFILL_DID_FILL_FORM_DATA,
-      Source<RenderViewHost>(this),
-      NotificationService::NoDetails());
-}
-
-void RenderViewHost::ResetAutoFillState(int query_id) {
-  autofill_query_id_ = query_id;
-
-  autofill_values_.clear();
-  autofill_labels_.clear();
-  autofill_icons_.clear();
-  autofill_unique_ids_.clear();
-}
-
-void RenderViewHost::AutoFillSuggestionsReturned(
-    const std::vector<string16>& values,
-    const std::vector<string16>& labels,
-    const std::vector<string16>& icons,
-    const std::vector<int>& unique_ids) {
-  autofill_values_.assign(values.begin(), values.end());
-  autofill_labels_.assign(labels.begin(), labels.end());
-  autofill_icons_.assign(icons.begin(), icons.end());
-  autofill_unique_ids_.assign(unique_ids.begin(), unique_ids.end());
-}
-
-void RenderViewHost::AutocompleteSuggestionsReturned(
-    const std::vector<string16>& suggestions) {
-  // Combine AutoFill and Autocomplete values into values and labels.
-  for (size_t i = 0; i < suggestions.size(); ++i) {
-    bool unique = true;
-    for (size_t j = 0; j < autofill_values_.size(); ++j) {
-      // Don't add duplicate values.
-      if (autofill_values_[j] == suggestions[i]) {
-        unique = false;
-        break;
-      }
-    }
-
-    if (unique) {
-      autofill_values_.push_back(suggestions[i]);
-      autofill_labels_.push_back(string16());
-      autofill_icons_.push_back(string16());
-      autofill_unique_ids_.push_back(0);  // 0 means no profile.
-    }
-  }
-
-  Send(new ViewMsg_AutoFillSuggestionsReturned(routing_id(),
-                                               autofill_query_id_,
-                                               autofill_values_,
-                                               autofill_labels_,
-                                               autofill_icons_,
-                                               autofill_unique_ids_));
-}
-
-void RenderViewHost::AutoFillFormDataFilled(int query_id,
-                                            const FormData& form) {
-  Send(new ViewMsg_AutoFillFormDataFilled(routing_id(), query_id, form));
-}
-
 void RenderViewHost::WindowMoveOrResizeStarted() {
   Send(new ViewMsg_MoveOrResizeStarted(routing_id()));
 }
@@ -2025,15 +1743,6 @@ void RenderViewHost::TranslatePage(int page_id,
                                    const std::string& translate_script,
                                    const std::string& source_lang,
                                    const std::string& target_lang) {
-  // Ideally we'd have a better way to uniquely identify form control elements,
-  // but we don't have that yet.  So before start translation, we clear the
-  // current form and re-parse it in AutoFillManager first to get the new
-  // labels.
-  RenderViewHostDelegate::AutoFill* autofill_delegate =
-      delegate_->GetAutoFillDelegate();
-  if (autofill_delegate)
-    autofill_delegate->Reset();
-
   Send(new ViewMsg_TranslatePage(routing_id(), page_id, translate_script,
                                  source_lang, target_lang));
 }
@@ -2083,9 +1792,36 @@ void RenderViewHost::SearchBoxResize(const gfx::Rect& search_box_bounds) {
 }
 
 void RenderViewHost::DetermineIfPageSupportsInstant(const string16& value,
-                                                    bool verbatim) {
-  Send(new ViewMsg_DetermineIfPageSupportsInstant(routing_id(), value,
-                                                  verbatim));
+                                                    bool verbatim,
+                                                    int selection_start,
+                                                    int selection_end) {
+  Send(new ViewMsg_DetermineIfPageSupportsInstant(
+           routing_id(), value, verbatim, selection_start, selection_end));
+}
+
+void RenderViewHost::FilterURL(ChildProcessSecurityPolicy* policy,
+                               int renderer_id,
+                               GURL* url) {
+  if (!url->is_valid())
+    return;  // We don't need to block invalid URLs.
+
+  if (url->SchemeIs(chrome::kAboutScheme)) {
+    // The renderer treats all URLs in the about: scheme as being about:blank.
+    // Canonicalize about: URLs to about:blank.
+    *url = GURL(chrome::kAboutBlankURL);
+  }
+
+  if (!policy->CanRequestURL(renderer_id, *url)) {
+    // If this renderer is not permitted to request this URL, we invalidate the
+    // URL.  This prevents us from storing the blocked URL and becoming confused
+    // later.
+    VLOG(1) << "Blocked URL " << url->spec();
+    *url = GURL();
+  }
+}
+
+void RenderViewHost::JavaScriptStressTestControl(int cmd, int param) {
+  Send(new ViewMsg_JavaScriptStressTestControl(routing_id(), cmd, param));
 }
 
 void RenderViewHost::OnExtensionPostMessage(
@@ -2209,8 +1945,7 @@ void RenderViewHost::OnInstantSupportDetermined(int32 page_id, bool result) {
 }
 
 void RenderViewHost::OnDetectedPhishingSite(const GURL& phishing_url,
-                                            double phishing_score,
-                                            const SkBitmap& thumbnail) {
+                                            double phishing_score) {
   // TODO(noelutz): send an HTTP request to the client-side detection frontends
   // to confirm that the URL is really phishing.
 }

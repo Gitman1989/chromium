@@ -315,6 +315,18 @@ MemoryMappedFile::~MemoryMappedFile() {
   CloseHandles();
 }
 
+bool MemoryMappedFile::Initialize(const FilePath& file_name) {
+  if (IsValid())
+    return false;
+
+  if (!MapFileToMemory(file_name)) {
+    CloseHandles();
+    return false;
+  }
+
+  return true;
+}
+
 bool MemoryMappedFile::Initialize(base::PlatformFile file) {
   if (IsValid())
     return false;
@@ -329,16 +341,8 @@ bool MemoryMappedFile::Initialize(base::PlatformFile file) {
   return true;
 }
 
-bool MemoryMappedFile::Initialize(const FilePath& file_name) {
-  if (IsValid())
-    return false;
-
-  if (!MapFileToMemory(file_name)) {
-    CloseHandles();
-    return false;
-  }
-
-  return true;
+bool MemoryMappedFile::IsValid() {
+  return data_ != NULL;
 }
 
 bool MemoryMappedFile::MapFileToMemory(const FilePath& file_name) {
@@ -352,10 +356,6 @@ bool MemoryMappedFile::MapFileToMemory(const FilePath& file_name) {
   }
 
   return MapFileToMemoryInternal();
-}
-
-bool MemoryMappedFile::IsValid() {
-  return data_ != NULL;
 }
 
 // Deprecated functions ----------------------------------------------------
@@ -385,12 +385,6 @@ std::wstring GetFileExtensionFromPath(const std::wstring& path) {
   FilePath::StringType extension =
       GetFileExtensionFromPath(FilePath::FromWStringHack(path));
   return extension;
-}
-std::wstring GetFilenameFromPath(const std::wstring& path) {
-  if (path.empty() || EndsWithSeparator(FilePath::FromWStringHack(path)))
-    return std::wstring();
-
-  return FilePath::FromWStringHack(path).BaseName().ToWStringHack();
 }
 FILE* OpenFile(const std::wstring& filename, const char* mode) {
   return OpenFile(FilePath::FromWStringHack(filename), mode);

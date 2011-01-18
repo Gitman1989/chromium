@@ -11,7 +11,7 @@
 #include "chrome/common/ipc_test_sink.h"
 #include "chrome/renderer/mock_printer.h"
 #include "chrome/renderer/render_thread.h"
-#include "third_party/WebKit/WebKit/chromium/public/WebPopupType.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPopupType.h"
 
 namespace IPC {
 class MessageReplyDeserializer;
@@ -82,7 +82,7 @@ class MockRenderThread : public RenderThreadBase {
 
  private:
   // This function operates as a regular IPC listener.
-  void OnMessageReceived(const IPC::Message& msg);
+  bool OnMessageReceived(const IPC::Message& msg);
 
   // The Widget expects to be returned valid route_id.
   void OnMsgCreateWidget(int opener_id,
