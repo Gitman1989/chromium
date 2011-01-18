@@ -16,6 +16,7 @@
 #include "views/widget/widget.h"
 
 class QWidget;
+class QLayout;
 
 namespace gfx {
 class Rect;
@@ -301,7 +302,7 @@ class WidgetQt
   static Window* GetWindowImpl(QWidget* widget);
 
   // Creates the QWidget.
-  void CreateGtkWidget(QWidget* parent, const gfx::Rect& bounds);
+  void CreateQtWidget(QWidget* parent, const gfx::Rect& bounds);
 
   // Invoked from create widget to enable the various bits needed for a
   // transparent background. This is only invoked if MakeTransparent has been
@@ -323,6 +324,8 @@ class WidgetQt
   // window_contents_ is a GtkFixed. If we're not a window/popup, then widget_
   // and window_contents_ point to the same GtkFixed.
   QWidget* widget_;
+
+  QLayout* layout_;
 
   // Child GtkWidgets created with no parent need to be parented to a valid top
   // level window otherwise Gtk throws a fit. |null_parent_| is an invisible

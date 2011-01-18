@@ -3,6 +3,9 @@
 // found in the LICENSE file.
 
 #include <QtGui/QWidget>
+#include <QtGui/QGroupBox>
+#include <QtGui/QMainWindow>
+#include <QtGui/QLayout>
 #undef signals
 
 #include "views/widget/widget_qt.h"
@@ -308,26 +311,19 @@ bool WidgetQt::MakeIgnoreEvents() {
 }
 
 void WidgetQt::AddChild(QWidget* child) {
-  gtk_container_add(GTK_CONTAINER(widget_), child);
+  layout_->addWidget(child);
 }
 
 void WidgetQt::RemoveChild(QWidget* child) {
-  // We can be called after the contents widget has been destroyed, e.g. any
-  // NativeViewHost not removed from the view hierarchy before the window is
-  // closed.
-  if (GTK_IS_CONTAINER(widget_)) {
-    gtk_container_remove(GTK_CONTAINER(widget_), child);
-    gtk_views_fixed_set_widget_size(child, 0, 0);
-  }
+  layout_->removeWidget(child);
 }
 
 void WidgetQt::ReparentChild(QWidget* child) {
-  gtk_widget_reparent(child, widget_);
 }
 
 void WidgetQt::PositionChild(QWidget* child, int x, int y, int w, int h) {
-  gtk_views_fixed_set_widget_size(child, w, h);
-  gtk_fixed_move(GTK_FIXED(widget_), child, x, y);
+  child->move(x, y);
+  child->resize(w, h);
 }
 
 void WidgetQt::DoDrag(const OSExchangeData& data, int operation) {
@@ -1319,112 +1315,13 @@ Window* WidgetQt::GetWindowImpl(QWidget* widget) {
   return NULL;
 }
 
-void WidgetQt::CreateGtkWidget(QWidget* parent, const gfx::Rect& bounds) {
-  // We turn off double buffering for two reasons:
-  // 1. We draw to a canvas then composite to the screen, which means we're
-  //    doing our own double buffering already.
-  // 2. GTKs double buffering clips to the dirty region. RootView occasionally
-  //    needs to expand the paint region (see RootView::OnPaint). This means
-  //    that if we use GTK's double buffering and we tried to expand the dirty
-  //    region, it wouldn't get painted.
+void WidgetQt::CreateQtWidget(QWidget* parent, const gfx::Rect& bounds) {
   if (type_ == TYPE_CHILD) {
-    widget_ = widget_ = gtk_views_fixed_new();
-    gtk_widget_set_name(widget_, "views-gtkwidget-child-fixed");
-    if (!is_double_buffered_)
-      GTK_WIDGET_UNSET_FLAGS(widget_, GTK_DOUBLE_BUFFERED);
-    gtk_fixed_set_has_window(GTK_FIXED(widget_), true);
-    if (!parent && !null_parent_) {
-      QWidget* popup = gtk_window_new(GTK_WINDOW_POPUP);
-      null_parent_ = gtk_fixed_new();
-      gtk_widget_set_name(widget_, "views-gtkwidget-null-parent");
-      gtk_container_add(GTK_CONTAINER(popup), null_parent_);
-      gtk_widget_realize(null_parent_);
-    }
-    if (transparent_) {
-      // transparency has to be configured before widget is realized.
-      DCHECK(parent) << "Transparent widget must have parent when initialized";
-      ConfigureWidgetForTransparentBackground(parent);
-    }
-    gtk_container_add(GTK_CONTAINER(parent ? parent : null_parent_), widget_);
-    gtk_widget_realize(widget_);
-    if (transparent_) {
-      // The widget has to be realized to set composited flag.
-      // I tried "realize" signal to set this flag, but it did not work
-      // when the top level is popup.
-      DCHECK(GTK_WIDGET_REALIZED(widget_));
-      gdk_window_set_composited(widget_->window, true);
-    }
-    if (parent && !bounds.size().IsEmpty()) {
-      // Make sure that an widget is given it's initial size before
-      // we're done initializing, to take care of some potential
-      // corner cases when programmatically arranging hierarchies as
-      // seen in
-      // http://code.google.com/p/chromium-os/issues/detail?id=5987
-
-      // This can't be done without a parent present, or stale data
-      // might show up on the screen as seen in
-      // http://code.google.com/p/chromium/issues/detail?id=53870
-      GtkAllocation alloc = { 0, 0, bounds.width(), bounds.height() };
-      gtk_widget_size_allocate(widget_, &alloc);
-    }
+    widget_ = new QGroupBox();
   } else {
-    // Use our own window class to override GtkWindow's move_focus method.
-    widget_ = gtk_views_window_new(
-        (type_ == TYPE_WINDOW || type_ == TYPE_DECORATED_WINDOW) ?
-        GTK_WINDOW_TOPLEVEL : GTK_WINDOW_POPUP);
-    gtk_widget_set_name(widget_, "views-gtkwidget-window");
-    if (transient_to_parent_)
-      gtk_window_set_transient_for(GTK_WINDOW(widget_), GTK_WINDOW(parent));
-    GTK_WIDGET_UNSET_FLAGS(widget_, GTK_DOUBLE_BUFFERED);
-
-    // Gtk determines the size for windows based on the requested size of the
-    // child. For WidgetQt the child is a fixed. If the fixed ends up with a
-    // child widget it's possible the child widget will drive the requested size
-    // of the widget, which we don't want. We explicitly set a value of 1x1 here
-    // so that gtk doesn't attempt to resize the window if we end up with a
-    // situation where the requested size of a child of the fixed is greater
-    // than the size of the window. By setting the size in this manner we're
-    // also allowing users of WidgetQt to change the requested size at any
-    // time.
-    gtk_widget_set_size_request(widget_, 1, 1);
-
-    if (!bounds.size().IsEmpty()) {
-      // When we realize the window, the window manager is given a size. If we
-      // don't specify a size before then GTK defaults to 200x200. Specify
-      // a size now so that the window manager sees the requested size.
-      GtkAllocation alloc = { 0, 0, bounds.width(), bounds.height() };
-      gtk_widget_size_allocate(widget_, &alloc);
-    }
-    if (type_ != TYPE_DECORATED_WINDOW) {
-      gtk_window_set_decorated(GTK_WINDOW(widget_), false);
-      // We'll take care of positioning our window.
-      gtk_window_set_position(GTK_WINDOW(widget_), GTK_WIN_POS_NONE);
-    }
-
-    widget_ = gtk_views_fixed_new();
-    gtk_widget_set_name(widget_, "views-gtkwidget-window-fixed");
-    if (!is_double_buffered_)
-      GTK_WIDGET_UNSET_FLAGS(widget_, GTK_DOUBLE_BUFFERED);
-    gtk_fixed_set_has_window(GTK_FIXED(widget_), true);
-    gtk_container_add(GTK_CONTAINER(widget_), widget_);
-    gtk_widget_show(widget_);
-    g_object_set_data(G_OBJECT(widget_), kWidgetKey,
-                      static_cast<Widget*>(this));
-
-    if (transparent_)
-      ConfigureWidgetForTransparentBackground(NULL);
-
-    if (ignore_events_)
-      ConfigureWidgetForIgnoreEvents();
-
-    SetAlwaysOnTop(always_on_top_);
-    // The widget needs to be realized before handlers like size-allocate can
-    // function properly.
-    gtk_widget_realize(widget_);
+    widget_ = new QMainWindow();
   }
-  // Setting the WidgetKey property to widget_, which is used by
-  // GetWidgetFromNativeWindow.
-  SetNativeWindowProperty(kWidgetKey, this);
+  layout_ = new QLayout(widget_);
 }
 
 void WidgetQt::ConfigureWidgetForTransparentBackground(QWidget* parent) {
