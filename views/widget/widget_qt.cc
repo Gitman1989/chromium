@@ -290,31 +290,12 @@ bool WidgetQt::MakeTransparent() {
   // Transparency can only be enabled only if we haven't realized the widget.
   DCHECK(!widget_);
 
-  if (!gdk_screen_is_composited(gdk_screen_get_default())) {
-    // Transparency is only supported for compositing window managers.
-    // NOTE: there's a race during ChromeOS startup such that X might think
-    // compositing isn't supported. We ignore it if the wm says compositing
-    // isn't supported.
-    DLOG(WARNING) << "compositing not supported; allowing anyway";
-  }
-
-  if (!gdk_screen_get_rgba_colormap(gdk_screen_get_default())) {
-    // We need rgba to make the window transparent.
-    return false;
-  }
-
   transparent_ = true;
   return true;
 }
 
 void WidgetQt::EnableDoubleBuffer(bool enabled) {
   is_double_buffered_ = enabled;
-  if (widget_) {
-    if (is_double_buffered_)
-      GTK_WIDGET_SET_FLAGS(widget_, GTK_DOUBLE_BUFFERED);
-    else
-      GTK_WIDGET_UNSET_FLAGS(widget_, GTK_DOUBLE_BUFFERED);
-  }
 }
 
 bool WidgetQt::MakeIgnoreEvents() {
@@ -350,57 +331,6 @@ void WidgetQt::PositionChild(QWidget* child, int x, int y, int w, int h) {
 }
 
 void WidgetQt::DoDrag(const OSExchangeData& data, int operation) {
-  const OSExchangeDataProviderGtk& data_provider =
-      static_cast<const OSExchangeDataProviderGtk&>(data.provider());
-  GtkTargetList* targets = data_provider.GetTargetList();
-  GdkEvent* current_event = gtk_get_current_event();
-  const OSExchangeDataProviderGtk& provider(
-      static_cast<const OSExchangeDataProviderGtk&>(data.provider()));
-
-  GdkDragContext* context = gtk_drag_begin(
-      widget_,
-      targets,
-      static_cast<GdkDragAction>(
-          DragDropTypes::DragOperationToGdkDragAction(operation)),
-      1,
-      current_event);
-
-  QWidget* drag_icon_widget = NULL;
-
-  // Set the drag image if one was supplied.
-  if (provider.drag_image()) {
-    drag_icon_widget = CreateDragIconWidget(provider.drag_image());
-    if (drag_icon_widget) {
-      // Use a widget as the drag icon when compositing is enabled for proper
-      // transparency handling.
-      g_object_ref(provider.drag_image());
-      gtk_drag_set_icon_widget(context,
-                               drag_icon_widget,
-                               provider.cursor_offset().x(),
-                               provider.cursor_offset().y());
-    } else {
-      gtk_drag_set_icon_pixbuf(context,
-                               provider.drag_image(),
-                               provider.cursor_offset().x(),
-                               provider.cursor_offset().y());
-    }
-  }
-
-  if (current_event)
-    gdk_event_free(current_event);
-  gtk_target_list_unref(targets);
-
-  drag_data_ = &data_provider;
-
-  // Block the caller until drag is done by running a nested message loop.
-  MessageLoopForUI::current()->Run(NULL);
-
-  drag_data_ = NULL;
-
-  if (drag_icon_widget) {
-    gtk_widget_destroy(drag_icon_widget);
-    g_object_unref(provider.drag_image());
-  }
 }
 
 void WidgetQt::SetFocusTraversableParent(FocusTraversable* parent) {
