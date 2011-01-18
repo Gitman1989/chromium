@@ -322,6 +322,7 @@
         'widget/tooltip_window_gtk.h',
         'widget/widget.h',
         'widget/widget_gtk.cc',
+        'widget/widget_qt.cc',
         'widget/widget_gtk.h',
         'widget/widget_utils.cc',
         'widget/widget_utils.h',

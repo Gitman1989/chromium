@@ -2,7 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "views/widget/widget_gtk.h"
+#include <QtGui/QWidget>
+#undef signals
+
+#include "views/widget/widget_qt.h"
 
 #include <gdk/gdk.h>
 #include <gdk/gdkx.h>
@@ -34,12 +37,12 @@ using ui::OSExchangeDataProviderGtk;
 
 namespace {
 
-// g_object data keys to associate a WidgetGtk object to a GtkWidget.
+// g_object data keys to associate a WidgetQt object to a QWidget.
 const char* kWidgetKey = "__VIEWS_WIDGET__";
-// A g_object data key to associate a CompositePainter object to a GtkWidget.
+// A g_object data key to associate a CompositePainter object to a QWidget.
 const char* kCompositePainterKey = "__VIEWS_COMPOSITE_PAINTER__";
 // A g_object data key to associate the flag whether or not the widget
-// is composited to a GtkWidget. gtk_widget_is_composited simply tells
+// is composited to a QWidget. gtk_widget_is_composited simply tells
 // if x11 supports composition and cannot be used to tell if given widget
 // is composited.
 const char* kCompositeEnabledKey = "__VIEWS_COMPOSITE_ENABLED__";
@@ -49,13 +52,13 @@ const char* kCompositeEnabledKey = "__VIEWS_COMPOSITE_ENABLED__";
 // until the widget is destroyed.
 class CompositePainter {
  public:
-  explicit CompositePainter(GtkWidget* parent)
+  explicit CompositePainter(QWidget* parent)
       : parent_object_(G_OBJECT(parent)) {
     handler_id_ = g_signal_connect_after(
         parent_object_, "expose_event", G_CALLBACK(OnCompositePaint), NULL);
   }
 
-  static void AddCompositePainter(GtkWidget* widget) {
+  static void AddCompositePainter(QWidget* widget) {
     CompositePainter* painter = static_cast<CompositePainter*>(
         g_object_get_data(G_OBJECT(widget), kCompositePainterKey));
     if (!painter) {
@@ -67,13 +70,13 @@ class CompositePainter {
   }
 
   // Set the composition flag.
-  static void SetComposited(GtkWidget* widget) {
+  static void SetComposited(QWidget* widget) {
     g_object_set_data(G_OBJECT(widget), kCompositeEnabledKey,
                       const_cast<char*>(""));
   }
 
   // Returns true if the |widget| is composited and ready to be drawn.
-  static bool IsComposited(GtkWidget* widget) {
+  static bool IsComposited(QWidget* widget) {
     return g_object_get_data(G_OBJECT(widget), kCompositeEnabledKey) != NULL;
   }
 
@@ -81,9 +84,9 @@ class CompositePainter {
   virtual ~CompositePainter() {}
 
   // Composes a image from one child.
-  static void CompositeChildWidget(GtkWidget* child, gpointer data) {
+  static void CompositeChildWidget(QWidget* child, gpointer data) {
     GdkEventExpose* event = static_cast<GdkEventExpose*>(data);
-    GtkWidget* parent = gtk_widget_get_parent(child);
+    QWidget* parent = gtk_widget_get_parent(child);
     DCHECK(parent);
     if (IsComposited(child)) {
       cairo_t* cr = gdk_cairo_create(parent->window);
@@ -102,14 +105,14 @@ class CompositePainter {
 
   // Expose-event handler that compose & draws children's image into
   // the |parent|'s drawing area.
-  static gboolean OnCompositePaint(GtkWidget* parent, GdkEventExpose* event) {
+  static gboolean OnCompositePaint(QWidget* parent, GdkEventExpose* event) {
     gtk_container_foreach(GTK_CONTAINER(parent),
                           CompositeChildWidget,
                           event);
     return false;
   }
 
-  static void DestroyPainter(GtkWidget* object) {
+  static void DestroyPainter(QWidget* object) {
     CompositePainter* painter = reinterpret_cast<CompositePainter*>(
         g_object_get_data(G_OBJECT(object), kCompositePainterKey));
     DCHECK(painter);
@@ -130,7 +133,7 @@ namespace views {
 // have no way to tell the difference between a normal drag leave and a drop.
 // To work around that we listen for DROP_START, then ignore the subsequent
 // drag-leave that GTK generates.
-class WidgetGtk::DropObserver : public MessageLoopForUI::Observer {
+class WidgetQt::DropObserver : public MessageLoopForUI::Observer {
  public:
   DropObserver() {}
 
@@ -140,7 +143,7 @@ class WidgetGtk::DropObserver : public MessageLoopForUI::Observer {
 
   virtual void WillProcessEvent(GdkEvent* event) {
     if (event->type == GDK_DROP_START) {
-      WidgetGtk* widget = GetWidgetGtkForEvent(event);
+      WidgetQt* widget = GetWidgetGtkForEvent(event);
       if (widget)
         widget->ignore_drag_leave_ = true;
     }
@@ -150,21 +153,21 @@ class WidgetGtk::DropObserver : public MessageLoopForUI::Observer {
   }
 
  private:
-  WidgetGtk* GetWidgetGtkForEvent(GdkEvent* event) {
-    GtkWidget* gtk_widget = gtk_get_event_widget(event);
+  WidgetQt* GetWidgetGtkForEvent(GdkEvent* event) {
+    QWidget* gtk_widget = gtk_get_event_widget(event);
     if (!gtk_widget)
       return NULL;
 
-    return WidgetGtk::GetViewForNative(gtk_widget);
+    return WidgetQt::GetViewForNative(gtk_widget);
   }
 
   DISALLOW_COPY_AND_ASSIGN(DropObserver);
 };
 
 // Returns the position of a widget on screen.
-static void GetWidgetPositionOnScreen(GtkWidget* widget, int* x, int *y) {
+static void GetWidgetPositionOnScreen(QWidget* widget, int* x, int *y) {
   // First get the root window.
-  GtkWidget* root = widget;
+  QWidget* root = widget;
   while (root && !GTK_IS_WINDOW(root)) {
     root = gtk_widget_get_parent(root);
   }
@@ -184,7 +187,7 @@ static void GetWidgetPositionOnScreen(GtkWidget* widget, int* x, int *y) {
 }
 
 // "expose-event" handler of drag icon widget that renders drag image pixbuf.
-static gboolean DragIconWidgetPaint(GtkWidget* widget,
+static gboolean DragIconWidgetPaint(QWidget* widget,
                                     GdkEventExpose* event,
                                     gpointer data) {
   GdkPixbuf* pixbuf = reinterpret_cast<GdkPixbuf*>(data);
@@ -201,13 +204,13 @@ static gboolean DragIconWidgetPaint(GtkWidget* widget,
 }
 
 // Creates a drag icon widget that draws drag_image.
-static GtkWidget* CreateDragIconWidget(GdkPixbuf* drag_image) {
+static QWidget* CreateDragIconWidget(GdkPixbuf* drag_image) {
   GdkColormap* rgba_colormap =
       gdk_screen_get_rgba_colormap(gdk_screen_get_default());
   if (!rgba_colormap)
     return NULL;
 
-  GtkWidget* drag_widget = gtk_window_new(GTK_WINDOW_POPUP);
+  QWidget* drag_widget = gtk_window_new(GTK_WINDOW_POPUP);
 
   gtk_widget_set_colormap(drag_widget, rgba_colormap);
   gtk_widget_set_app_paintable(drag_widget, true);
@@ -221,12 +224,12 @@ static GtkWidget* CreateDragIconWidget(GdkPixbuf* drag_image) {
 }
 
 // static
-GtkWidget* WidgetGtk::null_parent_ = NULL;
+QWidget* WidgetQt::null_parent_ = NULL;
 
 ////////////////////////////////////////////////////////////////////////////////
-// WidgetGtk, public:
+// WidgetQt, public:
 
-WidgetGtk::WidgetGtk(Type type)
+WidgetQt::WidgetQt(Type type)
     : is_window_(false),
       type_(type),
       widget_(NULL),
@@ -263,28 +266,28 @@ WidgetGtk::WidgetGtk(Type type)
     focus_manager_ = new FocusManager(this);
 }
 
-WidgetGtk::~WidgetGtk() {
+WidgetQt::~WidgetQt() {
   DCHECK(delete_on_destroy_ || widget_ == NULL);
   if (type_ != TYPE_CHILD)
     ActiveWindowWatcherX::RemoveObserver(this);
 
   // Defer focus manager's destruction. This is for the case when the
-  // focus manager is referenced by a child WidgetGtk (e.g. TabbedPane in a
+  // focus manager is referenced by a child WidgetQt (e.g. TabbedPane in a
   // dialog). When gtk_widget_destroy is called on the parent, the destroy
   // signal reaches parent first and then the child. Thus causing the parent
-  // WidgetGtk's dtor executed before the child's. If child's view hierarchy
+  // WidgetQt's dtor executed before the child's. If child's view hierarchy
   // references this focus manager, it crashes. This will defer focus manager's
-  // destruction after child WidgetGtk's dtor.
+  // destruction after child WidgetQt's dtor.
   if (focus_manager_)
     MessageLoop::current()->DeleteSoon(FROM_HERE, focus_manager_);
 }
 
-GtkWindow* WidgetGtk::GetTransientParent() const {
+GtkWindow* WidgetQt::GetTransientParent() const {
   return (type_ != TYPE_CHILD && widget_) ?
       gtk_window_get_transient_for(GTK_WINDOW(widget_)) : NULL;
 }
 
-bool WidgetGtk::MakeTransparent() {
+bool WidgetQt::MakeTransparent() {
   // Transparency can only be enabled only if we haven't realized the widget.
   DCHECK(!widget_);
 
@@ -305,7 +308,7 @@ bool WidgetGtk::MakeTransparent() {
   return true;
 }
 
-void WidgetGtk::EnableDoubleBuffer(bool enabled) {
+void WidgetQt::EnableDoubleBuffer(bool enabled) {
   is_double_buffered_ = enabled;
   if (window_contents_) {
     if (is_double_buffered_)
@@ -315,7 +318,7 @@ void WidgetGtk::EnableDoubleBuffer(bool enabled) {
   }
 }
 
-bool WidgetGtk::MakeIgnoreEvents() {
+bool WidgetQt::MakeIgnoreEvents() {
   // Transparency can only be enabled for windows/popups and only if we haven't
   // realized the widget.
   DCHECK(!widget_ && type_ != TYPE_CHILD);
@@ -324,11 +327,11 @@ bool WidgetGtk::MakeIgnoreEvents() {
   return true;
 }
 
-void WidgetGtk::AddChild(GtkWidget* child) {
+void WidgetQt::AddChild(QWidget* child) {
   gtk_container_add(GTK_CONTAINER(window_contents_), child);
 }
 
-void WidgetGtk::RemoveChild(GtkWidget* child) {
+void WidgetQt::RemoveChild(QWidget* child) {
   // We can be called after the contents widget has been destroyed, e.g. any
   // NativeViewHost not removed from the view hierarchy before the window is
   // closed.
@@ -338,16 +341,16 @@ void WidgetGtk::RemoveChild(GtkWidget* child) {
   }
 }
 
-void WidgetGtk::ReparentChild(GtkWidget* child) {
+void WidgetQt::ReparentChild(QWidget* child) {
   gtk_widget_reparent(child, window_contents_);
 }
 
-void WidgetGtk::PositionChild(GtkWidget* child, int x, int y, int w, int h) {
+void WidgetQt::PositionChild(QWidget* child, int x, int y, int w, int h) {
   gtk_views_fixed_set_widget_size(child, w, h);
   gtk_fixed_move(GTK_FIXED(window_contents_), child, x, y);
 }
 
-void WidgetGtk::DoDrag(const OSExchangeData& data, int operation) {
+void WidgetQt::DoDrag(const OSExchangeData& data, int operation) {
   const OSExchangeDataProviderGtk& data_provider =
       static_cast<const OSExchangeDataProviderGtk&>(data.provider());
   GtkTargetList* targets = data_provider.GetTargetList();
@@ -363,7 +366,7 @@ void WidgetGtk::DoDrag(const OSExchangeData& data, int operation) {
       1,
       current_event);
 
-  GtkWidget* drag_icon_widget = NULL;
+  QWidget* drag_icon_widget = NULL;
 
   // Set the drag image if one was supplied.
   if (provider.drag_image()) {
@@ -401,36 +404,36 @@ void WidgetGtk::DoDrag(const OSExchangeData& data, int operation) {
   }
 }
 
-void WidgetGtk::SetFocusTraversableParent(FocusTraversable* parent) {
+void WidgetQt::SetFocusTraversableParent(FocusTraversable* parent) {
   root_view_->SetFocusTraversableParent(parent);
 }
 
-void WidgetGtk::SetFocusTraversableParentView(View* parent_view) {
+void WidgetQt::SetFocusTraversableParentView(View* parent_view) {
   root_view_->SetFocusTraversableParentView(parent_view);
 }
 
-void WidgetGtk::IsActiveChanged() {
+void WidgetQt::IsActiveChanged() {
   if (GetWidgetDelegate())
     GetWidgetDelegate()->IsActiveChanged(IsActive());
 }
 
 // static
-WidgetGtk* WidgetGtk::GetViewForNative(GtkWidget* widget) {
-  return static_cast<WidgetGtk*>(GetWidgetFromNativeView(widget));
+WidgetQt* WidgetQt::GetViewForNative(QWidget* widget) {
+  return static_cast<WidgetQt*>(GetWidgetFromNativeView(widget));
 }
 
-void WidgetGtk::ResetDropTarget() {
+void WidgetQt::ResetDropTarget() {
   ignore_drag_leave_ = false;
   drop_target_.reset(NULL);
 }
 
 // static
-RootView* WidgetGtk::GetRootViewForWidget(GtkWidget* widget) {
+RootView* WidgetQt::GetRootViewForWidget(QWidget* widget) {
   gpointer user_data = g_object_get_data(G_OBJECT(widget), "root-view");
   return static_cast<RootView*>(user_data);
 }
 
-void WidgetGtk::GetRequestedSize(gfx::Size* out) const {
+void WidgetQt::GetRequestedSize(gfx::Size* out) const {
   int width, height;
   if (GTK_IS_VIEWS_FIXED(widget_) &&
       gtk_views_fixed_get_widget_size(GetNativeView(), &width, &height)) {
@@ -443,9 +446,9 @@ void WidgetGtk::GetRequestedSize(gfx::Size* out) const {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// WidgetGtk, ActiveWindowWatcherX::Observer implementation:
+// WidgetQt, ActiveWindowWatcherX::Observer implementation:
 
-void WidgetGtk::ActiveWindowChanged(GdkWindow* active_window) {
+void WidgetQt::ActiveWindowChanged(GdkWindow* active_window) {
   if (!GetNativeView())
     return;
 
@@ -456,7 +459,7 @@ void WidgetGtk::ActiveWindowChanged(GdkWindow* active_window) {
     // a child window is transient to us.
     gpointer data = NULL;
     gdk_window_get_user_data(active_window, &data);
-    GtkWidget* widget = reinterpret_cast<GtkWidget*>(data);
+    QWidget* widget = reinterpret_cast<QWidget*>(data);
     is_active_ =
         (widget && GTK_IS_WINDOW(widget) &&
          gtk_window_get_transient_for(GTK_WINDOW(widget)) == GTK_WINDOW(
@@ -467,12 +470,12 @@ void WidgetGtk::ActiveWindowChanged(GdkWindow* active_window) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// WidgetGtk, Widget implementation:
+// WidgetQt, Widget implementation:
 
-void WidgetGtk::InitWithWidget(Widget* parent,
+void WidgetQt::InitWithWidget(Widget* parent,
                                const gfx::Rect& bounds) {
-  WidgetGtk* parent_gtk = static_cast<WidgetGtk*>(parent);
-  GtkWidget* native_parent = NULL;
+  WidgetQt* parent_gtk = static_cast<WidgetQt*>(parent);
+  QWidget* native_parent = NULL;
   if (parent != NULL) {
     if (type_ != TYPE_CHILD) {
       // window's parent has to be window.
@@ -484,7 +487,7 @@ void WidgetGtk::InitWithWidget(Widget* parent,
   Init(native_parent, bounds);
 }
 
-void WidgetGtk::Init(GtkWidget* parent,
+void WidgetQt::Init(QWidget* parent,
                      const gfx::Rect& bounds) {
   if (type_ != TYPE_CHILD)
     ActiveWindowWatcherX::AddObserver(this);
@@ -600,19 +603,19 @@ void WidgetGtk::Init(GtkWidget* parent,
   }
 }
 
-WidgetDelegate* WidgetGtk::GetWidgetDelegate() {
+WidgetDelegate* WidgetQt::GetWidgetDelegate() {
   return delegate_;
 }
 
-void WidgetGtk::SetWidgetDelegate(WidgetDelegate* delegate) {
+void WidgetQt::SetWidgetDelegate(WidgetDelegate* delegate) {
   delegate_ = delegate;
 }
 
-void WidgetGtk::SetContentsView(View* view) {
+void WidgetQt::SetContentsView(View* view) {
   root_view_->SetContentsView(view);
 }
 
-void WidgetGtk::GetBounds(gfx::Rect* out, bool including_frame) const {
+void WidgetQt::GetBounds(gfx::Rect* out, bool including_frame) const {
   if (!widget_) {
     // Due to timing we can get a request for the bounds after Close.
     *out = gfx::Rect(gfx::Point(0, 0), size_);
@@ -634,18 +637,18 @@ void WidgetGtk::GetBounds(gfx::Rect* out, bool including_frame) const {
   return out->SetRect(x, y, w, h);
 }
 
-void WidgetGtk::SetBounds(const gfx::Rect& bounds) {
+void WidgetQt::SetBounds(const gfx::Rect& bounds) {
   if (type_ == TYPE_CHILD) {
-    GtkWidget* parent = gtk_widget_get_parent(widget_);
+    QWidget* parent = gtk_widget_get_parent(widget_);
     if (GTK_IS_VIEWS_FIXED(parent)) {
-      WidgetGtk* parent_widget = GetViewForNative(parent);
+      WidgetQt* parent_widget = GetViewForNative(parent);
       parent_widget->PositionChild(widget_, bounds.x(), bounds.y(),
                                    bounds.width(), bounds.height());
     } else {
       DCHECK(GTK_IS_FIXED(parent))
-          << "Parent of WidgetGtk has to be Fixed or ViewsFixed";
-      // Just request the size if the parent is not WidgetGtk but plain
-      // GtkFixed. WidgetGtk does not know the minimum size so we assume
+          << "Parent of WidgetQt has to be Fixed or ViewsFixed";
+      // Just request the size if the parent is not WidgetQt but plain
+      // GtkFixed. WidgetQt does not know the minimum size so we assume
       // the caller of the SetBounds knows exactly how big it wants to be.
       gtk_widget_set_size_request(widget_, bounds.width(), bounds.height());
       if (parent != null_parent_)
@@ -671,7 +674,7 @@ void WidgetGtk::SetBounds(const gfx::Rect& bounds) {
   }
 }
 
-void WidgetGtk::MoveAbove(Widget* widget) {
+void WidgetQt::MoveAbove(Widget* widget) {
   DCHECK(widget_);
   DCHECK(widget_->window);
   // TODO(oshima): gdk_window_restack is not available in gtk2.0, so
@@ -680,14 +683,14 @@ void WidgetGtk::MoveAbove(Widget* widget) {
   gdk_window_raise(widget_->window);
 }
 
-void WidgetGtk::SetShape(gfx::NativeRegion region) {
+void WidgetQt::SetShape(gfx::NativeRegion region) {
   DCHECK(widget_);
   DCHECK(widget_->window);
   gdk_window_shape_combine_region(widget_->window, region, 0, 0);
   gdk_region_destroy(region);
 }
 
-void WidgetGtk::Close() {
+void WidgetQt::Close() {
   if (!widget_)
     return;  // No need to do anything.
 
@@ -697,17 +700,17 @@ void WidgetGtk::Close() {
     // And we delay the close just in case we're on the stack.
     MessageLoop::current()->PostTask(FROM_HERE,
         close_widget_factory_.NewRunnableMethod(
-            &WidgetGtk::CloseNow));
+            &WidgetQt::CloseNow));
   }
 }
 
-void WidgetGtk::CloseNow() {
+void WidgetQt::CloseNow() {
   if (widget_) {
     gtk_widget_destroy(widget_);  // Triggers OnDestroy().
   }
 }
 
-void WidgetGtk::Show() {
+void WidgetQt::Show() {
   if (widget_) {
     gtk_widget_show(widget_);
     if (widget_->window)
@@ -715,7 +718,7 @@ void WidgetGtk::Show() {
   }
 }
 
-void WidgetGtk::Hide() {
+void WidgetQt::Hide() {
   if (widget_) {
     gtk_widget_hide(widget_);
     if (widget_->window)
@@ -723,11 +726,11 @@ void WidgetGtk::Hide() {
   }
 }
 
-gfx::NativeView WidgetGtk::GetNativeView() const {
+gfx::NativeView WidgetQt::GetNativeView() const {
   return widget_;
 }
 
-void WidgetGtk::PaintNow(const gfx::Rect& update_rect) {
+void WidgetQt::PaintNow(const gfx::Rect& update_rect) {
   if (widget_ && GTK_WIDGET_DRAWABLE(widget_)) {
     gtk_widget_queue_draw_area(widget_, update_rect.x(), update_rect.y(),
                                update_rect.width(), update_rect.height());
@@ -737,7 +740,7 @@ void WidgetGtk::PaintNow(const gfx::Rect& update_rect) {
   }
 }
 
-void WidgetGtk::SetOpacity(unsigned char opacity) {
+void WidgetQt::SetOpacity(unsigned char opacity) {
   opacity_ = opacity;
   if (widget_) {
     // We can only set the opacity when the widget has been realized.
@@ -746,14 +749,14 @@ void WidgetGtk::SetOpacity(unsigned char opacity) {
   }
 }
 
-void WidgetGtk::SetAlwaysOnTop(bool on_top) {
+void WidgetQt::SetAlwaysOnTop(bool on_top) {
   DCHECK(type_ != TYPE_CHILD);
   always_on_top_ = on_top;
   if (widget_)
     gtk_window_set_keep_above(GTK_WINDOW(widget_), on_top);
 }
 
-RootView* WidgetGtk::GetRootView() {
+RootView* WidgetQt::GetRootView() {
   if (!root_view_.get()) {
     // First time the root view is being asked for, create it now.
     root_view_.reset(CreateRootView());
@@ -761,9 +764,9 @@ RootView* WidgetGtk::GetRootView() {
   return root_view_.get();
 }
 
-Widget* WidgetGtk::GetRootWidget() const {
-  GtkWidget* parent = widget_;
-  GtkWidget* last_parent = parent;
+Widget* WidgetQt::GetRootWidget() const {
+  QWidget* parent = widget_;
+  QWidget* last_parent = parent;
   while (parent) {
     last_parent = parent;
     parent = gtk_widget_get_parent(parent);
@@ -771,58 +774,58 @@ Widget* WidgetGtk::GetRootWidget() const {
   return last_parent ? GetViewForNative(last_parent) : NULL;
 }
 
-bool WidgetGtk::IsVisible() const {
+bool WidgetQt::IsVisible() const {
   return GTK_WIDGET_VISIBLE(widget_);
 }
 
-bool WidgetGtk::IsActive() const {
+bool WidgetQt::IsActive() const {
   DCHECK(type_ != TYPE_CHILD);
   return is_active_;
 }
 
-bool WidgetGtk::IsAccessibleWidget() const {
+bool WidgetQt::IsAccessibleWidget() const {
   return false;
 }
 
-void WidgetGtk::GenerateMousePressedForView(View* view,
+void WidgetQt::GenerateMousePressedForView(View* view,
                                             const gfx::Point& point) {
   NOTIMPLEMENTED();
 }
 
-TooltipManager* WidgetGtk::GetTooltipManager() {
+TooltipManager* WidgetQt::GetTooltipManager() {
   return tooltip_manager_.get();
 }
 
-bool WidgetGtk::GetAccelerator(int cmd_id, ui::Accelerator* accelerator) {
+bool WidgetQt::GetAccelerator(int cmd_id, ui::Accelerator* accelerator) {
   NOTIMPLEMENTED();
   return false;
 }
 
-Window* WidgetGtk::GetWindow() {
+Window* WidgetQt::GetWindow() {
   return GetWindowImpl(widget_);
 }
 
-const Window* WidgetGtk::GetWindow() const {
+const Window* WidgetQt::GetWindow() const {
   return GetWindowImpl(widget_);
 }
 
-void WidgetGtk::SetNativeWindowProperty(const char* name, void* value) {
+void WidgetQt::SetNativeWindowProperty(const char* name, void* value) {
   g_object_set_data(G_OBJECT(widget_), name, value);
 }
 
-void* WidgetGtk::GetNativeWindowProperty(const char* name) {
+void* WidgetQt::GetNativeWindowProperty(const char* name) {
   return g_object_get_data(G_OBJECT(widget_), name);
 }
 
-ThemeProvider* WidgetGtk::GetThemeProvider() const {
+ThemeProvider* WidgetQt::GetThemeProvider() const {
   return GetWidgetThemeProvider(this);
 }
 
-ThemeProvider* WidgetGtk::GetDefaultThemeProvider() const {
+ThemeProvider* WidgetQt::GetDefaultThemeProvider() const {
   return default_theme_provider_.get();
 }
 
-FocusManager* WidgetGtk::GetFocusManager() {
+FocusManager* WidgetQt::GetFocusManager() {
   if (focus_manager_)
     return focus_manager_;
 
@@ -835,40 +838,40 @@ FocusManager* WidgetGtk::GetFocusManager() {
   return NULL;
 }
 
-void WidgetGtk::ViewHierarchyChanged(bool is_add, View *parent,
+void WidgetQt::ViewHierarchyChanged(bool is_add, View *parent,
                                      View *child) {
   if (drop_target_.get())
     drop_target_->ResetTargetViewIfEquals(child);
 }
 
-bool WidgetGtk::ContainsNativeView(gfx::NativeView native_view) {
+bool WidgetQt::ContainsNativeView(gfx::NativeView native_view) {
   // TODO(port)  See implementation in WidgetWin::ContainsNativeView.
-  NOTREACHED() << "WidgetGtk::ContainsNativeView is not implemented.";
+  NOTREACHED() << "WidgetQt::ContainsNativeView is not implemented.";
   return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// WidgetGtk, FocusTraversable implementation:
+// WidgetQt, FocusTraversable implementation:
 
-FocusSearch* WidgetGtk::GetFocusSearch() {
+FocusSearch* WidgetQt::GetFocusSearch() {
   return root_view_->GetFocusSearch();
 }
 
-FocusTraversable* WidgetGtk::GetFocusTraversableParent() {
+FocusTraversable* WidgetQt::GetFocusTraversableParent() {
   // We are a proxy to the root view, so we should be bypassed when traversing
   // up and as a result this should not be called.
   NOTREACHED();
   return NULL;
 }
 
-View* WidgetGtk::GetFocusTraversableParentView() {
+View* WidgetQt::GetFocusTraversableParentView() {
   // We are a proxy to the root view, so we should be bypassed when traversing
   // up and as a result this should not be called.
   NOTREACHED();
   return NULL;
 }
 
-void WidgetGtk::ClearNativeFocus() {
+void WidgetQt::ClearNativeFocus() {
   DCHECK(type_ != TYPE_CHILD);
   if (!GetNativeView()) {
     NOTREACHED();
@@ -877,7 +880,7 @@ void WidgetGtk::ClearNativeFocus() {
   gtk_window_set_focus(GTK_WINDOW(GetNativeView()), NULL);
 }
 
-bool WidgetGtk::HandleKeyboardEvent(GdkEventKey* event) {
+bool WidgetQt::HandleKeyboardEvent(GdkEventKey* event) {
   if (!focus_manager_)
     return false;
 
@@ -911,7 +914,7 @@ bool WidgetGtk::HandleKeyboardEvent(GdkEventKey* event) {
 }
 
 // static
-int WidgetGtk::GetFlagsForEventButton(const GdkEventButton& event) {
+int WidgetQt::GetFlagsForEventButton(const GdkEventButton& event) {
   int flags = Event::GetFlagsFromGdkState(event.state);
   switch (event.button) {
     case 1:
@@ -933,9 +936,9 @@ int WidgetGtk::GetFlagsForEventButton(const GdkEventButton& event) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// WidgetGtk, protected:
+// WidgetQt, protected:
 
-void WidgetGtk::OnSizeRequest(GtkWidget* widget, GtkRequisition* requisition) {
+void WidgetQt::OnSizeRequest(QWidget* widget, GtkRequisition* requisition) {
   // Do only return the preferred size for child windows. GtkWindow interprets
   // the requisition as a minimum size for top level windows, returning a
   // preferred size for these would prevents us from setting smaller window
@@ -947,7 +950,7 @@ void WidgetGtk::OnSizeRequest(GtkWidget* widget, GtkRequisition* requisition) {
   }
 }
 
-void WidgetGtk::OnSizeAllocate(GtkWidget* widget, GtkAllocation* allocation) {
+void WidgetQt::OnSizeAllocate(QWidget* widget, GtkAllocation* allocation) {
   // See comment next to size_ as to why we do this. Also note, it's tempting
   // to put this in the static method so subclasses don't need to worry about
   // it, but if a subclasses needs to set a shape then they need to always
@@ -960,7 +963,7 @@ void WidgetGtk::OnSizeAllocate(GtkWidget* widget, GtkAllocation* allocation) {
   root_view_->SchedulePaint();
 }
 
-gboolean WidgetGtk::OnPaint(GtkWidget* widget, GdkEventExpose* event) {
+gboolean WidgetQt::OnPaint(QWidget* widget, GdkEventExpose* event) {
   if (transparent_ && type_ == TYPE_CHILD) {
     // Clear the background before drawing any view and native components.
     DrawTransparentBackground(widget, event);
@@ -975,7 +978,7 @@ gboolean WidgetGtk::OnPaint(GtkWidget* widget, GdkEventExpose* event) {
   return false;  // False indicates other widgets should get the event as well.
 }
 
-void WidgetGtk::OnDragDataGet(GtkWidget* widget,
+void WidgetQt::OnDragDataGet(QWidget* widget,
                               GdkDragContext* context,
                               GtkSelectionData* data,
                               guint info,
@@ -987,7 +990,7 @@ void WidgetGtk::OnDragDataGet(GtkWidget* widget,
   drag_data_->WriteFormatToSelection(info, data);
 }
 
-void WidgetGtk::OnDragDataReceived(GtkWidget* widget,
+void WidgetQt::OnDragDataReceived(QWidget* widget,
                                    GdkDragContext* context,
                                    gint x,
                                    gint y,
@@ -998,7 +1001,7 @@ void WidgetGtk::OnDragDataReceived(GtkWidget* widget,
     drop_target_->OnDragDataReceived(context, x, y, data, info, time);
 }
 
-gboolean WidgetGtk::OnDragDrop(GtkWidget* widget,
+gboolean WidgetQt::OnDragDrop(QWidget* widget,
                                GdkDragContext* context,
                                gint x,
                                gint y,
@@ -1009,7 +1012,7 @@ gboolean WidgetGtk::OnDragDrop(GtkWidget* widget,
   return FALSE;
 }
 
-void WidgetGtk::OnDragEnd(GtkWidget* widget, GdkDragContext* context) {
+void WidgetQt::OnDragEnd(QWidget* widget, GdkDragContext* context) {
   if (!drag_data_) {
     // This indicates we didn't start a drag operation, and should never
     // happen.
@@ -1020,13 +1023,13 @@ void WidgetGtk::OnDragEnd(GtkWidget* widget, GdkDragContext* context) {
   MessageLoop::current()->Quit();
 }
 
-gboolean WidgetGtk::OnDragFailed(GtkWidget* widget,
+gboolean WidgetQt::OnDragFailed(QWidget* widget,
                                  GdkDragContext* context,
                                  GtkDragResult result) {
   return FALSE;
 }
 
-void WidgetGtk::OnDragLeave(GtkWidget* widget,
+void WidgetQt::OnDragLeave(QWidget* widget,
                             GdkDragContext* context,
                             guint time) {
   if (ignore_drag_leave_) {
@@ -1039,7 +1042,7 @@ void WidgetGtk::OnDragLeave(GtkWidget* widget,
   }
 }
 
-gboolean WidgetGtk::OnDragMotion(GtkWidget* widget,
+gboolean WidgetQt::OnDragMotion(QWidget* widget,
                                  GdkDragContext* context,
                                  gint x,
                                  gint y,
@@ -1049,7 +1052,7 @@ gboolean WidgetGtk::OnDragMotion(GtkWidget* widget,
   return drop_target_->OnDragMotion(context, x, y, time);
 }
 
-gboolean WidgetGtk::OnEnterNotify(GtkWidget* widget, GdkEventCrossing* event) {
+gboolean WidgetQt::OnEnterNotify(QWidget* widget, GdkEventCrossing* event) {
   if (last_mouse_event_was_move_ && last_mouse_move_x_ == event->x_root &&
       last_mouse_move_y_ == event->y_root) {
     // Don't generate a mouse event for the same location as the last.
@@ -1087,14 +1090,14 @@ gboolean WidgetGtk::OnEnterNotify(GtkWidget* widget, GdkEventCrossing* event) {
   return false;
 }
 
-gboolean WidgetGtk::OnLeaveNotify(GtkWidget* widget, GdkEventCrossing* event) {
+gboolean WidgetQt::OnLeaveNotify(QWidget* widget, GdkEventCrossing* event) {
   last_mouse_event_was_move_ = false;
   if (!has_capture_ && !is_mouse_down_)
     root_view_->ProcessOnMouseExited();
   return false;
 }
 
-gboolean WidgetGtk::OnMotionNotify(GtkWidget* widget, GdkEventMotion* event) {
+gboolean WidgetQt::OnMotionNotify(QWidget* widget, GdkEventMotion* event) {
   int x = 0, y = 0;
   GetContainedWidgetEventCoordinates(event, &x, &y);
 
@@ -1120,20 +1123,20 @@ gboolean WidgetGtk::OnMotionNotify(GtkWidget* widget, GdkEventMotion* event) {
   return true;
 }
 
-gboolean WidgetGtk::OnButtonPress(GtkWidget* widget, GdkEventButton* event) {
+gboolean WidgetQt::OnButtonPress(QWidget* widget, GdkEventButton* event) {
   return ProcessMousePressed(event);
 }
 
-gboolean WidgetGtk::OnButtonRelease(GtkWidget* widget, GdkEventButton* event) {
+gboolean WidgetQt::OnButtonRelease(QWidget* widget, GdkEventButton* event) {
   ProcessMouseReleased(event);
   return true;
 }
 
-gboolean WidgetGtk::OnScroll(GtkWidget* widget, GdkEventScroll* event) {
+gboolean WidgetQt::OnScroll(QWidget* widget, GdkEventScroll* event) {
   return ProcessScroll(event);
 }
 
-gboolean WidgetGtk::OnFocusIn(GtkWidget* widget, GdkEventFocus* event) {
+gboolean WidgetQt::OnFocusIn(QWidget* widget, GdkEventFocus* event) {
   if (has_focus_)
     return false;  // This is the second focus-in event in a row, ignore it.
   has_focus_ = true;
@@ -1153,7 +1156,7 @@ gboolean WidgetGtk::OnFocusIn(GtkWidget* widget, GdkEventFocus* event) {
   return false;
 }
 
-gboolean WidgetGtk::OnFocusOut(GtkWidget* widget, GdkEventFocus* event) {
+gboolean WidgetQt::OnFocusOut(QWidget* widget, GdkEventFocus* event) {
   if (!has_focus_)
     return false;  // This is the second focus-out event in a row, ignore it.
   has_focus_ = false;
@@ -1166,7 +1169,7 @@ gboolean WidgetGtk::OnFocusOut(GtkWidget* widget, GdkEventFocus* event) {
   return false;
 }
 
-gboolean WidgetGtk::OnKeyEvent(GtkWidget* widget, GdkEventKey* event) {
+gboolean WidgetQt::OnKeyEvent(QWidget* widget, GdkEventKey* event) {
   KeyEvent key(event);
 
   // Always reset |should_handle_menu_key_release_| unless we are handling a
@@ -1181,7 +1184,7 @@ gboolean WidgetGtk::OnKeyEvent(GtkWidget* widget, GdkEventKey* event) {
   // Dispatch the key event to View hierarchy first.
   handled = root_view_->ProcessKeyEvent(key);
 
-  // Dispatch the key event to native GtkWidget hierarchy.
+  // Dispatch the key event to native QWidget hierarchy.
   // To prevent GtkWindow from handling the key event as a keybinding, we need
   // to bypass GtkWindow's default key event handler and dispatch the event
   // here.
@@ -1191,7 +1194,7 @@ gboolean WidgetGtk::OnKeyEvent(GtkWidget* widget, GdkEventKey* event) {
   // On Linux, in order to handle VKEY_MENU (Alt) accelerator key correctly and
   // avoid issues like: http://crbug.com/40966 and http://crbug.com/49701, we
   // should only send the key event to the focus manager if it's not handled by
-  // any View or native GtkWidget.
+  // any View or native QWidget.
   // The flow is different when the focus is in a RenderWidgetHostViewGtk, which
   // always consumes the key event and send it back to us later by calling
   // HandleKeyboardEvent() directly, if it's not handled by webkit.
@@ -1207,7 +1210,7 @@ gboolean WidgetGtk::OnKeyEvent(GtkWidget* widget, GdkEventKey* event) {
   return GTK_IS_WINDOW(widget) ? true : handled;
 }
 
-gboolean WidgetGtk::OnQueryTooltip(GtkWidget* widget,
+gboolean WidgetQt::OnQueryTooltip(QWidget* widget,
                                    gint x,
                                    gint y,
                                    gboolean keyboard_mode,
@@ -1215,17 +1218,17 @@ gboolean WidgetGtk::OnQueryTooltip(GtkWidget* widget,
   return tooltip_manager_->ShowTooltip(x, y, keyboard_mode, tooltip);
 }
 
-gboolean WidgetGtk::OnVisibilityNotify(GtkWidget* widget,
+gboolean WidgetQt::OnVisibilityNotify(QWidget* widget,
                                        GdkEventVisibility* event) {
   return false;
 }
 
-gboolean WidgetGtk::OnGrabBrokeEvent(GtkWidget* widget, GdkEvent* event) {
+gboolean WidgetQt::OnGrabBrokeEvent(QWidget* widget, GdkEvent* event) {
   HandleGrabBroke();
   return false;  // To let other widgets get the event.
 }
 
-void WidgetGtk::OnGrabNotify(GtkWidget* widget, gboolean was_grabbed) {
+void WidgetQt::OnGrabNotify(QWidget* widget, gboolean was_grabbed) {
   if (!window_contents_)
     return;  // Grab broke after window destroyed, don't try processing it.
 
@@ -1233,38 +1236,38 @@ void WidgetGtk::OnGrabNotify(GtkWidget* widget, gboolean was_grabbed) {
   HandleGrabBroke();
 }
 
-void WidgetGtk::OnDestroy(GtkWidget* object) {
+void WidgetQt::OnDestroy(QWidget* object) {
   // Note that this handler is hooked to GtkObject::destroy.
   // NULL out pointers here since we might still be in an observerer list
   // until delstion happens.
   widget_ = window_contents_ = NULL;
   delegate_ = NULL;
   if (delete_on_destroy_) {
-    // Delays the deletion of this WidgetGtk as we want its children to have
+    // Delays the deletion of this WidgetQt as we want its children to have
     // access to it when destroyed.
     MessageLoop::current()->DeleteSoon(FROM_HERE, this);
   }
 }
 
-void WidgetGtk::OnShow(GtkWidget* widget) {
+void WidgetQt::OnShow(QWidget* widget) {
 }
 
-void WidgetGtk::OnHide(GtkWidget* widget) {
+void WidgetQt::OnHide(QWidget* widget) {
 }
 
-void WidgetGtk::DoGrab() {
+void WidgetQt::DoGrab() {
   has_capture_ = true;
   gtk_grab_add(window_contents_);
 }
 
-void WidgetGtk::ReleaseGrab() {
+void WidgetQt::ReleaseGrab() {
   if (has_capture_) {
     has_capture_ = false;
     gtk_grab_remove(window_contents_);
   }
 }
 
-void WidgetGtk::HandleGrabBroke() {
+void WidgetQt::HandleGrabBroke() {
   if (has_capture_) {
     if (is_mouse_down_)
       root_view_->ProcessMouseDragCanceled();
@@ -1274,13 +1277,13 @@ void WidgetGtk::HandleGrabBroke() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// WidgetGtk, private:
+// WidgetQt, private:
 
-RootView* WidgetGtk::CreateRootView() {
+RootView* WidgetQt::CreateRootView() {
   return new RootView(this);
 }
 
-gboolean WidgetGtk::OnWindowPaint(GtkWidget* widget, GdkEventExpose* event) {
+gboolean WidgetQt::OnWindowPaint(QWidget* widget, GdkEventExpose* event) {
   // Clear the background to be totally transparent. We don't need to
   // paint the root view here as that is done by OnPaint.
   DCHECK(transparent_);
@@ -1288,7 +1291,7 @@ gboolean WidgetGtk::OnWindowPaint(GtkWidget* widget, GdkEventExpose* event) {
   return false;
 }
 
-bool WidgetGtk::ProcessMousePressed(GdkEventButton* event) {
+bool WidgetQt::ProcessMousePressed(GdkEventButton* event) {
   if (event->type == GDK_2BUTTON_PRESS || event->type == GDK_3BUTTON_PRESS) {
     // The sequence for double clicks is press, release, press, 2press, release.
     // This means that at the time we get the second 'press' we don't know
@@ -1321,7 +1324,7 @@ bool WidgetGtk::ProcessMousePressed(GdkEventButton* event) {
   return !transparent_;
 }
 
-void WidgetGtk::ProcessMouseReleased(GdkEventButton* event) {
+void WidgetQt::ProcessMouseReleased(GdkEventButton* event) {
   int x = 0, y = 0;
   GetContainedWidgetEventCoordinates(event, &x, &y);
 
@@ -1338,7 +1341,7 @@ void WidgetGtk::ProcessMouseReleased(GdkEventButton* event) {
     root_view_->OnMouseReleased(mouse_up, false);
 }
 
-bool WidgetGtk::ProcessScroll(GdkEventScroll* event) {
+bool WidgetQt::ProcessScroll(GdkEventScroll* event) {
   // An event may come from a contained widget which has its own gdk window.
   // Translate it to the widget's coordinates.
   int x = 0, y = 0;
@@ -1371,15 +1374,15 @@ bool WidgetGtk::ProcessScroll(GdkEventScroll* event) {
 }
 
 // static
-void WidgetGtk::SetRootViewForWidget(GtkWidget* widget, RootView* root_view) {
+void WidgetQt::SetRootViewForWidget(QWidget* widget, RootView* root_view) {
   g_object_set_data(G_OBJECT(widget), "root-view", root_view);
 }
 
 // static
-Window* WidgetGtk::GetWindowImpl(GtkWidget* widget) {
-  GtkWidget* parent = widget;
+Window* WidgetQt::GetWindowImpl(QWidget* widget) {
+  QWidget* parent = widget;
   while (parent) {
-    WidgetGtk* widget_gtk = GetViewForNative(parent);
+    WidgetQt* widget_gtk = GetViewForNative(parent);
     if (widget_gtk && widget_gtk->is_window_)
       return static_cast<WindowGtk*>(widget_gtk);
     parent = gtk_widget_get_parent(parent);
@@ -1387,7 +1390,7 @@ Window* WidgetGtk::GetWindowImpl(GtkWidget* widget) {
   return NULL;
 }
 
-void WidgetGtk::CreateGtkWidget(GtkWidget* parent, const gfx::Rect& bounds) {
+void WidgetQt::CreateGtkWidget(QWidget* parent, const gfx::Rect& bounds) {
   // We turn off double buffering for two reasons:
   // 1. We draw to a canvas then composite to the screen, which means we're
   //    doing our own double buffering already.
@@ -1402,7 +1405,7 @@ void WidgetGtk::CreateGtkWidget(GtkWidget* parent, const gfx::Rect& bounds) {
       GTK_WIDGET_UNSET_FLAGS(widget_, GTK_DOUBLE_BUFFERED);
     gtk_fixed_set_has_window(GTK_FIXED(widget_), true);
     if (!parent && !null_parent_) {
-      GtkWidget* popup = gtk_window_new(GTK_WINDOW_POPUP);
+      QWidget* popup = gtk_window_new(GTK_WINDOW_POPUP);
       null_parent_ = gtk_fixed_new();
       gtk_widget_set_name(widget_, "views-gtkwidget-null-parent");
       gtk_container_add(GTK_CONTAINER(popup), null_parent_);
@@ -1446,13 +1449,13 @@ void WidgetGtk::CreateGtkWidget(GtkWidget* parent, const gfx::Rect& bounds) {
     GTK_WIDGET_UNSET_FLAGS(widget_, GTK_DOUBLE_BUFFERED);
 
     // Gtk determines the size for windows based on the requested size of the
-    // child. For WidgetGtk the child is a fixed. If the fixed ends up with a
+    // child. For WidgetQt the child is a fixed. If the fixed ends up with a
     // child widget it's possible the child widget will drive the requested size
     // of the widget, which we don't want. We explicitly set a value of 1x1 here
     // so that gtk doesn't attempt to resize the window if we end up with a
     // situation where the requested size of a child of the fixed is greater
     // than the size of the window. By setting the size in this manner we're
-    // also allowing users of WidgetGtk to change the requested size at any
+    // also allowing users of WidgetQt to change the requested size at any
     // time.
     gtk_widget_set_size_request(widget_, 1, 1);
 
@@ -1495,7 +1498,7 @@ void WidgetGtk::CreateGtkWidget(GtkWidget* parent, const gfx::Rect& bounds) {
   SetNativeWindowProperty(kWidgetKey, this);
 }
 
-void WidgetGtk::ConfigureWidgetForTransparentBackground(GtkWidget* parent) {
+void WidgetQt::ConfigureWidgetForTransparentBackground(QWidget* parent) {
   DCHECK(widget_ && window_contents_);
 
   GdkColormap* rgba_colormap =
@@ -1525,7 +1528,7 @@ void WidgetGtk::ConfigureWidgetForTransparentBackground(GtkWidget* parent) {
   gtk_widget_set_colormap(window_contents_, rgba_colormap);
 }
 
-void WidgetGtk::ConfigureWidgetForIgnoreEvents() {
+void WidgetQt::ConfigureWidgetForIgnoreEvents() {
   gtk_widget_realize(widget_);
   GdkWindow* gdk_window = widget_->window;
   Display* display = GDK_WINDOW_XDISPLAY(gdk_window);
@@ -1545,7 +1548,7 @@ void WidgetGtk::ConfigureWidgetForIgnoreEvents() {
       0);
 }
 
-void WidgetGtk::DrawTransparentBackground(GtkWidget* widget,
+void WidgetQt::DrawTransparentBackground(QWidget* widget,
                                           GdkEventExpose* event) {
   cairo_t* cr = gdk_cairo_create(widget->window);
   cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
@@ -1562,7 +1565,7 @@ Widget* Widget::CreatePopupWidget(TransparencyParam transparent,
                                   EventsParam accept_events,
                                   DeleteParam delete_on_destroy,
                                   MirroringParam mirror_in_rtl) {
-  WidgetGtk* popup = new WidgetGtk(WidgetGtk::TYPE_POPUP);
+  WidgetQt* popup = new WidgetQt(WidgetQt::TYPE_POPUP);
   popup->set_delete_on_destroy(delete_on_destroy == DeleteOnDestroy);
   if (transparent == Transparent)
     popup->MakeTransparent();
@@ -1573,11 +1576,11 @@ Widget* Widget::CreatePopupWidget(TransparencyParam transparent,
 
 // Callback from gtk_container_foreach. Locates the first root view of widget
 // or one of it's descendants.
-static void RootViewLocatorCallback(GtkWidget* widget,
+static void RootViewLocatorCallback(QWidget* widget,
                                     gpointer root_view_p) {
   RootView** root_view = static_cast<RootView**>(root_view_p);
   if (!*root_view) {
-    *root_view = WidgetGtk::GetRootViewForWidget(widget);
+    *root_view = WidgetQt::GetRootViewForWidget(widget);
     if (!*root_view && GTK_IS_CONTAINER(widget)) {
       // gtk_container_foreach only iterates over children, not all descendants,
       // so we have to recurse here to get all descendants.
@@ -1589,7 +1592,7 @@ static void RootViewLocatorCallback(GtkWidget* widget,
 
 // static
 RootView* Widget::FindRootView(GtkWindow* window) {
-  RootView* root_view = WidgetGtk::GetRootViewForWidget(GTK_WIDGET(window));
+  RootView* root_view = WidgetQt::GetRootViewForWidget(GTK_WIDGET(window));
   if (root_view)
     return root_view;
 
@@ -1599,11 +1602,11 @@ RootView* Widget::FindRootView(GtkWindow* window) {
   return root_view;
 }
 
-static void AllRootViewsLocatorCallback(GtkWidget* widget,
+static void AllRootViewsLocatorCallback(QWidget* widget,
                                         gpointer root_view_p) {
   std::set<RootView*>* root_views_set =
       reinterpret_cast<std::set<RootView*>*>(root_view_p);
-  RootView *root_view = WidgetGtk::GetRootViewForWidget(widget);
+  RootView *root_view = WidgetQt::GetRootViewForWidget(widget);
   if (!root_view && GTK_IS_CONTAINER(widget)) {
     // gtk_container_foreach only iterates over children, not all descendants,
     // so we have to recurse here to get all descendants.
@@ -1618,7 +1621,7 @@ static void AllRootViewsLocatorCallback(GtkWidget* widget,
 // static
 void Widget::FindAllRootViews(GtkWindow* window,
                               std::vector<RootView*>* root_views) {
-  RootView* root_view = WidgetGtk::GetRootViewForWidget(GTK_WIDGET(window));
+  RootView* root_view = WidgetQt::GetRootViewForWidget(GTK_WIDGET(window));
   if (root_view)
     root_views->push_back(root_view);
 

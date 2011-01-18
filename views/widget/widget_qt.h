@@ -15,6 +15,8 @@
 #include "views/focus/focus_manager.h"
 #include "views/widget/widget.h"
 
+class QWidget;
+
 namespace gfx {
 class Rect;
 }
@@ -36,7 +38,7 @@ class View;
 class WindowGtk;
 
 // Widget implementation for GTK.
-class WidgetGtk
+class WidgetQt
     : public Widget,
       public FocusTraversable,
       public ActiveWindowWatcherX::Observer {
@@ -59,23 +61,8 @@ class WidgetGtk
     TYPE_CHILD
   };
 
-  explicit WidgetGtk(Type type);
-  virtual ~WidgetGtk();
-
-  // Marks this window as transient to its parent. A window that is transient
-  // to its parent results in the parent rendering active when the child is
-  // active.
-  // This must be invoked before Init. This is only used for types other than
-  // TYPE_CHILD. The default is false.
-  // See gtk_window_set_transient_for for details.
-  void make_transient_to_parent() {
-    DCHECK(!widget_);
-    transient_to_parent_ = true;
-  }
-
-  // Returns the transient parent. See make_transient_to_parent for details on
-  // what the transient parent is.
-  GtkWindow* GetTransientParent() const;
+  explicit WidgetQt(Type type);
+  virtual ~WidgetQt();
 
   // Makes the background of the window totally transparent. This must be
   // invoked before Init. This does a couple of checks and returns true if
@@ -107,22 +94,22 @@ class WidgetGtk
   // Adds and removes the specified widget as a child of this widget's contents.
   // These methods make sure to add the widget to the window's contents
   // container if this widget is a window.
-  void AddChild(GtkWidget* child);
-  void RemoveChild(GtkWidget* child);
+  void AddChild(QWidget* child);
+  void RemoveChild(QWidget* child);
 
   // A safe way to reparent a child widget to this widget. Calls
   // gtk_widget_reparent which handles refcounting to avoid destroying the
   // widget when removing it from its old parent.
-  void ReparentChild(GtkWidget* child);
+  void ReparentChild(QWidget* child);
 
-  // Positions a child GtkWidget at the specified location and bounds.
-  void PositionChild(GtkWidget* child, int x, int y, int w, int h);
+  // Positions a child QWidget at the specified location and bounds.
+  void PositionChild(QWidget* child, int x, int y, int w, int h);
 
-  // Parent GtkWidget all children are added to. When this WidgetGtk corresponds
+  // Parent QWidget all children are added to. When this WidgetGtk corresponds
   // to a top level window, this is the GtkFixed within the GtkWindow, not the
   // GtkWindow itself. For child widgets, this is the same GtkFixed as
   // |widget_|.
-  GtkWidget* window_contents() const { return window_contents_; }
+  QWidget* window_contents() const { return window_contents_; }
 
   // Starts a drag on this widget. This blocks until the drag is done.
   void DoDrag(const OSExchangeData& data, int operation);
@@ -144,14 +131,14 @@ class WidgetGtk
   virtual void SetInitialFocus() {}
 
   // Gets the WidgetGtk in the userdata section of the widget.
-  static WidgetGtk* GetViewForNative(GtkWidget* widget);
+  static WidgetQt* GetViewForNative(QWidget* widget);
 
   // Sets the drop target to NULL. This is invoked by DropTargetGTK when the
   // drop is done.
   void ResetDropTarget();
 
   // Returns the RootView for |widget|.
-  static RootView* GetRootViewForWidget(GtkWidget* widget);
+  static RootView* GetRootViewForWidget(QWidget* widget);
 
   // Gets the requested size of the widget.  This can be the size
   // stored in properties for a GtkViewsFixed, or in the requisitioned
@@ -287,7 +274,7 @@ class WidgetGtk
   // Releases a grab done by this widget.
   virtual void ReleaseGrab();
 
-  // Invoked when input grab is stolen by other GtkWidget in the same
+  // Invoked when input grab is stolen by other QWidget in the same
   // application.
   virtual void HandleGrabBroke();
 
@@ -314,18 +301,18 @@ class WidgetGtk
   // Process scroll event.
   bool ProcessScroll(GdkEventScroll* event);
 
-  static void SetRootViewForWidget(GtkWidget* widget, RootView* root_view);
+  static void SetRootViewForWidget(QWidget* widget, RootView* root_view);
 
   // Returns the first ancestor of |widget| that is a window.
-  static Window* GetWindowImpl(GtkWidget* widget);
+  static Window* GetWindowImpl(QWidget* widget);
 
-  // Creates the GtkWidget.
-  void CreateGtkWidget(GtkWidget* parent, const gfx::Rect& bounds);
+  // Creates the QWidget.
+  void CreateGtkWidget(QWidget* parent, const gfx::Rect& bounds);
 
   // Invoked from create widget to enable the various bits needed for a
   // transparent background. This is only invoked if MakeTransparent has been
   // invoked.
-  void ConfigureWidgetForTransparentBackground(GtkWidget* parent);
+  void ConfigureWidgetForTransparentBackground(QWidget* parent);
 
   // Invoked from create widget to enable the various bits needed for a
   // window which doesn't receive events. This is only invoked if
@@ -333,7 +320,7 @@ class WidgetGtk
   void ConfigureWidgetForIgnoreEvents();
 
   // A utility function to draw a transparent background onto the |widget|.
-  static void DrawTransparentBackground(GtkWidget* widget,
+  static void DrawTransparentBackground(QWidget* widget,
                                         GdkEventExpose* event);
 
   const Type type_;
@@ -341,13 +328,13 @@ class WidgetGtk
   // Our native views. If we're a window/popup, then widget_ is the window and
   // window_contents_ is a GtkFixed. If we're not a window/popup, then widget_
   // and window_contents_ point to the same GtkFixed.
-  GtkWidget* widget_;
-  GtkWidget* window_contents_;
+  QWidget* widget_;
+  QWidget* window_contents_;
 
   // Child GtkWidgets created with no parent need to be parented to a valid top
   // level window otherwise Gtk throws a fit. |null_parent_| is an invisible
   // popup that such GtkWidgets are parented to.
-  static GtkWidget* null_parent_;
+  static QWidget* null_parent_;
 
   // The TooltipManager.
   // WARNING: RootView's destructor calls into the TooltipManager. As such, this
@@ -383,7 +370,7 @@ class WidgetGtk
   int last_mouse_move_y_;
 
   // The following factory is used to delay destruction.
-  ScopedRunnableMethodFactory<WidgetGtk> close_widget_factory_;
+  ScopedRunnableMethodFactory<WidgetQt> close_widget_factory_;
 
   // See description above setter.
   bool delete_on_destroy_;
@@ -415,7 +402,7 @@ class WidgetGtk
   bool transient_to_parent_;
 
   // Last size supplied to OnSizeAllocate. We cache this as any time the
-  // size of a GtkWidget changes size_allocate is called, even if the size
+  // size of a QWidget changes size_allocate is called, even if the size
   // didn't change. If we didn't cache this and ignore calls when the size
   // hasn't changed, we can end up getting stuck in a never ending loop.
   gfx::Size size_;
@@ -451,7 +438,7 @@ class WidgetGtk
   // Indicates if we should handle the upcoming Alt key release event.
   bool should_handle_menu_key_release_;
 
-  DISALLOW_COPY_AND_ASSIGN(WidgetGtk);
+  DISALLOW_COPY_AND_ASSIGN(WidgetQt);
 };
 
 }  // namespace views
