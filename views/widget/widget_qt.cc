@@ -233,7 +233,6 @@ WidgetQt::WidgetQt(Type type)
     : is_window_(false),
       type_(type),
       widget_(NULL),
-      window_contents_(NULL),
       focus_manager_(NULL),
       is_mouse_down_(false),
       has_capture_(false),
@@ -310,11 +309,11 @@ bool WidgetQt::MakeTransparent() {
 
 void WidgetQt::EnableDoubleBuffer(bool enabled) {
   is_double_buffered_ = enabled;
-  if (window_contents_) {
+  if (widget_) {
     if (is_double_buffered_)
-      GTK_WIDGET_SET_FLAGS(window_contents_, GTK_DOUBLE_BUFFERED);
+      GTK_WIDGET_SET_FLAGS(widget_, GTK_DOUBLE_BUFFERED);
     else
-      GTK_WIDGET_UNSET_FLAGS(window_contents_, GTK_DOUBLE_BUFFERED);
+      GTK_WIDGET_UNSET_FLAGS(widget_, GTK_DOUBLE_BUFFERED);
   }
 }
 
@@ -328,26 +327,26 @@ bool WidgetQt::MakeIgnoreEvents() {
 }
 
 void WidgetQt::AddChild(QWidget* child) {
-  gtk_container_add(GTK_CONTAINER(window_contents_), child);
+  gtk_container_add(GTK_CONTAINER(widget_), child);
 }
 
 void WidgetQt::RemoveChild(QWidget* child) {
   // We can be called after the contents widget has been destroyed, e.g. any
   // NativeViewHost not removed from the view hierarchy before the window is
   // closed.
-  if (GTK_IS_CONTAINER(window_contents_)) {
-    gtk_container_remove(GTK_CONTAINER(window_contents_), child);
+  if (GTK_IS_CONTAINER(widget_)) {
+    gtk_container_remove(GTK_CONTAINER(widget_), child);
     gtk_views_fixed_set_widget_size(child, 0, 0);
   }
 }
 
 void WidgetQt::ReparentChild(QWidget* child) {
-  gtk_widget_reparent(child, window_contents_);
+  gtk_widget_reparent(child, widget_);
 }
 
 void WidgetQt::PositionChild(QWidget* child, int x, int y, int w, int h) {
   gtk_views_fixed_set_widget_size(child, w, h);
-  gtk_fixed_move(GTK_FIXED(window_contents_), child, x, y);
+  gtk_fixed_move(GTK_FIXED(widget_), child, x, y);
 }
 
 void WidgetQt::DoDrag(const OSExchangeData& data, int operation) {
@@ -359,7 +358,7 @@ void WidgetQt::DoDrag(const OSExchangeData& data, int operation) {
       static_cast<const OSExchangeDataProviderGtk&>(data.provider()));
 
   GdkDragContext* context = gtk_drag_begin(
-      window_contents_,
+      widget_,
       targets,
       static_cast<GdkDragAction>(
           DragDropTypes::DragOperationToGdkDragAction(operation)),
@@ -508,7 +507,7 @@ void WidgetQt::Init(QWidget* parent,
   // minimum we need painting to happen on the parent (otherwise painting
   // doesn't work at all), and similarly we need mouse release events on the
   // parent as windows don't get mouse releases.
-  gtk_widget_add_events(window_contents_,
+  gtk_widget_add_events(widget_,
                         GDK_ENTER_NOTIFY_MASK |
                         GDK_LEAVE_NOTIFY_MASK |
                         GDK_BUTTON_PRESS_MASK |
@@ -518,30 +517,30 @@ void WidgetQt::Init(QWidget* parent,
                         GDK_KEY_RELEASE_MASK);
   SetRootViewForWidget(widget_, root_view_.get());
 
-  g_signal_connect_after(G_OBJECT(window_contents_), "size_request",
+  g_signal_connect_after(G_OBJECT(widget_), "size_request",
                          G_CALLBACK(&OnSizeRequestThunk), this);
-  g_signal_connect_after(G_OBJECT(window_contents_), "size_allocate",
+  g_signal_connect_after(G_OBJECT(widget_), "size_allocate",
                          G_CALLBACK(&OnSizeAllocateThunk), this);
-  gtk_widget_set_app_paintable(window_contents_, true);
-  g_signal_connect(window_contents_, "expose_event",
+  gtk_widget_set_app_paintable(widget_, true);
+  g_signal_connect(widget_, "expose_event",
                    G_CALLBACK(&OnPaintThunk), this);
-  g_signal_connect(window_contents_, "enter_notify_event",
+  g_signal_connect(widget_, "enter_notify_event",
                    G_CALLBACK(&OnEnterNotifyThunk), this);
-  g_signal_connect(window_contents_, "leave_notify_event",
+  g_signal_connect(widget_, "leave_notify_event",
                    G_CALLBACK(&OnLeaveNotifyThunk), this);
-  g_signal_connect(window_contents_, "motion_notify_event",
+  g_signal_connect(widget_, "motion_notify_event",
                    G_CALLBACK(&OnMotionNotifyThunk), this);
-  g_signal_connect(window_contents_, "button_press_event",
+  g_signal_connect(widget_, "button_press_event",
                    G_CALLBACK(&OnButtonPressThunk), this);
-  g_signal_connect(window_contents_, "button_release_event",
+  g_signal_connect(widget_, "button_release_event",
                    G_CALLBACK(&OnButtonReleaseThunk), this);
-  g_signal_connect(window_contents_, "grab_broken_event",
+  g_signal_connect(widget_, "grab_broken_event",
                    G_CALLBACK(&OnGrabBrokeEventThunk), this);
-  g_signal_connect(window_contents_, "grab_notify",
+  g_signal_connect(widget_, "grab_notify",
                    G_CALLBACK(&OnGrabNotifyThunk), this);
-  g_signal_connect(window_contents_, "scroll_event",
+  g_signal_connect(widget_, "scroll_event",
                    G_CALLBACK(&OnScrollThunk), this);
-  g_signal_connect(window_contents_, "visibility_notify_event",
+  g_signal_connect(widget_, "visibility_notify_event",
                    G_CALLBACK(&OnVisibilityNotifyThunk), this);
 
   // In order to receive notification when the window is no longer the front
@@ -568,28 +567,28 @@ void WidgetQt::Init(QWidget* parent,
                    G_CALLBACK(&OnKeyEventThunk), this);
 
   // Drag and drop.
-  gtk_drag_dest_set(window_contents_, static_cast<GtkDestDefaults>(0),
+  gtk_drag_dest_set(widget_, static_cast<GtkDestDefaults>(0),
                     NULL, 0, GDK_ACTION_COPY);
-  g_signal_connect(window_contents_, "drag_motion",
+  g_signal_connect(widget_, "drag_motion",
                    G_CALLBACK(&OnDragMotionThunk), this);
-  g_signal_connect(window_contents_, "drag_data_received",
+  g_signal_connect(widget_, "drag_data_received",
                    G_CALLBACK(&OnDragDataReceivedThunk), this);
-  g_signal_connect(window_contents_, "drag_drop",
+  g_signal_connect(widget_, "drag_drop",
                    G_CALLBACK(&OnDragDropThunk), this);
-  g_signal_connect(window_contents_, "drag_leave",
+  g_signal_connect(widget_, "drag_leave",
                    G_CALLBACK(&OnDragLeaveThunk), this);
-  g_signal_connect(window_contents_, "drag_data_get",
+  g_signal_connect(widget_, "drag_data_get",
                    G_CALLBACK(&OnDragDataGetThunk), this);
-  g_signal_connect(window_contents_, "drag_end",
+  g_signal_connect(widget_, "drag_end",
                    G_CALLBACK(&OnDragEndThunk), this);
-  g_signal_connect(window_contents_, "drag_failed",
+  g_signal_connect(widget_, "drag_failed",
                    G_CALLBACK(&OnDragFailedThunk), this);
 
   tooltip_manager_.reset(new TooltipManagerGtk(this));
 
   // Register for tooltips.
-  g_object_set(G_OBJECT(window_contents_), "has-tooltip", TRUE, NULL);
-  g_signal_connect(window_contents_, "query_tooltip",
+  g_object_set(G_OBJECT(widget_), "has-tooltip", TRUE, NULL);
+  g_signal_connect(widget_, "query_tooltip",
                    G_CALLBACK(&OnQueryTooltipThunk), this);
 
   if (type_ == TYPE_CHILD) {
@@ -1229,10 +1228,10 @@ gboolean WidgetQt::OnGrabBrokeEvent(QWidget* widget, GdkEvent* event) {
 }
 
 void WidgetQt::OnGrabNotify(QWidget* widget, gboolean was_grabbed) {
-  if (!window_contents_)
+  if (!widget_)
     return;  // Grab broke after window destroyed, don't try processing it.
 
-  gtk_grab_remove(window_contents_);
+  gtk_grab_remove(widget_);
   HandleGrabBroke();
 }
 
@@ -1240,7 +1239,7 @@ void WidgetQt::OnDestroy(QWidget* object) {
   // Note that this handler is hooked to GtkObject::destroy.
   // NULL out pointers here since we might still be in an observerer list
   // until delstion happens.
-  widget_ = window_contents_ = NULL;
+  widget_ = widget_ = NULL;
   delegate_ = NULL;
   if (delete_on_destroy_) {
     // Delays the deletion of this WidgetQt as we want its children to have
@@ -1257,13 +1256,13 @@ void WidgetQt::OnHide(QWidget* widget) {
 
 void WidgetQt::DoGrab() {
   has_capture_ = true;
-  gtk_grab_add(window_contents_);
+  gtk_grab_add(widget_);
 }
 
 void WidgetQt::ReleaseGrab() {
   if (has_capture_) {
     has_capture_ = false;
-    gtk_grab_remove(window_contents_);
+    gtk_grab_remove(widget_);
   }
 }
 
@@ -1399,7 +1398,7 @@ void WidgetQt::CreateGtkWidget(QWidget* parent, const gfx::Rect& bounds) {
   //    that if we use GTK's double buffering and we tried to expand the dirty
   //    region, it wouldn't get painted.
   if (type_ == TYPE_CHILD) {
-    window_contents_ = widget_ = gtk_views_fixed_new();
+    widget_ = widget_ = gtk_views_fixed_new();
     gtk_widget_set_name(widget_, "views-gtkwidget-child-fixed");
     if (!is_double_buffered_)
       GTK_WIDGET_UNSET_FLAGS(widget_, GTK_DOUBLE_BUFFERED);
@@ -1472,14 +1471,14 @@ void WidgetQt::CreateGtkWidget(QWidget* parent, const gfx::Rect& bounds) {
       gtk_window_set_position(GTK_WINDOW(widget_), GTK_WIN_POS_NONE);
     }
 
-    window_contents_ = gtk_views_fixed_new();
-    gtk_widget_set_name(window_contents_, "views-gtkwidget-window-fixed");
+    widget_ = gtk_views_fixed_new();
+    gtk_widget_set_name(widget_, "views-gtkwidget-window-fixed");
     if (!is_double_buffered_)
-      GTK_WIDGET_UNSET_FLAGS(window_contents_, GTK_DOUBLE_BUFFERED);
-    gtk_fixed_set_has_window(GTK_FIXED(window_contents_), true);
-    gtk_container_add(GTK_CONTAINER(widget_), window_contents_);
-    gtk_widget_show(window_contents_);
-    g_object_set_data(G_OBJECT(window_contents_), kWidgetKey,
+      GTK_WIDGET_UNSET_FLAGS(widget_, GTK_DOUBLE_BUFFERED);
+    gtk_fixed_set_has_window(GTK_FIXED(widget_), true);
+    gtk_container_add(GTK_CONTAINER(widget_), widget_);
+    gtk_widget_show(widget_);
+    g_object_set_data(G_OBJECT(widget_), kWidgetKey,
                       static_cast<Widget*>(this));
 
     if (transparent_)
@@ -1499,7 +1498,7 @@ void WidgetQt::CreateGtkWidget(QWidget* parent, const gfx::Rect& bounds) {
 }
 
 void WidgetQt::ConfigureWidgetForTransparentBackground(QWidget* parent) {
-  DCHECK(widget_ && window_contents_);
+  DCHECK(widget_ && widget_);
 
   GdkColormap* rgba_colormap =
       gdk_screen_get_rgba_colormap(gtk_widget_get_screen(widget_));
@@ -1524,8 +1523,8 @@ void WidgetQt::ConfigureWidgetForTransparentBackground(QWidget* parent) {
     DCHECK(parent);
     CompositePainter::AddCompositePainter(parent);
   }
-  DCHECK(!GTK_WIDGET_REALIZED(window_contents_));
-  gtk_widget_set_colormap(window_contents_, rgba_colormap);
+  DCHECK(!GTK_WIDGET_REALIZED(widget_));
+  gtk_widget_set_colormap(widget_, rgba_colormap);
 }
 
 void WidgetQt::ConfigureWidgetForIgnoreEvents() {

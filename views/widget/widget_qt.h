@@ -105,12 +105,6 @@ class WidgetQt
   // Positions a child QWidget at the specified location and bounds.
   void PositionChild(QWidget* child, int x, int y, int w, int h);
 
-  // Parent QWidget all children are added to. When this WidgetGtk corresponds
-  // to a top level window, this is the GtkFixed within the GtkWindow, not the
-  // GtkWindow itself. For child widgets, this is the same GtkFixed as
-  // |widget_|.
-  QWidget* window_contents() const { return window_contents_; }
-
   // Starts a drag on this widget. This blocks until the drag is done.
   void DoDrag(const OSExchangeData& data, int operation);
 
@@ -211,7 +205,7 @@ class WidgetQt
       return false;
     *x = event->x;
     *y = event->y;
-    GdkWindow* dest = GTK_WIDGET(window_contents_)->window;
+    GdkWindow* dest = GTK_WIDGET(widget_)->window;
     if (event->window != dest) {
       int dest_x, dest_y;
       gdk_window_get_root_origin(dest, &dest_x, &dest_y);
@@ -329,7 +323,6 @@ class WidgetQt
   // window_contents_ is a GtkFixed. If we're not a window/popup, then widget_
   // and window_contents_ point to the same GtkFixed.
   QWidget* widget_;
-  QWidget* window_contents_;
 
   // Child GtkWidgets created with no parent need to be parented to a valid top
   // level window otherwise Gtk throws a fit. |null_parent_| is an invisible
