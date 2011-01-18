@@ -95,17 +95,21 @@ void ExamplesMain::Run() {
 
   examples::TextfieldExample t(this);
   tabbed_pane->AddTab(t.GetExampleTitle(), t.GetExampleView());
+  //tabbed_pane->SetVisible(false);
 
-  views::RadioButton* radio_button = new views::RadioButton(L"push",0);
-  radio_button->radiobutton_->show();
+  examples::ButtonExample b(this);
+  tabbed_pane->AddTab(b.GetExampleTitle(), b.GetExampleView());
+  //tabbed_pane->set_background("Red");
 
-  
+  //views::RadioButton* radio_button = new views::RadioButton(L"push",0);
+  //radio_button->radiobutton_->show();
+  //radio_button->SetVisible(false);
+
   window->Show();
-
-
 
   views::AcceleratorHandler accelerator_handler;
   MessageLoopForUI::current()->Run(&accelerator_handler);
+  //QApplication::exec();
 }
 
 }  // examples namespace

@@ -340,6 +340,8 @@ string16 ElideText(const string16& text,
                    const gfx::Font& font,
                    int available_pixel_width,
                    bool elide_in_middle) {
+  return text;
+
   if (text.empty())
     return text;
 

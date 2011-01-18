@@ -15,9 +15,10 @@ namespace gfx {
 
 class Font;  
 
-int ElideText(std::basic_string<unsigned short, base::string16_char_traits, std::allocator<unsigned short> > const&, Font const&, int, bool)
+std::basic_string<unsigned short, base::string16_char_traits, std::allocator<unsigned short> >
+ElideText(std::basic_string<unsigned short, base::string16_char_traits, std::allocator<unsigned short> > const& s, Font const&, int, bool)
 {
-  return 0;
+  return s;
 }
 
 }
