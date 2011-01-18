@@ -353,7 +353,7 @@
       ],
       'include_dirs': [
         '<(DEPTH)/third_party/wtl/include',
-        '/home/petro/qtsdk/qt/include/'
+        '/home/pimeja/cpp/qtsdk-2010.05/qt/include/'
       ],
       'conditions': [
         ['OS=="linux" or OS=="freebsd" or OS=="openbsd"', {
@@ -409,10 +409,6 @@
       ],
     },
     {
-        'controls/single_split_view_unittest.cc',
-        'test/views_test_base.h',
-        'test/test_views_delegate.h',
-        'widget/widget_win_unittest.cc',
       'target_name': 'views_examples',
       'type': 'executable',
       'dependencies': [
@@ -428,7 +424,7 @@
       ],
       'include_dirs': [
         '..',
-        '/home/petro/qtsdk/qt/include/'
+        '/home/pimeja/cpp/qtsdk-2010.05/qt/include/'
       ],
       'sources': [
         'stubs.cc',
@@ -442,8 +438,8 @@
       ],
       'link_settings': {
         'libraries': [
-          '-l/home/petro/qtsdk/qt/lib/libQtCore.so',
-          '-l/home/petro/qtsdk/qt/lib/libQtGui.so'
+          '/home/pimeja/cpp/qtsdk-2010.05/qt/lib/libQtCore.so',
+          '/home/pimeja/cpp/qtsdk-2010.05/qt/lib/libQtGui.so'
         ]
       },
       'conditions': [

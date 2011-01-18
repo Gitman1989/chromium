@@ -21,8 +21,6 @@
   ],
   'targets': [
     {
-        'win_util_unittest.cc',
-            'os_exchange_data_win_unittest.cc',
       'target_name': 'app_strings',
       'msvs_guid': 'AE9BF4A2-19C5-49D8-BB1A-F28496DD7051',
       'type': 'none',
