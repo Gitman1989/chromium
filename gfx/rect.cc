@@ -8,7 +8,7 @@
 #include <windows.h>
 #elif defined(OS_MACOSX)
 #include <CoreGraphics/CGGeometry.h>
-#elif defined(OS_POSIX)
+#elif defined(USE_X11) || defined(USE_QT)
 #include <gdk/gdk.h>
 #endif
 
@@ -77,7 +77,7 @@ Rect& Rect::operator=(const CGRect& r) {
   set_height(r.size.height);
   return *this;
 }
-#elif defined(OS_POSIX)
+#elif defined(USE_X11) || defined(USE_QT)
 Rect::Rect(const GdkRectangle& r)
     : origin_(r.x, r.y) {
   set_width(r.width);
@@ -141,7 +141,7 @@ RECT Rect::ToRECT() const {
 CGRect Rect::ToCGRect() const {
   return CGRectMake(x(), y(), width(), height());
 }
-#elif defined(OS_POSIX)
+#elif defined(USE_X11) || defined(USE_QT)
 GdkRectangle Rect::ToGdkRectangle() const {
   GdkRectangle r = {x(), y(), width(), height()};
   return r;

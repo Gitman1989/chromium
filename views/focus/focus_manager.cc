@@ -185,7 +185,7 @@ bool FocusManager::ContainsView(View* view) {
 #if defined(OS_WIN)
     window = ::GetParent(window);
 #else
-    window = gtk_widget_get_parent(window);
+    //window = gtk_widget_get_parent(window);
 #endif
   }
   return false;

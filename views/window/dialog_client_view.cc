@@ -298,7 +298,7 @@ int DialogClientView::NonClientHitTest(const gfx::Point& point) {
 void DialogClientView::Paint(gfx::Canvas* canvas) {
 #if defined(OS_WIN)
   FillViewWithSysColor(canvas, this, GetSysColor(COLOR_3DFACE));
-#else
+#elif defined(USE_X11)
   GtkWidget* widget = GetWidget()->GetNativeView();
   if (GTK_IS_WINDOW(widget)) {
     GtkStyle* window_style = gtk_widget_get_style(widget);
@@ -306,6 +306,7 @@ void DialogClientView::Paint(gfx::Canvas* canvas) {
                             window_style->bg[GTK_STATE_NORMAL]),
                         0, 0, width(), height());
   }
+#elif defined(USE_QT)
 #endif
 }
 

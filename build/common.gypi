@@ -52,8 +52,10 @@
           # and the touch UI.
           ['OS=="win" or chromeos==1 or touchui==1', {
             'toolkit_views%': 1,
+            'toolkit_uses_qt%': 1,
           }, {
             'toolkit_views%': 1,
+            'toolkit_uses_qt%': 1,
           }],
         ],
       },
@@ -64,6 +66,7 @@
       'host_arch%': '<(host_arch)',
       'library%': '<(library)',
       'toolkit_views%': '<(toolkit_views)',
+      'toolkit_uses_qt%': '<(toolkit_uses_qt)',
 
       # Override branding to select the desired branding flavor.
       'branding%': 'Chromium',
@@ -161,6 +164,7 @@
     'target_arch%': '<(target_arch)',
     'host_arch%': '<(host_arch)',
     'toolkit_views%': '<(toolkit_views)',
+    'toolkit_uses_qt%': '<(toolkit_uses_qt)',
     'use_gnome_keyring%': '<(use_gnome_keyring)',
     'linux_fpic%': '<(linux_fpic)',
     'enable_flapper_hacks%': '<(enable_flapper_hacks)',
@@ -517,6 +521,9 @@
       ['toolkit_views==1', {
         'defines': ['TOOLKIT_VIEWS=1'],
       }],
+      ['toolkit_uses_qt==1', {
+        'defines': ['TOOLKIT_USES_QT=1'],
+      }],
       ['chromeos==1', {
         'defines': ['OS_CHROMEOS=1'],
       }],
@@ -630,7 +637,6 @@
             'cflags!': [
               '-Wall',
               '-Wextra',
-              '-Werror',
             ],
           }],
           [ 'OS=="win"', {
@@ -910,7 +916,7 @@
           # there is some 4.4 test infrastructure in place and existing
           # aliasing issues have been fixed.
           'no_strict_aliasing%': 1,
-          'conditions': [['OS=="linux"', {'werror%': '-Werror',}],
+          'conditions': [['OS=="linux"', {'werror%': '',}],
                          ['OS=="freebsd"', {'werror%': '',}],
                          ['OS=="openbsd"', {'werror%': '',}],
           ],

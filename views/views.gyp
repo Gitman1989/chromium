@@ -9,15 +9,20 @@
   },
   'target_defaults': {
     'sources/': [
-      ['exclude', '/(cocoa|gtk|win)/'],
-      ['exclude', '_(cocoa|gtk|linux|mac|posix|skia|win|x)\\.(cc|mm?)$'],
-      ['exclude', '/(gtk|win|x11)_[^/]*\\.cc$'],
+      ['exclude', '/(cocoa|gtk|qt|win)/'],
+      ['exclude', '_(cocoa|gtk|qt|linux|mac|posix|skia|win|x)\\.(cc|mm?)$'],
+      ['exclude', '/(gtk|qt|win|x11)_[^/]*\\.cc$'],
     ],
     'conditions': [
-      ['OS=="linux" or OS=="freebsd" or OS=="openbsd"', {'sources/': [
+      ['(OS=="linux" or OS=="freebsd" or OS=="openbsd") and (toolkit_uses_qt==0)', {'sources/': [
         ['include', '/gtk/'],
         ['include', '_(gtk|linux|posix|skia|x)\\.cc$'],
         ['include', '/(gtk|x11)_[^/]*\\.cc$'],
+      ]}],
+      ['(OS=="linux" or OS=="freebsd" or OS=="openbsd") and (toolkit_uses_qt==1)', {'sources/': [
+        ['include', '/qt/'],
+        ['include', '_(qt|linux|posix|skia|x)\\.cc$'],
+        ['include', '/(qt|x11)_[^/]*\\.cc$'],
       ]}],
       ['OS=="mac"', {'sources/': [
         ['include', '/cocoa/'],
@@ -322,8 +327,9 @@
         'widget/tooltip_window_gtk.h',
         'widget/widget.h',
         'widget/widget_gtk.cc',
-        'widget/widget_qt.cc',
         'widget/widget_gtk.h',
+        'widget/widget_qt.cc',
+        'widget/widget_qt.h',
         'widget/widget_utils.cc',
         'widget/widget_utils.h',
         'widget/widget_win.cc',
@@ -428,12 +434,13 @@
         '/home/pimeja/cpp/qtsdk-2010.05/qt/include/'
       ],
       'sources': [
-        'stubs.cc',
-        'examples/example_base.cc',
-        'examples/example_base.h',
-        'examples/examples_main.cc',
-        'examples/examples_main.h',
-        'examples/widget_example.h',
+        'examples/examples_main_qt.cc',
+#        'stubs.cc',
+#        'examples/example_base.cc',
+#        'examples/example_base.h',
+#        'examples/examples_main.cc',
+#        'examples/examples_main.h',
+#        'examples/widget_example.h',
 
         '<(SHARED_INTERMEDIATE_DIR)/app/app_resources/app_resources.rc',
       ],

@@ -242,6 +242,7 @@ class Clipboard {
 
   // True if we can create a window.
   bool create_window_;
+#elif defined(TOOLKIT_USES_QT)
 #elif !defined(OS_MACOSX)
   // The public API is via WriteObjects() which dispatches to multiple
   // Write*() calls, but on GTK we must write all the clipboard types

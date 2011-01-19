@@ -2,14 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef VIEWS_WIDGET_WIDGET_GTK_H_
-#define VIEWS_WIDGET_WIDGET_GTK_H_
-#pragma once
-
-#include <gtk/gtk.h>
+#ifndef VIEWS_WIDGET_WIDGET_QT_H_
+#define VIEWS_WIDGET_WIDGET_QT_H_
 
 #include "app/active_window_watcher_x.h"
-#include "app/gtk_signal.h"
+//#include "app/gtk_signal.h"
 #include "base/message_loop.h"
 #include "gfx/size.h"
 #include "views/focus/focus_manager.h"
@@ -36,7 +33,7 @@ class DropTargetGtk;
 class FocusSearch;
 class TooltipManagerGtk;
 class View;
-class WindowGtk;
+class WindowQt;
 
 // Widget implementation for GTK.
 class WidgetQt
@@ -202,22 +199,11 @@ class WidgetQt
   template<class Event> bool GetContainedWidgetEventCoordinates(Event* event,
                                                                 int* x,
                                                                 int* y) {
-    if (event == NULL || x == NULL || y == NULL)
-      return false;
-    *x = event->x;
-    *y = event->y;
-    GdkWindow* dest = GTK_WIDGET(widget_)->window;
-    if (event->window != dest) {
-      int dest_x, dest_y;
-      gdk_window_get_root_origin(dest, &dest_x, &dest_y);
-      *x = event->x_root - dest_x;
-      *y = event->y_root - dest_y;
-      return true;
-    }
     return false;
   }
 
   // Event handlers:
+#if 0
   CHROMEGTK_CALLBACK_1(WidgetGtk, gboolean, OnButtonPress, GdkEventButton*);
   CHROMEGTK_CALLBACK_1(WidgetGtk, void, OnSizeRequest, GtkRequisition*);
   CHROMEGTK_CALLBACK_1(WidgetGtk, void, OnSizeAllocate, GtkAllocation*);
@@ -253,6 +239,7 @@ class WidgetQt
   CHROMEGTK_CALLBACK_0(WidgetGtk, void, OnDestroy);
   CHROMEGTK_CALLBACK_0(WidgetGtk, void, OnShow);
   CHROMEGTK_CALLBACK_0(WidgetGtk, void, OnHide);
+#endif
 
   void set_mouse_down(bool mouse_down) { is_mouse_down_ = mouse_down; }
 
@@ -288,7 +275,7 @@ class WidgetQt
 
   virtual RootView* CreateRootView();
 
-  CHROMEGTK_CALLBACK_1(WidgetGtk, gboolean, OnWindowPaint, GdkEventExpose*);
+  //CHROMEGTK_CALLBACK_1(WidgetGtk, gboolean, OnWindowPaint, GdkEventExpose*);
 
   // Process a mouse click.
   bool ProcessMousePressed(GdkEventButton* event);
@@ -439,4 +426,4 @@ class WidgetQt
 
 }  // namespace views
 
-#endif  // VIEWS_WIDGET_WIDGET_GTK_H_
+#endif  // VIEWS_WIDGET_WIDGET_QT_H_

@@ -396,6 +396,7 @@ std::string GetApplicationLocale(const std::string& pref_locale) {
 
 #elif defined(OS_POSIX) && defined(TOOLKIT_USES_GTK)
 
+#if 0
   // GLib implements correct environment variable parsing with
   // the precedence order: LANGUAGE, LC_ALL, LC_MESSAGES and LANG.
   // We used to use our custom parsing code along with ICU for this purpose.
@@ -408,6 +409,9 @@ std::string GetApplicationLocale(const std::string& pref_locale) {
   for (; *languages != NULL; ++languages) {
     candidates.push_back(base::i18n::GetCanonicalLocale(*languages));
   }
+#endif
+
+#elif defined(OS_POSIX) && defined(TOOLKIT_USES_QT)
 
 #else
 #error Unsupported platform, see build/build_config.h

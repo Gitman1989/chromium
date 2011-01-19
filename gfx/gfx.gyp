@@ -10,6 +10,19 @@
     'grit_cmd': ['python', '../tools/grit/grit.py'],    
     'grit_out_dir': '<(SHARED_INTERMEDIATE_DIR)/gfx',
   },
+  'target_defaults': {
+    'sources/': [
+      ['exclude', '_(gtk)\\.(cc|mm?)$'],
+    ],
+    'conditions': [
+      ['(OS=="linux" or OS=="freebsd" or OS=="openbsd") and (toolkit_uses_qt==0)', {'sources/': [
+        ['include', '_(gtk)\\.cc$'],
+      ]}],
+      ['(OS=="linux" or OS=="freebsd" or OS=="openbsd") and (toolkit_uses_qt==1)', {'sources/': [
+        ['include', '_(qt)\\.cc$'],
+      ]}],
+    ],
+  },
   'targets': [
     {
       'target_name': 'gfx_unittests',
@@ -120,6 +133,8 @@
         'platform_font.h',
         'platform_font_gtk.h',
         'platform_font_gtk.cc',
+        'platform_font_qt.h',
+        'platform_font_qt.cc',
         'platform_font_mac.h',
         'platform_font_mac.mm',
         'platform_font_win.h',
@@ -168,8 +183,8 @@
             '../build/linux/system.gyp:gtk',
           ],
           'sources': [
-            'gtk_native_view_id_manager.cc',
-            'gtk_native_view_id_manager.h',
+#            'gtk_native_view_id_manager.cc',
+#            'gtk_native_view_id_manager.h',
             'gtk_preserve_window.cc',
             'gtk_preserve_window.h',
             'gtk_util.cc',

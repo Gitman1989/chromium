@@ -54,7 +54,9 @@ SOURCES += \
     canvas_direct2d.cc \
     canvas.cc \
     blit_unittest.cc \
-    blit.cc
+    blit.cc \
+    path_qt.cc \
+    platform_font_qt.cc
 
 HEADERS += \
     win_util.h \
@@ -91,7 +93,8 @@ HEADERS += \
     canvas.h \
     canvas_direct2d.h \
     brush.h \
-    blit.h
+    blit.h \
+    platform_font_qt.h
 unix:!symbian {
     maemo5 {
         target.path = /opt/usr/lib

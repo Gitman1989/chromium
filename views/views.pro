@@ -87,7 +87,8 @@ SOURCES += \
     controls/button/button_dropdown.cc \
     controls/listbox/listbox.cc \
     controls/listbox/native_listbox_win.cc \
-    widget/widget_qt.cc
+    widget/widget_qt.cc \
+    window/window_qt.cpp
 
 HEADERS += \
     views_delegate.h \
@@ -158,7 +159,8 @@ HEADERS += \
     controls/listbox/native_listbox_win.h \
     controls/listbox/listbox.h \
     controls/listbox/native_listbox_wrapper.h \
-    widget/widget_qt.h
+    widget/widget_qt.h \
+    window/window_qt.h
 
 OTHER_FILES += \
     views.target.mk \

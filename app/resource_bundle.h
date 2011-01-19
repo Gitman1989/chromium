@@ -46,7 +46,7 @@ class NSImage;
 #endif  // __OBJC__
 #endif  // defined(OS_MACOSX)
 
-#if defined(USE_X11)
+#if defined(USE_X11) || defined(USE_QT)
 typedef struct _GdkPixbuf GdkPixbuf;
 #endif
 
@@ -132,7 +132,7 @@ class ResourceBundle {
   // TODO(rsesek): Move implementation into GetNativeImageNamed().
   NSImage* GetNSImageNamed(int resource_id);
  public:
-#elif defined(USE_X11)
+#elif defined(USE_X11) || defined(USE_QT)
   // Gets the GdkPixbuf with the specified resource_id from the main data pak
   // file. Returns a pointer to a shared instance of the GdkPixbuf.  This
   // shared GdkPixbuf is owned by the resource bundle and should not be freed.
@@ -199,7 +199,7 @@ class ResourceBundle {
   // Free skia_images_.
   void FreeImages();
 
-#if defined(USE_X11)
+#if defined(USE_X11) || defined(USE_QT)
   // Free gdkPixbufs_.
   void FreeGdkPixBufs();
 #endif
@@ -255,7 +255,7 @@ class ResourceBundle {
   // ownership of the pointers.
   typedef std::map<int, SkBitmap*> SkImageMap;
   SkImageMap skia_images_;
-#if defined(USE_X11)
+#if defined(USE_X11) || defined(USE_QT)
   typedef std::map<int, GdkPixbuf*> GdkPixbufMap;
   GdkPixbufMap gdk_pixbufs_;
 #endif

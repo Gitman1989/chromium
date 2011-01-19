@@ -43,7 +43,7 @@
 
 // A flag derived from the above flags, used to cover GTK code in
 // both TOOLKIT_GTK and TOOLKIT_VIEWS.
-#if defined(TOOLKIT_GTK) || (defined(TOOLKIT_VIEWS) && !defined(OS_WIN))
+#if defined(TOOLKIT_GTK) || (defined(TOOLKIT_VIEWS) && !defined(OS_WIN) && !defined(TOOLKIT_USES_QT))
 #define TOOLKIT_USES_GTK 1
 #endif
 
@@ -52,7 +52,11 @@
 #if !defined(USE_OPENSSL)
 #define USE_NSS 1  // Default to use NSS for crypto, unless OpenSSL is chosen.
 #endif
+#if defined(TOOLKIT_USES_GTK)
 #define USE_X11 1  // Use X for graphics.
+#elif defined(TOOLKIT_USES_QT)
+#define USE_QT 1   // Use Qt for graphics.
+#endif
 #endif
 
 #if defined(USE_OPENSSL) && defined(USE_NSS)

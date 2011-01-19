@@ -440,9 +440,9 @@ bool RootView::OnMousePressed(const MouseEvent& e) {
     if (::GetFocus() != hwnd)
       ::SetFocus(hwnd);
 #else
-    GtkWidget* widget = GetWidget()->GetNativeView();
-    if (!gtk_widget_is_focus(widget))
-      gtk_widget_grab_focus(widget);
+//    GtkWidget* widget = GetWidget()->GetNativeView();
+//    if (!gtk_widget_is_focus(widget))
+//      gtk_widget_grab_focus(widget);
 #endif
   }
 
@@ -783,11 +783,11 @@ void RootView::SetActiveCursor(gfx::NativeCursor cursor) {
     previous_cursor_ = NULL;
   }
 #elif defined(OS_LINUX)
-  gfx::NativeView native_view =
-      static_cast<WidgetGtk*>(GetWidget())->window_contents();
-  if (!native_view)
-    return;
-  gdk_window_set_cursor(native_view->window, cursor);
+//  gfx::NativeView native_view =
+//      static_cast<WidgetGtk*>(GetWidget())->window_contents();
+//  if (!native_view)
+//    return;
+//  gdk_window_set_cursor(native_view->window, cursor);
 #endif
 }
 

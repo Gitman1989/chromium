@@ -6,7 +6,6 @@
 #define GFX_NATIVE_WIDGET_TYPES_H_
 #pragma once
 
-//#include <QtGui/QWidget>
 #include "base/basictypes.h"
 #include "build/build_config.h"
 
@@ -63,6 +62,21 @@ typedef struct _GdkRegion GdkRegion;
 typedef struct _GtkWidget GtkWidget;
 typedef struct _GtkWindow GtkWindow;
 typedef struct _cairo cairo_t;
+#elif defined(TOOLKIT_USES_QT)
+typedef struct _PangoFontDescription PangoFontDescription;
+typedef struct _GdkCursor GdkCursor;
+typedef struct _GdkPixbuf GdkPixbuf;
+typedef struct _GdkRegion GdkRegion;
+typedef struct _GtkWidget GtkWidget;
+typedef struct _GtkWindow GtkWindow;
+typedef struct _cairo cairo_t;
+
+class QFont;
+class QWidget;
+class QMainWindow;
+class QCanvas;
+class QCursor;
+class QRegion;
 #endif
 class SkBitmap;
 
@@ -85,10 +99,26 @@ typedef NSTextField* NativeEditView;
 typedef CGContext* NativeDrawingContext;
 typedef void* NativeCursor;
 typedef void* NativeMenu;
+#elif defined(USE_QT)
+//typedef QFont* NativeFont;
+typedef PangoFontDescription* NativeFont;
+
+typedef QWidget* NativeView;
+typedef QMainWindow* NativeWindow;
+typedef QWidget* NativeEditView;
+typedef QWidget* NativeMenu;
+
+//typedef QCanvas* NativeDrawingContext;
+typedef cairo_t* NativeDrawingContext;
+
+//typedef QCursor* NativeCursor;
+typedef GdkCursor* NativeCursor;
+
+//typedef QRegion* NativeRegion;
+typedef GdkRegion* NativeRegion;
 #elif defined(USE_X11)
 typedef PangoFontDescription* NativeFont;
 typedef GtkWidget* NativeView;
-//typedef QWidget NativeView_;
 typedef GtkWindow* NativeWindow;
 typedef GtkWidget* NativeEditView;
 typedef cairo_t* NativeDrawingContext;

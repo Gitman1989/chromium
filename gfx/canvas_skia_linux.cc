@@ -234,6 +234,7 @@ DrawStringContext::DrawStringContext(gfx::CanvasSkia* canvas,
 
 DrawStringContext::~DrawStringContext() {
   if (font_.GetStyle() & gfx::Font::UNDERLINED) {
+#if 0
     gfx::PlatformFontGtk* platform_font =
         static_cast<gfx::PlatformFontGtk*>(font_.platform_font());
     double underline_y =
@@ -243,6 +244,7 @@ DrawStringContext::~DrawStringContext() {
     cairo_move_to(cr_, text_x_, underline_y);
     cairo_line_to(cr_, text_x_ + text_width_, underline_y);
     cairo_stroke(cr_);
+#endif
   }
   cairo_restore(cr_);
 

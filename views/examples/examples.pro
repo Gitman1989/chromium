@@ -18,7 +18,8 @@ TEMPLATE = app
 SOURCES += \
     throbber_example.cc \
     examples_main.cc \
-    example_base.cc
+    example_base.cc \
+    examples_main_qt.cc
 
 OTHER_FILES += \
     examples.pro.user \
