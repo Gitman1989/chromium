@@ -19,6 +19,7 @@
 #include "chrome/common/notification_service.h"
 #include "chrome/common/service_messages.h"
 #include "chrome/common/service_process_util.h"
+#include "ui/base/ui_base_switches.h"
 
 // ServiceProcessControl::Launcher implementation.
 // This class is responsible for launching the service process on the
@@ -214,6 +215,9 @@ void ServiceProcessControl::Launch(Task* success_task, Task* failure_task) {
   if (browser_command_line.HasSwitch(switches::kWaitForDebuggerChildren)) {
     cmd_line->AppendSwitch(switches::kWaitForDebugger);
   }
+
+  std::string locale = g_browser_process->GetApplicationLocale();
+  cmd_line->AppendSwitchASCII(switches::kLang, locale);
 
   // And then start the process asynchronously.
   launcher_ = new Launcher(this, cmd_line);

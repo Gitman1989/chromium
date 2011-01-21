@@ -6,7 +6,6 @@
 #include <map>
 #include <set>
 
-#include "app/gtk_signal.h"
 #include "app/l10n_util.h"
 #include "base/file_util.h"
 #include "base/logging.h"
@@ -19,6 +18,7 @@
 #include "chrome/browser/browser_thread.h"
 #include "chrome/browser/shell_dialogs.h"
 #include "grit/generated_resources.h"
+#include "ui/base/gtk/gtk_signal.h"
 
 // The size of the preview we display for selected image files. We set height
 // larger than width because generally there is more free space vertically
@@ -266,7 +266,7 @@ void SelectFileDialogImpl::AddFilters(GtkFileChooser* chooser) {
         if (!filter)
           filter = gtk_file_filter_new();
         std::string mime_type = mime_util::GetFileMimeType(
-            FilePath("name.").Append(file_types_.extensions[i][j]));
+            FilePath("name").ReplaceExtension(file_types_.extensions[i][j]));
         gtk_file_filter_add_mime_type(filter, mime_type.c_str());
       }
     }
@@ -283,7 +283,7 @@ void SelectFileDialogImpl::AddFilters(GtkFileChooser* chooser) {
       // There is no system default filter description so we use
       // the MIME type itself if the description is blank.
       std::string mime_type = mime_util::GetFileMimeType(
-          FilePath("name.").Append(file_types_.extensions[i][0]));
+          FilePath("name").ReplaceExtension(file_types_.extensions[i][0]));
       gtk_file_filter_set_name(filter, mime_type.c_str());
     }
 

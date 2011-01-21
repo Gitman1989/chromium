@@ -209,14 +209,20 @@ class MockExtensionProvider : public ExternalExtensionProviderInterface {
 class MockProviderVisitor
     : public ExternalExtensionProviderInterface::VisitorInterface {
  public:
-  MockProviderVisitor() : ids_found_(0) {
+
+  // The provider will return |fake_base_path| from
+  // GetBaseCrxFilePath().  User can test the behavior with
+  // and without an empty path using this parameter.
+  explicit MockProviderVisitor(FilePath fake_base_path)
+      : ids_found_(0),
+        fake_base_path_(fake_base_path) {
   }
 
   int Visit(const std::string& json_data) {
     // Give the test json file to the provider for parsing.
     provider_.reset(new ExternalExtensionProviderImpl(
         this,
-        new ExternalTestingExtensionLoader(json_data),
+        new ExternalTestingExtensionLoader(json_data, fake_base_path_),
         Extension::EXTERNAL_PREF,
         Extension::EXTERNAL_PREF_DOWNLOAD));
 
@@ -253,6 +259,10 @@ class MockProviderVisitor
     // dictionary then something is wrong.
     EXPECT_TRUE(prefs_->GetDictionary(id, &pref))
        << "Got back ID (" << id.c_str() << ") we weren't expecting";
+
+    EXPECT_TRUE(path.IsAbsolute());
+    if (!fake_base_path_.empty())
+      EXPECT_TRUE(fake_base_path_.IsParent(path));
 
     if (pref) {
       EXPECT_TRUE(provider_->HasExtension(id));
@@ -309,7 +319,7 @@ class MockProviderVisitor
 
  private:
   int ids_found_;
-
+  FilePath fake_base_path_;
   scoped_ptr<ExternalExtensionProviderImpl> provider_;
   scoped_ptr<DictionaryValue> prefs_;
 
@@ -1637,6 +1647,28 @@ TEST_F(ExtensionServiceTest, InstallApps) {
   // A third app whose extent overlaps the first. Should fail.
   PackAndInstallExtension(extensions_path.AppendASCII("app3"), false);
   ValidatePrefKeyCount(pref_count);
+}
+
+TEST_F(ExtensionServiceTest, UpdateApps) {
+  InitializeEmptyExtensionService();
+  FilePath extensions_path;
+  ASSERT_TRUE(PathService::Get(chrome::DIR_TEST_DATA, &extensions_path));
+  extensions_path =
+      extensions_path.AppendASCII("extensions").AppendASCII("app_update");
+
+  // First install v1 of a hosted app.
+  InstallExtension(extensions_path.AppendASCII("v1.crx"), true);
+  ASSERT_EQ(1u, service_->extensions()->size());
+  std::string id = service_->extensions()->at(0)->id();
+  ASSERT_EQ(std::string("1"),
+            service_->extensions()->at(0)->version()->GetString());
+
+  // Now try updating to v2.
+  UpdateExtension(id,
+                  extensions_path.AppendASCII("v2.crx"),
+                  ENABLED);
+  ASSERT_EQ(std::string("2"),
+            service_->extensions()->at(0)->version()->GetString());
 }
 
 TEST_F(ExtensionServiceTest, InstallAppsWithUnlimtedStorage) {
@@ -3004,9 +3036,16 @@ TEST_F(ExtensionServiceTest, ExternalUninstall) {
 
 TEST_F(ExtensionServiceTest, ExternalPrefProvider) {
   InitializeEmptyExtensionService();
+
+  // Test some valid extension records.
+  // Set a base path to avoid erroring out on relative paths.
+  // Paths starting with // are absolute on every platform we support.
+  FilePath base_path(FILE_PATH_LITERAL("//base/path"));
+  ASSERT_TRUE(base_path.IsAbsolute());
+  MockProviderVisitor visitor(base_path);
   std::string json_data =
       "{"
-      "  \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\": {"
+      "  \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\": {"
       "    \"external_crx\": \"RandomExtension.crx\","
       "    \"external_version\": \"1.0\""
       "  },"
@@ -3018,11 +3057,10 @@ TEST_F(ExtensionServiceTest, ExternalPrefProvider) {
       "    \"external_update_url\": \"http:\\\\foo.com/update\""
       "  }"
       "}";
-
-  MockProviderVisitor visitor;
+  EXPECT_EQ(3, visitor.Visit(json_data));
 
   // Simulate an external_extensions.json file that contains seven invalid
-  // extensions:
+  // records:
   // - One that is missing the 'external_crx' key.
   // - One that is missing the 'external_version' key.
   // - One that is specifying .. in the path.
@@ -3068,6 +3106,35 @@ TEST_F(ExtensionServiceTest, ExternalPrefProvider) {
       "  }"
       "}";
   EXPECT_EQ(1, visitor.Visit(json_data));
+
+  // Check that if a base path is not provided, use of a relative
+  // path fails.
+  FilePath empty;
+  MockProviderVisitor visitor_no_relative_paths(empty);
+
+  // Use absolute paths.  Expect success.
+  json_data =
+      "{"
+      "  \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\": {"
+      "    \"external_crx\": \"//RandomExtension1.crx\","
+      "    \"external_version\": \"3.0\""
+      "  },"
+      "  \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\": {"
+      "    \"external_crx\": \"//path/to/RandomExtension2.crx\","
+      "    \"external_version\": \"3.0\""
+      "  }"
+      "}";
+  EXPECT_EQ(2, visitor_no_relative_paths.Visit(json_data));
+
+  // Use a relative path.  Expect that it will error out.
+  json_data =
+      "{"
+      "  \"cccccccccccccccccccccccccccccccc\": {"
+      "    \"external_crx\": \"RandomExtension2.crx\","
+      "    \"external_version\": \"3.0\""
+      "  }"
+      "}";
+  EXPECT_EQ(0, visitor_no_relative_paths.Visit(json_data));
 }
 
 // Test loading good extensions from the profile directory.

@@ -9,23 +9,23 @@
 #include <string>
 #include <vector>
 
-#include "app/gtk_signal.h"
 #include "app/l10n_util.h"
 #include "base/i18n/time_formatting.h"
 #include "base/logging.h"
 #include "base/nss_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/certificate_viewer.h"
-#include "chrome/browser/gtk/constrained_window_gtk.h"
-#include "chrome/browser/gtk/gtk_util.h"
-#include "chrome/browser/gtk/owned_widget_gtk.h"
 #include "chrome/browser/ssl/ssl_client_auth_handler.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
-#include "chrome/browser/ui/pk11_password_dialog.h"
+#include "chrome/browser/ui/crypto_module_password_dialog.h"
+#include "chrome/browser/ui/gtk/constrained_window_gtk.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
+#include "chrome/browser/ui/gtk/owned_widget_gtk.h"
 #include "chrome/common/net/x509_certificate_model.h"
 #include "gfx/native_widget_types.h"
 #include "grit/generated_resources.h"
 #include "net/base/x509_certificate.h"
+#include "ui/base/gtk/gtk_signal.h"
 
 namespace {
 
@@ -344,7 +344,7 @@ void SSLClientCertificateSelector::OnOkClicked(GtkWidget* button) {
 
   browser::UnlockCertSlotIfNecessary(
       cert,
-      browser::kPK11PasswordClientAuth,
+      browser::kCryptoModulePasswordClientAuth,
       cert_request_info_->host_and_port,
       NewCallback(this, &SSLClientCertificateSelector::Unlocked));
 }

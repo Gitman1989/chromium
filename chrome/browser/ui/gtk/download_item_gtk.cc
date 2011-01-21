@@ -2,11 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/gtk/download_item_gtk.h"
+#include "chrome/browser/ui/gtk/download_item_gtk.h"
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
-#include "app/text_elider.h"
 #include "base/basictypes.h"
 #include "base/callback.h"
 #include "base/metrics/histogram.h"
@@ -19,13 +17,13 @@
 #include "chrome/browser/download/download_manager.h"
 #include "chrome/browser/download/download_shelf.h"
 #include "chrome/browser/download/download_util.h"
-#include "chrome/browser/gtk/custom_drag.h"
-#include "chrome/browser/gtk/download_shelf_gtk.h"
-#include "chrome/browser/gtk/gtk_theme_provider.h"
-#include "chrome/browser/gtk/gtk_util.h"
-#include "chrome/browser/gtk/menu_gtk.h"
-#include "chrome/browser/gtk/nine_box.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/gtk/custom_drag.h"
+#include "chrome/browser/ui/gtk/download_shelf_gtk.h"
+#include "chrome/browser/ui/gtk/gtk_theme_provider.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
+#include "chrome/browser/ui/gtk/menu_gtk.h"
+#include "chrome/browser/ui/gtk/nine_box.h"
 #include "chrome/common/notification_service.h"
 #include "gfx/canvas_skia_paint.h"
 #include "gfx/color_utils.h"
@@ -35,6 +33,8 @@
 #include "grit/theme_resources.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/animation/slide_animation.h"
+#include "ui/base/resource/resource_bundle.h"
+#include "ui/base/text/text_elider.h"
 
 namespace {
 
@@ -519,7 +519,7 @@ void DownloadItemGtk::LoadIcon() {
 }
 
 void DownloadItemGtk::UpdateTooltip() {
-  string16 elided_filename = gfx::ElideFilename(
+  string16 elided_filename = ui::ElideFilename(
       get_download()->GetFileNameToReportUser(),
       gfx::Font(), kTooltipMaxWidth);
   gtk_widget_set_tooltip_text(body_.get(),
@@ -531,7 +531,7 @@ void DownloadItemGtk::UpdateNameLabel() {
   // use gfx::Font() to draw the text. This is why we need to add so
   // much padding when we set the size request. We need to either use gfx::Font
   // or somehow extend TextElider.
-  string16 elided_filename = gfx::ElideFilename(
+  string16 elided_filename = ui::ElideFilename(
       get_download()->GetFileNameToReportUser(),
       gfx::Font(), kTextWidth);
 
@@ -582,7 +582,7 @@ void DownloadItemGtk::UpdateDangerWarning() {
       dangerous_warning =
           l10n_util::GetStringUTF16(IDS_PROMPT_DANGEROUS_DOWNLOAD_EXTENSION);
     } else {
-      string16 elided_filename = gfx::ElideFilename(
+      string16 elided_filename = ui::ElideFilename(
           get_download()->target_name(), gfx::Font(), kTextWidth);
 
       dangerous_warning =

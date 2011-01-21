@@ -98,6 +98,8 @@ extern const char kSSL3Enabled[];
 extern const char kTLS1Enabled[];
 #endif
 #if defined(OS_CHROMEOS)
+extern const char kAudioMute[];
+extern const char kAudioVolume[];
 extern const char kTapToClickEnabled[];
 extern const char kTouchpadSensitivity[];
 extern const char kLanguageCurrentInputMethod[];
@@ -232,6 +234,7 @@ extern const char kAutoFillPersonalDataManagerFirstRun[];
 extern const char kUseVerticalTabs[];
 extern const char kEnableTranslate[];
 extern const char kPinnedTabs[];
+extern const char kPolicyRefreshRate[];
 
 // Local state
 extern const char kMetricsClientID[];
@@ -258,6 +261,9 @@ extern const char kStabilityLaunchTimeSec[];
 extern const char kStabilityLastTimestampSec[];
 extern const char kStabilityRendererHangCount[];
 extern const char kStabilityChildProcessCrashCount[];
+extern const char kStabilityOtherUserCrashCount[];
+extern const char kStabilityKernelCrashCount[];
+extern const char kStabilitySystemUncleanShutdownCount[];
 
 extern const char kStabilityBreakpadRegistrationSuccess[];
 extern const char kStabilityBreakpadRegistrationFail[];

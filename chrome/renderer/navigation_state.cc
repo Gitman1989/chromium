@@ -15,6 +15,11 @@ void NavigationState::set_user_script_idle_scheduler(
   user_script_idle_scheduler_.reset(scheduler);
 }
 
+void NavigationState::swap_user_script_idle_scheduler(
+    NavigationState* state) {
+  user_script_idle_scheduler_.swap(state->user_script_idle_scheduler_);
+}
+
 void NavigationState::set_password_form_data(webkit_glue::PasswordForm* data) {
   password_form_data_.reset(data);
 }
@@ -39,6 +44,7 @@ NavigationState::NavigationState(PageTransition::Type transition_type,
       pending_page_id_(pending_page_id),
       pending_history_list_offset_(pending_history_list_offset),
       postpone_loading_data_(false),
+      is_prerendering_(false),
       cache_policy_override_set_(false),
       cache_policy_override_(WebKit::WebURLRequest::UseProtocolCachePolicy),
       user_script_idle_scheduler_(NULL),

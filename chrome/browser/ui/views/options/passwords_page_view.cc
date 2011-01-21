@@ -119,7 +119,7 @@ void PasswordsTableModel::OnPasswordStoreRequestDone(
       UTF8ToWide(profile_->GetPrefs()->GetString(prefs::kAcceptLanguages));
   for (size_t i = 0; i < result.size(); ++i) {
     saved_signons_[i] = new PasswordRow(
-        gfx::SortedDisplayURL(result[i]->origin, languages), result[i]);
+        ui::SortedDisplayURL(result[i]->origin, languages), result[i]);
   }
   if (observer_)
     observer_->OnModelChanged();
@@ -277,7 +277,7 @@ void PasswordsPageView::InitControlLayout() {
 
   // Do the layout thing.
   const int top_column_set_id = 0;
-  GridLayout* layout = CreatePanelGridLayout(this);
+  GridLayout* layout = GridLayout::CreatePanel(this);
   SetLayoutManager(layout);
 
   // Design the grid.

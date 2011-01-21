@@ -36,7 +36,7 @@ var OptionsPage = options.OptionsPage;
             ['Options_ContentSettings']);
       };
       $('privacyClearDataButton').onclick = function(event) {
-        OptionsPage.showPageByName('clearBrowserDataPage');
+        OptionsPage.showOverlay('clearBrowserDataOverlay');
         chrome.send('coreOptionsUserMetricsAction', ['Options_ClearData']);
       };
 
@@ -49,9 +49,12 @@ var OptionsPage = options.OptionsPage;
         };
       }
 
-      $('autoOpenFileTypesResetToDefault').onclick = function(event) {
-        chrome.send('autoOpenFileTypesAction');
-      };
+      if (!cr.isChromeOS) {
+        $('autoOpenFileTypesResetToDefault').onclick = function(event) {
+          chrome.send('autoOpenFileTypesAction');
+        };
+      }
+
       $('fontSettingsCustomizeFontsButton').onclick = function(event) {
         OptionsPage.showPageByName('fontSettings');
         chrome.send('coreOptionsUserMetricsAction', ['Options_FontSettings']);
@@ -59,6 +62,11 @@ var OptionsPage = options.OptionsPage;
       $('defaultFontSize').onchange = function(event) {
         chrome.send('defaultFontSizeAction',
             [String(event.target.options[event.target.selectedIndex].value)]);
+      };
+      $('language-button').onclick = function(event) {
+        OptionsPage.showPageByName('language');
+        chrome.send('coreOptionsUserMetricsAction',
+            ['Options_LanuageAndSpellCheckSettings']);
       };
 
       if (cr.isWindows || cr.isMac) {
@@ -196,7 +204,8 @@ var OptionsPage = options.OptionsPage;
 
   // Set the enabled state for the autoOpenFileTypesResetToDefault button.
   AdvancedOptions.SetAutoOpenFileTypesDisabledAttribute = function(disabled) {
-    $('autoOpenFileTypesResetToDefault').disabled = disabled;
+    if (!cr.isChromeOS)
+      $('autoOpenFileTypesResetToDefault').disabled = disabled;
   };
 
   // Set the enabled state for the proxy settings button.
@@ -261,7 +270,8 @@ var OptionsPage = options.OptionsPage;
 
   AdvancedOptions.RemoveRemotingSection = function() {
     var proxySectionElm = $('remoting-section');
-    proxySectionElm.parentNode.removeChild(proxySectionElm);
+    if (proxySectionElm)
+      proxySectionElm.parentNode.removeChild(proxySectionElm);
   };
 
   // Export

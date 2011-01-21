@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,6 @@
 #include <list>
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/message_loop.h"
 #include "base/singleton.h"
 #include "base/metrics/histogram.h"
@@ -48,6 +47,7 @@
 #include "grit/browser_resources.h"
 #include "grit/generated_resources.h"
 #include "ui/base/keycodes/keyboard_codes.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "webkit/glue/context_menu.h"
 
 #if defined(TOOLKIT_VIEWS)
@@ -212,7 +212,11 @@ void ExtensionHost::CreateRenderViewNow() {
         this);
 }
 
-Browser* ExtensionHost::GetBrowser() const {
+const Browser* ExtensionHost::GetBrowser() const {
+  return view() ? view()->browser() : NULL;
+}
+
+Browser* ExtensionHost::GetBrowser() {
   return view() ? view()->browser() : NULL;
 }
 
@@ -791,7 +795,7 @@ int ExtensionHost::GetBrowserWindowID() const {
     // If the host is bound to a browser, then extract its window id.
     // Extensions hosted in ExternalTabContainer objects may not have
     // an associated browser.
-    Browser* browser = GetBrowser();
+    const Browser* browser = GetBrowser();
     if (browser)
       window_id = ExtensionTabUtil::GetWindowId(browser);
   } else if (extension_host_type_ != ViewType::EXTENSION_BACKGROUND_PAGE) {

@@ -5,7 +5,6 @@
 #include "chrome/browser/ui/views/infobars/infobars.h"
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/ui/views/event_utils.h"
@@ -15,6 +14,7 @@
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/base/animation/slide_animation.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "views/background.h"
 #include "views/controls/button/image_button.h"
 #include "views/controls/button/native_button.h"
@@ -24,7 +24,7 @@
 #include "views/widget/widget.h"
 
 #if defined(OS_WIN)
-#include "app/win/hwnd_util.h"
+#include "ui/base/win/hwnd_util.h"
 #endif
 
 // static
@@ -247,7 +247,7 @@ void InfoBar::AnimateClose() {
   // Do not restore focus (and active state with it) on Windows if some other
   // top-level window became active.
   if (GetWidget() &&
-      !app::win::DoesWindowBelongToActiveWindow(GetWidget()->GetNativeView())) {
+      !ui::DoesWindowBelongToActiveWindow(GetWidget()->GetNativeView())) {
     restore_focus = false;
   }
 #endif  // defined(OS_WIN)
@@ -471,10 +471,14 @@ ConfirmInfoBar::ConfirmInfoBar(ConfirmInfoBarDelegate* delegate)
       link_(NULL),
       initialized_(false) {
   ok_button_ = InfoBarTextButton::Create(this,
-      delegate->GetButtonLabel(ConfirmInfoBarDelegate::BUTTON_OK));
+      (delegate->GetButtons() & ConfirmInfoBarDelegate::BUTTON_OK) ?
+          delegate->GetButtonLabel(ConfirmInfoBarDelegate::BUTTON_OK) :
+          string16());
   ok_button_->SetAccessibleName(WideToUTF16Hack(ok_button_->text()));
   cancel_button_ = InfoBarTextButton::Create(this,
-      delegate->GetButtonLabel(ConfirmInfoBarDelegate::BUTTON_CANCEL));
+      (delegate->GetButtons() & ConfirmInfoBarDelegate::BUTTON_CANCEL) ?
+          delegate->GetButtonLabel(ConfirmInfoBarDelegate::BUTTON_CANCEL) :
+          string16());
   cancel_button_->SetAccessibleName(WideToUTF16Hack(cancel_button_->text()));
 
   // Set up the link.

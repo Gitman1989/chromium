@@ -1,11 +1,11 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/autocomplete/autocomplete_edit_view_gtk.h"
 
-#include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
+#include <gtk/gtk.h>
 
 #include <algorithm>
 
@@ -20,11 +20,11 @@
 #include "chrome/browser/bookmarks/bookmark_node_data.h"
 #include "chrome/browser/command_updater.h"
 #include "chrome/browser/defaults.h"
-#include "chrome/browser/gtk/gtk_util.h"
-#include "chrome/browser/gtk/view_id_util.h"
 #include "chrome/browser/instant/instant_controller.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
+#include "chrome/browser/ui/gtk/view_id_util.h"
 #include "chrome/browser/ui/toolbar/toolbar_model.h"
 #include "chrome/common/notification_service.h"
 #include "gfx/color_utils.h"
@@ -38,13 +38,15 @@
 #include "ui/base/animation/multi_animation.h"
 
 #if defined(TOOLKIT_VIEWS)
-#include "chrome/browser/gtk/accessible_widget_helper_gtk.h"
+#include "chrome/browser/autocomplete/autocomplete_edit_view_views.h"
+#include "chrome/browser/ui/gtk/accessible_widget_helper_gtk.h"
 #include "chrome/browser/ui/views/autocomplete/autocomplete_popup_contents_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
+#include "views/controls/textfield/native_textfield_views.h"
 #else
 #include "chrome/browser/autocomplete/autocomplete_popup_view_gtk.h"
-#include "chrome/browser/gtk/gtk_theme_provider.h"
-#include "chrome/browser/gtk/location_bar_view_gtk.h"
+#include "chrome/browser/ui/gtk/gtk_theme_provider.h"
+#include "chrome/browser/ui/gtk/location_bar_view_gtk.h"
 #include "views/controls/native/native_view_host.h"
 #endif
 
@@ -184,7 +186,6 @@ AutocompleteEditViewGtk::AutocompleteEditViewGtk(
       tab_was_pressed_(false),
       paste_clipboard_requested_(false),
       enter_was_inserted_(false),
-      enable_tab_to_search_(true),
       selection_suggested_(false),
       delete_was_pressed_(false),
       delete_at_end_pressed_(false),
@@ -650,13 +651,10 @@ void AutocompleteEditViewGtk::OnRevertTemporaryText() {
 }
 
 void AutocompleteEditViewGtk::OnBeforePossibleChange() {
-  // If this change is caused by a paste clipboard action and all text is
-  // selected, then call model_->on_paste_replacing_all() to prevent inline
-  // autocomplete.
+  // Record this paste, so we can do different behavior.
   if (paste_clipboard_requested_) {
     paste_clipboard_requested_ = false;
-    if (IsSelectAll())
-      model_->on_paste_replacing_all();
+    model_->on_paste();
   }
 
   // This method will be called in HandleKeyPress() method just before
@@ -696,8 +694,11 @@ bool AutocompleteEditViewGtk::OnAfterPossibleChange() {
 
   CharRange new_sel = GetSelection();
   int length = GetTextLength();
-  bool selection_differs = (new_sel.cp_min != sel_before_change_.cp_min) ||
-                           (new_sel.cp_max != sel_before_change_.cp_max);
+  bool selection_differs =
+      ((new_sel.cp_min != new_sel.cp_max) ||
+       (sel_before_change_.cp_min != sel_before_change_.cp_max)) &&
+      ((new_sel.cp_min != sel_before_change_.cp_min) ||
+       (new_sel.cp_max != sel_before_change_.cp_max));
   bool at_end_of_edit = (new_sel.cp_min == length && new_sel.cp_max == length);
 
   // See if the text or selection have changed since OnBeforePossibleChange().
@@ -855,6 +856,18 @@ AutocompleteEditView* AutocompleteEditViewGtk::Create(
     CommandUpdater* command_updater,
     bool popup_window_mode,
     const views::View* location_bar) {
+  if (views::NativeTextfieldViews::IsTextfieldViewsEnabled()) {
+    AutocompleteEditViewViews* autocomplete =
+        new AutocompleteEditViewViews(controller,
+                                      toolbar_model,
+                                      profile,
+                                      command_updater,
+                                      popup_window_mode,
+                                      location_bar);
+    autocomplete->Init();
+    return autocomplete;
+  }
+
   AutocompleteEditViewGtk* autocomplete =
       new AutocompleteEditViewGtk(controller,
                                   toolbar_model,
@@ -1626,18 +1639,13 @@ void AutocompleteEditViewGtk::HandleViewMoveFocus(GtkWidget* widget,
   bool handled = false;
 
   // Trigger Tab to search behavior only when Tab key is pressed.
-  if (model_->is_keyword_hint() && !model_->keyword().empty()) {
-    if (enable_tab_to_search_) {
-      model_->AcceptKeyword();
-      handled = true;
-    }
+  if (model_->is_keyword_hint()) {
+    handled = model_->AcceptKeyword();
+  } else if (GTK_WIDGET_VISIBLE(instant_view_)) {
+    controller_->OnCommitSuggestedText(GetText());
+    handled = true;
   } else {
-    if (GTK_WIDGET_VISIBLE(instant_view_)) {
-      controller_->OnCommitSuggestedText(GetText());
-      handled = true;
-    } else {
-      handled = controller_->AcceptCurrentInstantPreview();
-    }
+    handled = controller_->AcceptCurrentInstantPreview();
   }
 
   if (handled) {

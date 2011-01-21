@@ -9,7 +9,6 @@
 #include "chrome/common/gpu_param_traits.h"
 #include "chrome/common/render_messages_params.h"
 #include "chrome/common/resource_response.h"
-#include "chrome/common/speech_input_result.h"
 #include "chrome/common/thumbnail_score.h"
 #include "chrome/common/web_apps.h"
 #include "gfx/rect.h"
@@ -732,6 +731,7 @@ void ParamTraits<WebPreferences>::Write(Message* m, const param_type& p) {
   WriteParam(m, p.accelerated_layers_enabled);
   WriteParam(m, p.accelerated_video_enabled);
   WriteParam(m, p.memory_info_enabled);
+  WriteParam(m, p.interactive_form_validation_enabled);
 }
 
 bool ParamTraits<WebPreferences>::Read(const Message* m, void** iter,
@@ -784,7 +784,8 @@ bool ParamTraits<WebPreferences>::Read(const Message* m, void** iter,
       ReadParam(m, iter, &p->accelerated_plugins_enabled) &&
       ReadParam(m, iter, &p->accelerated_layers_enabled) &&
       ReadParam(m, iter, &p->accelerated_video_enabled) &&
-      ReadParam(m, iter, &p->memory_info_enabled);
+      ReadParam(m, iter, &p->memory_info_enabled) &&
+      ReadParam(m, iter, &p->interactive_form_validation_enabled);
 }
 
 void ParamTraits<WebPreferences>::Log(const param_type& p, std::string* l) {
@@ -1215,28 +1216,6 @@ void ParamTraits<AudioBuffersState>::Log(const param_type& p, std::string* l) {
   LogParam(p.hardware_delay_bytes, l);
   l->append(", ");
   LogParam(p.timestamp, l);
-  l->append(")");
-}
-
-void ParamTraits<speech_input::SpeechInputResultItem>::Write(
-    Message* m, const param_type& p) {
-  WriteParam(m, p.utterance);
-  WriteParam(m, p.confidence);
-}
-
-bool ParamTraits<speech_input::SpeechInputResultItem>::Read(const Message* m,
-                                                            void** iter,
-                                                            param_type* p) {
-  return ReadParam(m, iter, &p->utterance) &&
-         ReadParam(m, iter, &p->confidence);
-}
-
-void ParamTraits<speech_input::SpeechInputResultItem>::Log(const param_type& p,
-                                                           std::string* l) {
-  l->append("(");
-  LogParam(p.utterance, l);
-  l->append(":");
-  LogParam(p.confidence, l);
   l->append(")");
 }
 

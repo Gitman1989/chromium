@@ -196,7 +196,8 @@ void UITestBase::ConnectToRunningBrowser() {
 }
 
 void UITestBase::CloseBrowserAndServer() {
-  launcher_->CloseBrowserAndServer(shutdown_type_);
+  if (launcher_.get())
+    launcher_->CloseBrowserAndServer(shutdown_type_);
 }
 
 void UITestBase::LaunchBrowser(const CommandLine& arguments,
@@ -270,6 +271,10 @@ void UITestBase::NavigateToURLAsync(const GURL& url) {
 
 void UITestBase::NavigateToURL(const GURL& url) {
   NavigateToURL(url, 0, GetActiveTabIndex(0));
+}
+
+void UITestBase::NavigateToURL(const GURL& url, int window_index) {
+  NavigateToURL(url, window_index, GetActiveTabIndex(window_index));
 }
 
 void UITestBase::NavigateToURL(const GURL& url, int window_index, int

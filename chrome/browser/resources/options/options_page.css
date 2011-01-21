@@ -1,5 +1,4 @@
 body {
-  -webkit-user-select: none;
   cursor: default;
   font-size: 100%;
 }
@@ -7,6 +6,7 @@ body {
 #settings-title {
   -webkit-padding-end: 24px;
   color: #53637d;
+  cursor: pointer;
   font-size: 200%;
   font-weight: normal;
   margin: 0;
@@ -32,7 +32,7 @@ body {
   position: fixed;
   left: 0;
   right: 0;
-  background: rgba(0, 0, 0, .2);
+  background: rgba(233, 238, 242, .5);
   top: 0;
   bottom: 0;
   z-index: 10;
@@ -42,13 +42,23 @@ body {
   -webkit-box-pack: center;
 }
 
-.close-subpage {
+.raw-button,
+.raw-button:hover,
+.raw-button:active {
+  -webkit-box-shadow: none;
   background-color: transparent;
-  background-image: url('chrome://theme/IDR_CLOSE_BAR');
+  background-repeat: no-repeat;
   border: none;
+  min-width: 0;
+  padding: 1px 6px;
+}
+
+.close-subpage {
+  background-image: url('chrome://theme/IDR_CLOSE_BAR');
+  height: 16px;
+  min-width: 0;
   position: relative;
   top: 12px;
-  height: 16px;
   width: 16px;
 }
 
@@ -98,7 +108,7 @@ html[toolkit=views] .button-strip {
 }
 
 .button-strip > button {
-  -webkit-margin-start: 4px;
+  -webkit-margin-start: 10px;
   display: block;
 }
 
@@ -121,7 +131,6 @@ html[toolkit=views] .button-strip {
   background: -webkit-linear-gradient(rgba(234, 238, 243, 0), #eaeef3),
               -webkit-linear-gradient(left, #eaeef3, #eaeef3 97%, #d3d7db);
   bottom: 0;
-  cursor: pointer;
   display: none;
   left: 0;
   position: fixed;
@@ -131,24 +140,14 @@ html[toolkit=views] .button-strip {
 }
 
 html[dir='rtl'] #navbar-container {
-  background: -webkit-linear-gradient(rgba(255, 255, 255, 0)),
-                                      rgba(255, 255, 255, 0) 70%,
-                                      white),
-              -webkit-linear-gradient(right, white, white 80%, #f3f3f3);
+  background: -webkit-linear-gradient(rgba(234, 238, 243, 0), #EAEEF3),
+              -webkit-linear-gradient(right, #EAEEF3, #EAEEF3 97%, #D3D7DB);
   left: auto;
   right: 0;
 }
 
 html[hide-menu=false] #navbar-container {
   display: block;
-}
-
-#navbar-container > hr {
-  -webkit-margin-start: 35%;
-  background-color: #dbdbdb;
-  border: 0;
-  height: 1px;
-  width: 65%;
 }
 
 #navbar-container > ul {
@@ -158,7 +157,10 @@ html[hide-menu=false] #navbar-container {
 }
 
 .navbar-item, .navbar-item2 {
+  border-bottom: 1px solid transparent;
+  border-top: 1px solid transparent;
   color: #426dc9;
+  cursor: pointer;
   display: block;
   font-size: 105%;
   outline: none;
@@ -168,15 +170,10 @@ html[hide-menu=false] #navbar-container {
 }
 
 .navbar-item-selected {
-  background: #bbcee9;
+  background: -webkit-linear-gradient(left, #bbcee9, #bbcee9 97%, #96b1cd);
   border-bottom: 1px solid #8faad9;
   border-top: 1px solid #8faad9;
   color: black;
-  font-weight: bold;
-}
-
-.navbar-item-normal {
-  background-color: #dfdfdf;
 }
 
 #mainview {
@@ -205,23 +202,26 @@ html[hide-menu=true] #mainview {
 }
 
 .subpage-sheet-container {
-  padding: 8px;
-  -webkit-padding-start: 60px;
+  -webkit-margin-start: 60px;
   box-sizing: border-box;
   height: 100%;
+  padding: 8px;
+  /* Must come after padding. */
+  -webkit-padding-start: 0;
   position: absolute;
-  top: 0;
+  /* We set both left and right for the sake of RTL. */
   left: 0;
+  right: 0;
+  top: 0;
+  width: 688px;
 }
 
 #subpage-sheet-container-1 {
-  width: 748px;
   z-index: 5;
 }
 
 #subpage-sheet-container-2 {
-  left: 60px;
-  width: 688px;
+  -webkit-padding-start: 60px;
   z-index: 10;
 }
 
@@ -275,8 +275,13 @@ html[hide-menu=true] #mainview {
   padding-top: 13px;
 }
 
+.page list {
+  min-height: 200px;
+}
+
 .subpage-sheet .page h1 {
   padding-top: 4px;
+  margin-bottom: 10px;
 }
 
 section {
@@ -333,10 +338,6 @@ label.radio {
   -webkit-appearance: slider-horizontal;
 }
 
-select {
-  margin: 0;
-}
-
 .link-button {
   background-color: transparent;
   border: none;
@@ -367,34 +368,34 @@ list > * {
 }
 
 list:not([disabled]) > :hover {
-  background-color: #f2f2f2;
+  background-color: #e4ecf7;
 }
 
 list > [selected],
 list:focus > [selected],
 list:focus > [lead][selected],
 list > [selected]:hover {
-  background-color: #f2f2f2;
+  background-color: #bbcee9;
   background-image: none;
 }
 
 list:focus > [lead],
 list:focus > [lead][selected],
 list [lead][selected][editing] {
-  border-top: 1px solid #b2b2b2;
-  border-bottom: 1px solid #b2b2b2;
+  border-top: 1px solid #7892b4;
+  border-bottom: 1px solid #7892b4;
 }
 
 list:focus > [lead]:nth-child(2),
 list:focus > [lead][selected]:nth-child(2),
 list [lead][selected][editing]:nth-child(2) {
-  border-top: 1px solid #f2f2f2;
+  border-top: 1px solid transparent;
 }
 
 list:focus > [lead]:nth-last-child(2),
 list:focus > [lead][selected]:nth-last-child(2),
 list [lead][selected][editing]:nth-last-child(2) {
-  border-bottom: 1px solid #f2f2f2;
+  border-bottom: 1px solid transparent;
 }
 
 list[disabled] > [lead][selected],
@@ -437,7 +438,7 @@ list .close-button {
   width: 16px;
 }
 
-list > *:not(:hover):not([editing]) .close-button,
+list > *:not(:hover):not([lead]) .close-button,
 list[disabled] .close-button,
 list .close-button[disabled] {
   opacity: 0;
@@ -471,22 +472,6 @@ list > [editing] input:invalid {
   background-color: pink;
 }
 
-.left-side-table {
-  display: -webkit-box;
-}
-
-.left-side-table > div:first-child {
-  -webkit-box-flex: 1;
-}
-
-.left-side-table > :last-child {
-  -webkit-padding-start: 20px;
-}
-
-.left-side-table > :last-child button {
-  width: 100%;
-}
-
 .option-name {
   padding-right: 5px;
 }
@@ -499,6 +484,18 @@ html[dir=rtl].option-name {
   -webkit-padding-start: 20px;
   background-position: left;
   background-repeat: no-repeat;
+}
+
+input.favicon-cell {
+  -webkit-padding-start: 22px;
+  background-position-x: 4px;
+}
+
+/* TODO(jhawkins): Use something better than 99.3% when CSS3 background
+ * positioning is available.
+ */
+html[dir=rtl] input.favicon-cell {
+  background-position-x: 99.3%;
 }
 
 list .favicon-cell {
@@ -526,11 +523,104 @@ html[enable-cloud-print-proxy=true] #cloudPrintProxyManageButton {
  display: none;
 }
 
+/* UI Controls */
+
+button:focus,
+input:focus,
+input[type='submit']:focus,
+select:focus {
+  outline-color: rgba(0, 128, 256, 0.5);
+}
+
+/* TEXT */
+input[type='password],
+input[type='text'] {
+  -webkit-border-radius: 2px;
+  border: 1px solid #aaa;
+  font-size: inherit;
+  padding: 3px;
+}
+
+/* BUTTON */
+button,
+input[type='submit'] {
+  -webkit-border-radius: 2px;
+  -webkit-box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);
+  background: -webkit-linear-gradient(#fafafa, #f4f4f4 40%, #e5e5e5);
+  border: 1px solid #aaa;
+  color: #444;
+  font-size: inherit;
+  margin-bottom: 0px;
+  min-width: 4em;
+  padding: 3px 12px 3px 12px;
+}
+
+button:hover,
+input[type='submit']:hover {
+  -webkit-box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.2);
+  background: #ebebeb -webkit-linear-gradient(#fefefe, #f8f8f8 40%, #e9e9e9);
+  border-color: #999;
+  color: #222;
+}
+
+button:active,
+input[type='submit']:active {
+  -webkit-box-shadow: inset 0px 1px 3px rgba(0, 0, 0, 0.2);
+  background: #ebebeb -webkit-linear-gradient(#f4f4f4, #efefef 40%, #dcdcdc);
+  color: #333;
+}
+
+button[disabled],
+input[type='submit'][disabled],
+button[disabled]:hover,
+input[type='submit'][disabled]:hover {
+  -webkit-box-shadow: none;
+  background: -webkit-linear-gradient(#fafafa, #f4f4f4 40%, #e5e5e5);
+  border-color: #aaa;
+  color: #888;
+}
+
+/* SELECT */
+select {
+  -webkit-appearance: button;
+  -webkit-border-radius: 2px;
+  -webkit-box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);
+  background-image: url("select.png"), -webkit-linear-gradient(#fafafa, #f4f4f4 40%, #e5e5e5);
+  background-position: center right;
+  background-repeat: no-repeat;
+  border: 1px solid #aaa;
+  color: #555;
+  font-size: inherit;
+  margin: 0;
+  overflow: hidden;
+  padding: 2px 20px 2px 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[dir='rtl'] select {
+  background-position: center left;
+}
+
+select:hover {
+  -webkit-box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.2);
+  background-image: url("select.png"), -webkit-linear-gradient(#fefefe, #f8f8f8 40%, #e9e9e9);
+  color: #333;
+}
+
+select:active {
+  -webkit-box-shadow: inset 0px 1px 3px rgba(0, 0, 0, 0.2);
+  background-image: url("select.png"), -webkit-linear-gradient(#f4f4f4, #efefef 40%, #dcdcdc);
+  color: #444;
+}
+
+/* CHECKBOX, RADIO */
 input[type=checkbox],
-input[type=radio],
-button {
+input[type=radio] {
   margin-left: 0;
   margin-right: 0;
+  position: relative;
+  top: 1px;
 }
 
 /* Checkbox and radio buttons have different sizes on different platforms. The
@@ -543,11 +633,11 @@ label > input[type=radio] {
   margin-top: 1px;
 }
 
-.suboption {
-  -webkit-margin-start: 16px;
-}
-
 html[os=mac] label > input[type=checkbox],
 html[os=mac] label > input[type=radio] {
   margin-top: 2px;
+}
+
+.suboption {
+  -webkit-margin-start: 16px;
 }

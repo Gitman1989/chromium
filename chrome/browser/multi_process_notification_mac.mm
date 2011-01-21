@@ -28,7 +28,6 @@
 #include "base/sys_string_conversions.h"
 #include "base/sys_info.h"
 #include "base/threading/simple_thread.h"
-#include "chrome/browser/browser_thread.h"
 #include "chrome/common/chrome_paths.h"
 
 // Enable this to build with leopard_switchboard_thread
@@ -164,7 +163,7 @@ class LeopardSwitchboardThread
 
   // all accesses to entries_ must be controlled by entries_lock_.
   std::vector<SwitchboardEntry> entries_;
-  Lock entries_lock_;
+  base::Lock entries_lock_;
   base::MessagePumpLibevent::FileDescriptorWatcher watcher_;
 };
 
@@ -175,7 +174,11 @@ class ListenerImpl : public base::MessagePumpLibevent::Watcher {
                Listener::Delegate* delegate);
   virtual ~ListenerImpl();
 
-  bool Start();
+  bool Start(MessageLoop* io_loop_to_listen_on);
+
+  std::string name() const { return name_; }
+  Domain domain() const { return domain_; }
+
   void OnListen();
 
   // Watcher overrides
@@ -186,9 +189,10 @@ class ListenerImpl : public base::MessagePumpLibevent::Watcher {
   std::string name_;
   Domain domain_;
   Listener::Delegate* delegate_;
+  bool started_;
   int fd_;
   int token_;
-  Lock switchboard_lock_;
+  base::Lock switchboard_lock_;
   static LeopardSwitchboardThread* g_switchboard_thread_;
   base::MessagePumpLibevent::FileDescriptorWatcher watcher_;
   scoped_refptr<base::MessageLoopProxy> message_loop_proxy_;
@@ -412,27 +416,34 @@ LeopardSwitchboardThread* ListenerImpl::g_switchboard_thread_ = NULL;
 
 ListenerImpl::ListenerImpl(
     const std::string& name, Domain domain, Listener::Delegate* delegate)
-    : name_(name), domain_(domain), delegate_(delegate), fd_(-1), token_(-1) {
+    : name_(name), domain_(domain), delegate_(delegate), started_(false),
+      fd_(-1), token_(-1) {
 }
 
 ListenerImpl::~ListenerImpl() {
-  if (!UseLeopardSwitchboardThread()) {
-    if (fd_ != -1) {
-      uint32_t status = notify_cancel(token_);
-      DCHECK_EQ(status, static_cast<uint32_t>(NOTIFY_STATUS_OK));
-    }
-  } else {
-    base::AutoLock autolock(switchboard_lock_);
-    if (g_switchboard_thread_) {
-      std::string notification = AddPrefixToNotification(name_, domain_);
-      CHECK(g_switchboard_thread_->RemoveListener(this, notification));
+  if (started_) {
+    if (!UseLeopardSwitchboardThread()) {
+      if (fd_ != -1) {
+        uint32_t status = notify_cancel(token_);
+        DCHECK_EQ(status, static_cast<uint32_t>(NOTIFY_STATUS_OK));
+      }
+    } else {
+      base::AutoLock autolock(switchboard_lock_);
+      if (g_switchboard_thread_) {
+        std::string notification = AddPrefixToNotification(name_, domain_);
+        CHECK(g_switchboard_thread_->RemoveListener(this, notification));
+      }
     }
   }
 }
 
-bool ListenerImpl::Start() {
+bool ListenerImpl::Start(MessageLoop* io_loop_to_listen_on) {
   DCHECK_EQ(fd_, -1);
   DCHECK_EQ(token_, -1);
+  if (io_loop_to_listen_on->type() != MessageLoop::TYPE_IO) {
+    DLOG(ERROR) << "io_loop_to_listen_on must be TYPE_IO";
+    return false;
+  }
   message_loop_proxy_ = base::MessageLoopProxy::CreateForCurrentThread();
   Task* task;
   if(UseLeopardSwitchboardThread()) {
@@ -440,12 +451,13 @@ bool ListenerImpl::Start() {
   } else {
     task = NewRunnableMethod(this, &ListenerImpl::StartSnowLeopard);
   }
-  return BrowserThread::PostTask(BrowserThread::IO, FROM_HERE, task);
+  io_loop_to_listen_on->PostTask(FROM_HERE, task);
+  return true;
 }
 
 void ListenerImpl::StartLeopard() {
   DCHECK(UseLeopardSwitchboardThread());
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  DCHECK_EQ(MessageLoop::TYPE_IO, MessageLoop::current()->type());
   bool success = true;
   {
     base::AutoLock autolock(switchboard_lock_);
@@ -467,6 +479,7 @@ void ListenerImpl::StartLeopard() {
       success = g_switchboard_thread_->AddListener(this, notification);
     }
   }
+  started_ = success;
   Task* task =
       new Listener::ListenerStartedTask(name_, domain_, delegate_, success);
   CHECK(message_loop_proxy_->PostTask(FROM_HERE, task));
@@ -474,7 +487,7 @@ void ListenerImpl::StartLeopard() {
 
 void ListenerImpl::StartSnowLeopard() {
   DCHECK(!UseLeopardSwitchboardThread());
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  DCHECK_EQ(MessageLoop::TYPE_IO, MessageLoop::current()->type());
   bool success = true;
   std::string notification = AddPrefixToNotification(name_, domain_);
   uint32_t status = notify_register_file_descriptor(
@@ -488,7 +501,13 @@ void ListenerImpl::StartSnowLeopard() {
     MessageLoopForIO* io_loop = MessageLoopForIO::current();
     success = io_loop->WatchFileDescriptor(
         fd_, true, MessageLoopForIO::WATCH_READ, &watcher_, this);
+    if (!success) {
+      uint32_t status = notify_cancel(token_);
+      DCHECK_EQ(status, static_cast<uint32_t>(NOTIFY_STATUS_OK));
+      fd_ = -1;
+    }
   }
+  started_ = success;
   Task* task =
       new Listener::ListenerStartedTask(name_, domain_, delegate_, success);
   CHECK(message_loop_proxy_->PostTask(FROM_HERE, task));
@@ -496,7 +515,7 @@ void ListenerImpl::StartSnowLeopard() {
 
 void ListenerImpl::OnFileCanReadWithoutBlocking(int fd) {
   DCHECK(!UseLeopardSwitchboardThread());
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  DCHECK_EQ(MessageLoop::TYPE_IO, MessageLoop::current()->type());
   DCHECK_EQ(fd, fd_);
   int token;
   int status = HANDLE_EINTR(read(fd, &token, sizeof(token)));
@@ -518,7 +537,7 @@ void ListenerImpl::OnFileCanReadWithoutBlocking(int fd) {
 }
 
 void ListenerImpl::OnListen() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  DCHECK_EQ(MessageLoop::TYPE_IO, MessageLoop::current()->type());
   Task* task =
       new Listener::NotificationReceivedTask(name_, domain_, delegate_);
   CHECK(message_loop_proxy_->PostTask(FROM_HERE, task));
@@ -536,8 +555,16 @@ Listener::Listener(
 Listener::~Listener() {
 }
 
-bool Listener::Start() {
-  return impl_->Start();
+bool Listener::Start(MessageLoop* io_loop_to_listen_on) {
+  return impl_->Start(io_loop_to_listen_on);
+}
+
+std::string Listener::name() const {
+  return impl_->name();
+}
+
+Domain Listener::domain() const {
+  return impl_->domain();
 }
 
 }  // namespace multi_process_notification

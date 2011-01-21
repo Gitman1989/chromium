@@ -5,7 +5,6 @@
 #include "chrome/browser/ui/views/url_picker.h"
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/stl_util-inl.h"
 #include "base/string16.h"
 #include "base/utf_string_conversions.h"
@@ -20,6 +19,7 @@
 #include "net/base/net_util.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/models/table_model.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "views/background.h"
 #include "views/controls/label.h"
 #include "views/controls/table/table_view.h"
@@ -66,7 +66,7 @@ UrlPicker::UrlPicker(UrlPickerDelegate* delegate,
   url_table_->SetObserver(this);
 
   // Yummy layout code.
-  GridLayout* layout = CreatePanelGridLayout(this);
+  GridLayout* layout = GridLayout::CreatePanel(this);
   SetLayoutManager(layout);
 
   const int labels_column_set_id = 0;

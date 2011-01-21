@@ -62,6 +62,9 @@ struct ViewMsg_Navigate_Params {
     // the page's cache policy is ignored and we load from the cache.
     RESTORE,
 
+    // Speculatively prerendering the page.
+    PRERENDER,
+
     // Navigation type not categorized by the other types.
     NORMAL
   };
@@ -340,6 +343,9 @@ struct ViewHostMsg_UpdateRect_Params {
 
   // The rectangular region to scroll.
   gfx::Rect scroll_rect;
+
+  // The scroll offset of the render view.
+  gfx::Size scroll_offset;
 
   // The regions of the bitmap (in view coords) that contain updated pixels.
   // In the case of scrolling, this includes the scroll damage rect.
@@ -781,6 +787,19 @@ struct ViewHostMsg_CreateWindow_Params {
   // The name of the resulting frame that should be created (empty if none
   // has been specified).
   string16 frame_name;
+
+  // The frame identifier of the frame initiating the open.
+  int64 opener_frame_id;
+
+  // The URL of the frame initiating the open.
+  GURL opener_url;
+
+  // The security origin of the frame initiating the open.
+  std::string opener_security_origin;
+
+  // The URL that will be loaded in the new window (empty if none has been
+  // sepcified).
+  GURL target_url;
 };
 
 struct ViewHostMsg_RunFileChooser_Params {

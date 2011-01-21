@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/command_line.h"
 #include "base/file_util.h"
 #include "base/message_loop.h"
@@ -39,7 +38,7 @@
 #include "grit/browser_resources.h"
 #include "grit/generated_resources.h"
 #include "net/base/escape.h"
-
+#include "ui/base/resource/resource_bundle.h"
 
 namespace {
 
@@ -280,14 +279,22 @@ DictionaryValue* GpuInfoToDict(const GPUInfo& gpu_info) {
       base::StringPrintf("0x%04x", gpu_info.vendor_id())));
   basic_info->Append(NewDescriptionValuePair("Device Id",
       base::StringPrintf("0x%04x", gpu_info.device_id())));
+  basic_info->Append(NewDescriptionValuePair("Driver vendor",
+      gpu_info.driver_vendor()));
   basic_info->Append(NewDescriptionValuePair("Driver version",
-      WideToASCII(gpu_info.driver_version()).c_str()));
+      gpu_info.driver_version()));
   basic_info->Append(NewDescriptionValuePair("Pixel shader version",
       VersionNumberToString(gpu_info.pixel_shader_version())));
   basic_info->Append(NewDescriptionValuePair("Vertex shader version",
       VersionNumberToString(gpu_info.vertex_shader_version())));
   basic_info->Append(NewDescriptionValuePair("GL version",
       VersionNumberToString(gpu_info.gl_version())));
+  basic_info->Append(NewDescriptionValuePair("GL_VENDOR",
+      gpu_info.gl_vendor()));
+  basic_info->Append(NewDescriptionValuePair("GL_RENDERER",
+      gpu_info.gl_renderer()));
+  basic_info->Append(NewDescriptionValuePair("GL_VERSION",
+      gpu_info.gl_version_string()));
 
   DictionaryValue* info = new DictionaryValue();
   info->Set("basic_info", basic_info);

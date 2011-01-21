@@ -1,15 +1,15 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "views/controls/message_box_view.h"
 
-#include "app/message_box_flags.h"
 #include "base/i18n/rtl.h"
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
+#include "ui/base/message_box_flags.h"
 #include "views/controls/button/checkbox.h"
 #include "views/standard_layout.h"
 #include "views/views_delegate.h"
@@ -118,7 +118,7 @@ void MessageBoxView::Init(int dialog_flags,
                           const std::wstring& default_prompt) {
   message_label_->SetMultiLine(true);
   message_label_->SetAllowCharacterBreak(true);
-  if (dialog_flags & MessageBoxFlags::kAutoDetectAlignment) {
+  if (dialog_flags & ui::MessageBoxFlags::kAutoDetectAlignment) {
     // Determine the alignment and directionality based on the first character
     // with strong directionality.
     base::i18n::TextDirection direction =
@@ -137,7 +137,7 @@ void MessageBoxView::Init(int dialog_flags,
     message_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
   }
 
-  if (dialog_flags & MessageBoxFlags::kFlagHasPromptField) {
+  if (dialog_flags & ui::MessageBoxFlags::kFlagHasPromptField) {
     prompt_field_ = new views::Textfield;
     prompt_field_->SetText(WideToUTF16Hack(default_prompt));
   }
@@ -150,7 +150,7 @@ void MessageBoxView::ResetLayoutManager() {
   using views::ColumnSet;
 
   // Initialize the Grid Layout Manager used for this dialog box.
-  GridLayout* layout = CreatePanelGridLayout(this);
+  GridLayout* layout = GridLayout::CreatePanel(this);
   SetLayoutManager(layout);
 
   gfx::Size icon_size;

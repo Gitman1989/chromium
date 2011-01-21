@@ -275,7 +275,7 @@ static BOOL WINAPI Perftools_VirtualFreeEx(HANDLE process, LPVOID address,
   return patch_VirtualFreeEx()(process, address, size, type);
 }
 
-static Lock known_maps_lock;
+static base::Lock known_maps_lock;
 static std::map<void*, int> known_maps;
 
 static LPVOID WINAPI Perftools_MapViewOfFileEx(HANDLE hFileMappingObject,
@@ -290,7 +290,7 @@ static LPVOID WINAPI Perftools_MapViewOfFileEx(HANDLE hFileMappingObject,
                                            dwFileOffsetHigh, dwFileOffsetLow,
                                            dwNumberOfBytesToMap, lpBaseAddress);
   {
-    AutoLock lock(known_maps_lock);
+    base::AutoLock lock(known_maps_lock);
     MEMORY_BASIC_INFORMATION info;
     if (known_maps.find(result) == known_maps.end()) {
       CHECK(VirtualQuery(result, &info, sizeof(info)));
@@ -326,7 +326,7 @@ static DWORD WINAPI Perftools_NtUnmapViewOfSection(HANDLE process,
   // than calling UnmapViewOfFile.  If we didn't trap this function,
   // then we appear to have bogus leaks.
   {
-    AutoLock lock(known_maps_lock);
+    base::AutoLock lock(known_maps_lock);
     MEMORY_BASIC_INFORMATION info;
     CHECK(VirtualQuery(lpBaseAddress, &info, sizeof(info)));
     if (known_maps.find(lpBaseAddress) != known_maps.end()) {

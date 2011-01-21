@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/gtk/browser_window_gtk.h"
+#include "chrome/browser/ui/gtk/browser_window_gtk.h"
 
 #include <gdk/gdkkeysyms.h>
 
@@ -28,40 +28,6 @@
 #include "chrome/browser/dom_ui/bug_report_ui.h"
 #include "chrome/browser/download/download_item_model.h"
 #include "chrome/browser/download/download_manager.h"
-#include "chrome/browser/gtk/about_chrome_dialog.h"
-#include "chrome/browser/gtk/accelerators_gtk.h"
-#include "chrome/browser/gtk/bookmark_bar_gtk.h"
-#include "chrome/browser/gtk/browser_titlebar.h"
-#include "chrome/browser/gtk/browser_toolbar_gtk.h"
-#include "chrome/browser/gtk/cairo_cached_surface.h"
-#include "chrome/browser/gtk/clear_browsing_data_dialog_gtk.h"
-#include "chrome/browser/gtk/collected_cookies_gtk.h"
-#include "chrome/browser/gtk/create_application_shortcuts_dialog_gtk.h"
-#include "chrome/browser/gtk/download_in_progress_dialog_gtk.h"
-#include "chrome/browser/gtk/download_shelf_gtk.h"
-#include "chrome/browser/gtk/edit_search_engine_dialog.h"
-#include "chrome/browser/gtk/find_bar_gtk.h"
-#include "chrome/browser/gtk/fullscreen_exit_bubble_gtk.h"
-#include "chrome/browser/gtk/gtk_floating_container.h"
-#include "chrome/browser/gtk/gtk_theme_provider.h"
-#include "chrome/browser/gtk/gtk_util.h"
-#include "chrome/browser/gtk/html_dialog_gtk.h"
-#include "chrome/browser/gtk/import_dialog_gtk.h"
-#include "chrome/browser/gtk/info_bubble_gtk.h"
-#include "chrome/browser/gtk/infobar_container_gtk.h"
-#include "chrome/browser/gtk/infobar_gtk.h"
-#include "chrome/browser/gtk/keyword_editor_view.h"
-#include "chrome/browser/gtk/location_bar_view_gtk.h"
-#include "chrome/browser/gtk/nine_box.h"
-#include "chrome/browser/gtk/options/content_settings_window_gtk.h"
-#include "chrome/browser/gtk/reload_button_gtk.h"
-#include "chrome/browser/gtk/repost_form_warning_gtk.h"
-#include "chrome/browser/gtk/status_bubble_gtk.h"
-#include "chrome/browser/gtk/tab_contents_container_gtk.h"
-#include "chrome/browser/gtk/tabs/tab_strip_gtk.h"
-#include "chrome/browser/gtk/task_manager_gtk.h"
-#include "chrome/browser/gtk/theme_install_bubble_view_gtk.h"
-#include "chrome/browser/gtk/update_recommended_dialog.h"
 #include "chrome/browser/page_info_window.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
@@ -72,6 +38,40 @@
 #include "chrome/browser/ui/app_modal_dialogs/app_modal_dialog_queue.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
+#include "chrome/browser/ui/gtk/about_chrome_dialog.h"
+#include "chrome/browser/ui/gtk/accelerators_gtk.h"
+#include "chrome/browser/ui/gtk/bookmark_bar_gtk.h"
+#include "chrome/browser/ui/gtk/browser_titlebar.h"
+#include "chrome/browser/ui/gtk/browser_toolbar_gtk.h"
+#include "chrome/browser/ui/gtk/cairo_cached_surface.h"
+#include "chrome/browser/ui/gtk/clear_browsing_data_dialog_gtk.h"
+#include "chrome/browser/ui/gtk/collected_cookies_gtk.h"
+#include "chrome/browser/ui/gtk/create_application_shortcuts_dialog_gtk.h"
+#include "chrome/browser/ui/gtk/download_in_progress_dialog_gtk.h"
+#include "chrome/browser/ui/gtk/download_shelf_gtk.h"
+#include "chrome/browser/ui/gtk/edit_search_engine_dialog.h"
+#include "chrome/browser/ui/gtk/find_bar_gtk.h"
+#include "chrome/browser/ui/gtk/fullscreen_exit_bubble_gtk.h"
+#include "chrome/browser/ui/gtk/gtk_floating_container.h"
+#include "chrome/browser/ui/gtk/gtk_theme_provider.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
+#include "chrome/browser/ui/gtk/html_dialog_gtk.h"
+#include "chrome/browser/ui/gtk/import_dialog_gtk.h"
+#include "chrome/browser/ui/gtk/info_bubble_gtk.h"
+#include "chrome/browser/ui/gtk/infobar_container_gtk.h"
+#include "chrome/browser/ui/gtk/infobar_gtk.h"
+#include "chrome/browser/ui/gtk/keyword_editor_view.h"
+#include "chrome/browser/ui/gtk/location_bar_view_gtk.h"
+#include "chrome/browser/ui/gtk/nine_box.h"
+#include "chrome/browser/ui/gtk/options/content_settings_window_gtk.h"
+#include "chrome/browser/ui/gtk/reload_button_gtk.h"
+#include "chrome/browser/ui/gtk/repost_form_warning_gtk.h"
+#include "chrome/browser/ui/gtk/status_bubble_gtk.h"
+#include "chrome/browser/ui/gtk/tab_contents_container_gtk.h"
+#include "chrome/browser/ui/gtk/tabs/tab_strip_gtk.h"
+#include "chrome/browser/ui/gtk/task_manager_gtk.h"
+#include "chrome/browser/ui/gtk/theme_install_bubble_view_gtk.h"
+#include "chrome/browser/ui/gtk/update_recommended_dialog.h"
 #include "chrome/browser/ui/omnibox/location_bar.h"
 #include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
 #include "chrome/browser/ui/window_sizer.h"
@@ -302,7 +302,7 @@ BrowserWindowGtk::BrowserWindowGtk(Browser* browser)
        infobar_arrow_model_(this) {
   // We register first so that other views like the toolbar can use the
   // is_active() function in their ActiveWindowChanged() handlers.
-  ActiveWindowWatcherX::AddObserver(this);
+  ui::ActiveWindowWatcherX::AddObserver(this);
 
   use_custom_frame_pref_.Init(prefs::kUseCustomChromeFrame,
       browser_->profile()->GetPrefs(), this);
@@ -312,7 +312,7 @@ BrowserWindowGtk::BrowserWindowGtk(Browser* browser)
   // always even on the current virtual desktop.  If we are running under
   // compiz, suppress such raises, as they are not necessary in compiz anyway.
   std::string wm_name;
-  if (x11_util::GetWindowManagerName(&wm_name) && wm_name == "compiz")
+  if (ui::GetWindowManagerName(&wm_name) && wm_name == "compiz")
     suppress_window_raise_ = true;
 
   window_ = GTK_WINDOW(gtk_window_new(GTK_WINDOW_TOPLEVEL));
@@ -348,7 +348,7 @@ BrowserWindowGtk::BrowserWindowGtk(Browser* browser)
 }
 
 BrowserWindowGtk::~BrowserWindowGtk() {
-  ActiveWindowWatcherX::RemoveObserver(this);
+  ui::ActiveWindowWatcherX::RemoveObserver(this);
 
   browser_->tabstrip_model()->RemoveObserver(this);
 }
@@ -783,7 +783,7 @@ void BrowserWindowGtk::SetFullscreen(bool fullscreen) {
     // panel or not.
     std::string wm_name;
     bool unmaximize_before_unfullscreen = IsMaximized() &&
-        x11_util::GetWindowManagerName(&wm_name) && wm_name == "Metacity";
+        ui::GetWindowManagerName(&wm_name) && wm_name == "Metacity";
     if (unmaximize_before_unfullscreen)
       UnMaximize();
 
@@ -1121,7 +1121,7 @@ gfx::Rect BrowserWindowGtk::GetInstantBounds() {
 
 gfx::Rect BrowserWindowGtk::GrabWindowSnapshot(std::vector<unsigned char>*
                                                png_representation) {
-  x11_util::GrabWindowSnapshot(window_, png_representation);
+  ui::GrabWindowSnapshot(window_, png_representation);
   return bounds_;
 }
 
@@ -1438,7 +1438,7 @@ void BrowserWindowGtk::RegisterUserPrefs(PrefService* prefs) {
   bool custom_frame_default = false;
   // Avoid checking the window manager if we're not connected to an X server (as
   // is the case in Valgrind tests).
-  if (x11_util::XDisplayExists() &&
+  if (ui::XDisplayExists() &&
       !prefs->HasPrefPath(prefs::kUseCustomChromeFrame)) {
     custom_frame_default = GetCustomFramePrefDefault();
   }
@@ -2066,7 +2066,7 @@ gboolean BrowserWindowGtk::OnButtonPressEvent(GtkWidget* widget,
 // static
 void BrowserWindowGtk::MainWindowMapped(GtkWidget* widget) {
   // Map the X Window ID of the window to our window.
-  XID xid = x11_util::GetX11WindowFromGtkWidget(widget);
+  XID xid = ui::GetX11WindowFromGtkWidget(widget);
   BrowserWindowGtk::xid_map_.insert(
       std::pair<XID, GtkWindow*>(xid, GTK_WINDOW(widget)));
 }
@@ -2074,7 +2074,7 @@ void BrowserWindowGtk::MainWindowMapped(GtkWidget* widget) {
 // static
 void BrowserWindowGtk::MainWindowUnMapped(GtkWidget* widget) {
   // Unmap the X Window ID.
-  XID xid = x11_util::GetX11WindowFromGtkWidget(widget);
+  XID xid = ui::GetX11WindowFromGtkWidget(widget);
   BrowserWindowGtk::xid_map_.erase(xid);
 }
 
@@ -2231,7 +2231,7 @@ void BrowserWindowGtk::PlaceBookmarkBar(bool is_floating) {
 // static
 bool BrowserWindowGtk::GetCustomFramePrefDefault() {
   std::string wm_name;
-  if (!x11_util::GetWindowManagerName(&wm_name))
+  if (!ui::GetWindowManagerName(&wm_name))
     return false;
 
   // Ideally, we'd use the custom frame by default and just fall back on using

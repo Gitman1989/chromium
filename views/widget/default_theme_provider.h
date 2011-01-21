@@ -8,20 +8,24 @@
 
 #include <vector>
 
-#include "app/theme_provider.h"
 #include "base/basictypes.h"
+#include "ui/base/theme_provider.h"
 
 class Profile;
+
+namespace ui {
 class ResourceBundle;
+}
+using ui::ResourceBundle;
 
 namespace views {
 
-class DefaultThemeProvider : public ThemeProvider {
+class DefaultThemeProvider : public ui::ThemeProvider {
  public:
   DefaultThemeProvider() { };
   virtual ~DefaultThemeProvider() { };
 
-  // Overridden from ThemeProvider.
+  // Overridden from ui::ThemeProvider.
   virtual void Init(Profile* profile) { }
   virtual SkBitmap* GetBitmapNamed(int id) const;
   virtual SkColor GetColor(int id) const {

@@ -8,10 +8,7 @@
 #include <gtk/gtk.h>
 #endif
 
-#include "app/drag_drop_types.h"
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
-#include "app/theme_provider.h"
 #include "base/command_line.h"
 #include "base/stl_util-inl.h"
 #include "base/utf_string_conversions.h"
@@ -44,6 +41,9 @@
 #include "gfx/skia_util.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "ui/base/dragdrop/drag_drop_types.h"
+#include "ui/base/resource/resource_bundle.h"
+#include "ui/base/theme_provider.h"
 #include "views/controls/label.h"
 #include "views/drag_utils.h"
 
@@ -516,7 +516,8 @@ void LocationBarView::Layout() {
     if (selected_keyword_view_->keyword() != keyword) {
       selected_keyword_view_->SetKeyword(keyword);
       const TemplateURL* template_url =
-          profile_->GetTemplateURLModel()->GetTemplateURLForKeyword(keyword);
+          profile_->GetTemplateURLModel()->GetTemplateURLForKeyword(
+              WideToUTF16Hack(keyword));
       if (template_url && template_url->IsExtensionKeyword()) {
         const SkBitmap& bitmap = profile_->GetExtensionService()->
             GetOmniboxIcon(template_url->GetExtensionId());
@@ -783,10 +784,6 @@ bool LocationBarView::OnCommitSuggestedText(const std::wstring& typed_text) {
 
 bool LocationBarView::AcceptCurrentInstantPreview() {
   return InstantController::CommitIfCurrent(delegate_->GetInstant());
-}
-
-void LocationBarView::OnSetSuggestedSearchText(const string16& suggested_text) {
-  SetSuggestedText(suggested_text);
 }
 
 void LocationBarView::OnPopupBoundsChanged(const gfx::Rect& bounds) {
@@ -1084,7 +1081,7 @@ AccessibilityTypes::Role LocationBarView::GetAccessibleRole() {
 void LocationBarView::WriteDragData(views::View* sender,
                                     const gfx::Point& press_pt,
                                     OSExchangeData* data) {
-  DCHECK(GetDragOperations(sender, press_pt) != DragDropTypes::DRAG_NONE);
+  DCHECK(GetDragOperations(sender, press_pt) != ui::DragDropTypes::DRAG_NONE);
 
   TabContents* tab_contents = GetTabContentsFromDelegate(delegate_);
   DCHECK(tab_contents);
@@ -1099,8 +1096,8 @@ int LocationBarView::GetDragOperations(views::View* sender,
   TabContents* tab_contents = GetTabContentsFromDelegate(delegate_);
   return (tab_contents && tab_contents->GetURL().is_valid() &&
           !location_entry()->IsEditingOrEmpty()) ?
-      (DragDropTypes::DRAG_COPY | DragDropTypes::DRAG_LINK) :
-      DragDropTypes::DRAG_NONE;
+      (ui::DragDropTypes::DRAG_COPY | ui::DragDropTypes::DRAG_LINK) :
+      ui::DragDropTypes::DRAG_NONE;
 }
 
 bool LocationBarView::CanStartDrag(View* sender,

@@ -12,8 +12,6 @@
 
 class QMainWindow;
 
-
-
 namespace gfx {
 class Point;
 class Size;
@@ -120,12 +118,6 @@ class WindowGtk : public WidgetGtk, public Window {
   GdkWindowState window_state_;
 
   QMainWindow* window_;
-
-
-
-
-
-
 
   // Set to true if the window is in the process of closing.
   bool window_closed_;

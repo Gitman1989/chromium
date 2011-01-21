@@ -19,7 +19,6 @@
 #include "chrome/common/nacl_types.h"
 #include "chrome/common/notification_type.h"
 #include "chrome/common/page_zoom.h"
-#include "chrome/common/speech_input_result.h"
 #include "chrome/common/translate_errors.h"
 #include "chrome/common/window_container_type.h"
 #include "ipc/ipc_message_macros.h"
@@ -220,7 +219,7 @@ IPC_MESSAGE_ROUTED0(ViewMsg_HandleInputEvent)
 // Parameters
 // * edit_commands (see chrome/common/edit_command_types.h)
 //   Contains one or more edit commands.
-// See third_party/WebKit/WebCore/editing/EditorCommand.cpp for detailed
+// See third_party/WebKit/Source/WebCore/editing/EditorCommand.cpp for detailed
 // definition of webkit edit commands.
 //
 // This message must be sent just before sending a key event.
@@ -566,6 +565,9 @@ IPC_MESSAGE_CONTROL1(ViewMsg_PurgePluginListCache,
 
 // Tells the render view to load all blocked plugins.
 IPC_MESSAGE_ROUTED0(ViewMsg_LoadBlockedPlugins)
+
+// Tells the render view a prerendered page is about to be displayed.
+IPC_MESSAGE_ROUTED0(ViewMsg_DisplayPrerenderedPage)
 
 IPC_MESSAGE_ROUTED1(ViewMsg_RunFileChooserResponse,
                     std::vector<FilePath> /* selected files */)
@@ -1018,22 +1020,6 @@ IPC_MESSAGE_ROUTED1(ViewMsg_AccessibilityDoDefaultAction,
 // message was processed and it can send addition notifications.
 IPC_MESSAGE_ROUTED0(ViewMsg_AccessibilityNotifications_ACK)
 
-// Relay a speech recognition result, either partial or final.
-IPC_MESSAGE_ROUTED2(ViewMsg_SpeechInput_SetRecognitionResult,
-                    int /* request id */,
-                    speech_input::SpeechInputResultArray /* result */)
-
-// Indicate that speech recognizer has stopped recording and started
-// recognition.
-IPC_MESSAGE_ROUTED1(ViewMsg_SpeechInput_RecordingComplete,
-                    int /* request id */)
-
-// Indicate that speech recognizer has completed recognition. This will be
-// the last message sent in response to a
-// ViewHostMsg_SpeechInput_StartRecognition.
-IPC_MESSAGE_ROUTED1(ViewMsg_SpeechInput_RecognitionComplete,
-                    int /* request id */)
-
 // Notification that the device's orientation has changed.
 IPC_MESSAGE_ROUTED1(ViewMsg_DeviceOrientationUpdated,
                     ViewMsg_DeviceOrientationUpdated_Params)
@@ -1079,6 +1065,10 @@ IPC_MESSAGE_CONTROL1(ViewMsg_SetPhishingModel,
 // External popup menus.
 IPC_MESSAGE_ROUTED1(ViewMsg_SelectPopupMenuItem,
                     int /* selected index, -1 means no selection */)
+
+// Indicate whether speech input API is enabled or not.
+IPC_MESSAGE_CONTROL1(ViewMsg_SpeechInput_SetFeatureEnabled,
+                     bool /* enabled */)
 
 // The response to ViewHostMsg_PepperConnectTcp(Address).
 IPC_MESSAGE_ROUTED4(ViewMsg_PepperConnectTcpACK,
@@ -1248,8 +1238,9 @@ IPC_MESSAGE_ROUTED4(ViewHostMsg_DidLoadResourceFromMemoryCache,
 IPC_MESSAGE_ROUTED0(ViewHostMsg_DidDisplayInsecureContent)
 
 // Sent when the renderer runs insecure content in a secure origin.
-IPC_MESSAGE_ROUTED1(ViewHostMsg_DidRunInsecureContent,
-                    std::string  /* security_origin */)
+IPC_MESSAGE_ROUTED2(ViewHostMsg_DidRunInsecureContent,
+                    std::string  /* security_origin */,
+                    GURL         /* target URL */);
 
 // Sent when the renderer starts a provisional load for a frame.
 IPC_MESSAGE_ROUTED3(ViewHostMsg_DidStartProvisionalLoadForFrame,
@@ -2456,30 +2447,6 @@ IPC_MESSAGE_ROUTED3(ViewHostMsg_UpdateZoomLimits,
                     int /* minimum_percent */,
                     int /* maximum_percent */,
                     bool /* remember */)
-
-// Requests the speech input service to start speech recognition on behalf of
-// the given |render_view_id|.
-IPC_MESSAGE_CONTROL5(ViewHostMsg_SpeechInput_StartRecognition,
-                     int /* render_view_id */,
-                     int /* request_id */,
-                     gfx::Rect /* element_rect */,
-                     std::string /* language */,
-                     std::string /* grammar */)
-
-// Requests the speech input service to cancel speech recognition on behalf of
-// the given |render_view_id|. If speech recognition is not happening nor or
-// is happening on behalf of some other render view, this call does nothing.
-IPC_MESSAGE_CONTROL2(ViewHostMsg_SpeechInput_CancelRecognition,
-                     int /* render_view_id */,
-                     int /* request id */)
-
-// Requests the speech input service to stop audio recording on behalf of
-// the given |render_view_id|. Any audio recorded so far will be fed to the
-// speech recognizer. If speech recognition is not happening nor or is
-// happening on behalf of some other render view, this call does nothing.
-IPC_MESSAGE_CONTROL2(ViewHostMsg_SpeechInput_StopRecording,
-                     int /* render_view_id */,
-                     int /* request id */)
 
 //---------------------------------------------------------------------------
 // Device orientation services messages:

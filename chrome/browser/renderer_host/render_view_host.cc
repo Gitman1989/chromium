@@ -168,21 +168,11 @@ bool RenderViewHost::CreateRenderView(const string16& frame_name) {
 
   renderer_initialized_ = true;
 
-  // Force local storage to be enabled for extensions. This is so that we can
-  // enable extensions by default before databases, if necessary.
-  // TODO(aa): This should be removed when local storage and databases are
-  // enabled by default (bugs 4359 and 4360).
-  WebPreferences webkit_prefs = delegate_->GetWebkitPrefs();
-  if (delegate_->GetURL().SchemeIs(chrome::kExtensionScheme)) {
-    webkit_prefs.local_storage_enabled = true;
-    webkit_prefs.databases_enabled = true;
-  }
-
   ViewMsg_New_Params params;
   params.parent_window = GetNativeViewId();
   params.renderer_preferences =
       delegate_->GetRendererPrefs(process()->profile());
-  params.web_preferences = webkit_prefs;
+  params.web_preferences = delegate_->GetWebkitPrefs();
   params.view_id = routing_id();
   params.session_storage_namespace_id = session_storage_namespace_->id();
   params.frame_name = frame_name;
@@ -794,9 +784,6 @@ bool RenderViewHost::OnMessageReceived(const IPC::Message& msg) {
                                     OnMsgRunBeforeUnloadConfirm)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(ViewHostMsg_ShowModalHTMLDialog,
                                     OnMsgShowModalHTMLDialog)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_PasswordFormsFound, OnMsgPasswordFormsFound)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_PasswordFormsVisible,
-                        OnMsgPasswordFormsVisible)
     IPC_MESSAGE_HANDLER(ViewHostMsg_StartDragging, OnMsgStartDragging)
     IPC_MESSAGE_HANDLER(ViewHostMsg_UpdateDragCursor, OnUpdateDragCursor)
     IPC_MESSAGE_HANDLER(ViewHostMsg_TakeFocus, OnTakeFocus)
@@ -1371,16 +1358,6 @@ void RenderViewHost::PrintNodeUnderContextMenu() {
   Send(new ViewMsg_PrintNodeUnderContextMenu(routing_id()));
 }
 
-void RenderViewHost::OnMsgPasswordFormsFound(
-    const std::vector<PasswordForm>& forms) {
-  delegate_->PasswordFormsFound(forms);
-}
-
-void RenderViewHost::OnMsgPasswordFormsVisible(
-    const std::vector<PasswordForm>& visible_forms) {
-  delegate_->PasswordFormsVisible(visible_forms);
-}
-
 void RenderViewHost::OnMsgStartDragging(
     const WebDropData& drop_data,
     WebDragOperationsMask drag_operations_mask,
@@ -1737,18 +1714,6 @@ void RenderViewHost::UpdateBrowserWindowId(int window_id) {
 
 void RenderViewHost::PerformCustomContextMenuAction(unsigned action) {
   Send(new ViewMsg_CustomContextMenuAction(routing_id(), action));
-}
-
-void RenderViewHost::TranslatePage(int page_id,
-                                   const std::string& translate_script,
-                                   const std::string& source_lang,
-                                   const std::string& target_lang) {
-  Send(new ViewMsg_TranslatePage(routing_id(), page_id, translate_script,
-                                 source_lang, target_lang));
-}
-
-void RenderViewHost::RevertTranslation(int page_id) {
-  Send(new ViewMsg_RevertTranslation(routing_id(), page_id));
 }
 
 void RenderViewHost::SendContentSettings(const GURL& url,

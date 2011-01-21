@@ -5,7 +5,6 @@
 #import "chrome/browser/ui/cocoa/options/edit_search_engine_cocoa_controller.h"
 
 #include "app/l10n_util_mac.h"
-#include "app/resource_bundle.h"
 #include "base/logging.h"
 #import "base/mac/mac_util.h"
 #include "base/string16.h"
@@ -15,6 +14,7 @@
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "third_party/GTM/AppKit/GTMUILocalizerAndLayoutTweaker.h"
+#include "ui/base/resource/resource_bundle.h"
 
 namespace {
 
@@ -87,11 +87,11 @@ void ShiftOriginY(NSView* view, CGFloat amount) {
     [window setTitle:l10n_util::GetNSString(
       IDS_SEARCH_ENGINES_EDITOR_EDIT_WINDOW_TITLE)];
     [nameField_ setStringValue:
-        base::SysWideToNSString(templateURL_->short_name())];
+        base::SysUTF16ToNSString(templateURL_->short_name())];
     [keywordField_ setStringValue:
-        base::SysWideToNSString(templateURL_->keyword())];
+        base::SysUTF16ToNSString(templateURL_->keyword())];
     [urlField_ setStringValue:
-        base::SysWideToNSString(templateURL_->url()->DisplayURL())];
+        base::SysUTF16ToNSString(templateURL_->url()->DisplayURL())];
     [urlField_ setEnabled:(templateURL_->prepopulate_id() == 0)];
   }
   // When creating a new keyword, this will mark the fields as "invalid" and

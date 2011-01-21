@@ -2,15 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/gtk/rounded_window.h"
+#include "chrome/browser/ui/gtk/rounded_window.h"
 
 #include <gtk/gtk.h>
 #include <math.h>
 
-#include "app/gtk_signal_registrar.h"
 #include "base/i18n/rtl.h"
 #include "base/logging.h"
-#include "chrome/browser/gtk/gtk_util.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
+#include "ui/base/gtk/gtk_signal_registrar.h"
 
 namespace gtk_util {
 
@@ -40,7 +40,7 @@ struct RoundedWindowData {
   int drawn_borders;
 
   // Keeps track of attached signal handlers.
-  GtkSignalRegistrar signals;
+  ui::GtkSignalRegistrar signals;
 };
 
 // Callback from GTK to release allocated memory.

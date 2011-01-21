@@ -2,31 +2,31 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/gtk/content_setting_bubble_gtk.h"
+#include "chrome/browser/ui/gtk/content_setting_bubble_gtk.h"
 
 #include <set>
 #include <string>
 #include <vector>
 
 #include "app/l10n_util.h"
-#include "app/text_elider.h"
 #include "base/i18n/rtl.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/blocked_content_container.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/browser/content_setting_bubble_model.h"
-#include "chrome/browser/gtk/gtk_chrome_link_button.h"
-#include "chrome/browser/gtk/gtk_theme_provider.h"
-#include "chrome/browser/gtk/gtk_util.h"
-#include "chrome/browser/gtk/options/content_settings_window_gtk.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/gtk/gtk_chrome_link_button.h"
+#include "chrome/browser/ui/gtk/gtk_theme_provider.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
+#include "chrome/browser/ui/gtk/options/content_settings_window_gtk.h"
 #include "chrome/common/content_settings.h"
 #include "chrome/common/notification_source.h"
 #include "chrome/common/notification_type.h"
 #include "gfx/gtk_util.h"
 #include "grit/app_resources.h"
 #include "grit/generated_resources.h"
+#include "ui/base/text/text_elider.h"
 #include "webkit/plugins/npapi/plugin_list.h"
 
 namespace {
@@ -39,7 +39,7 @@ const int kContentBorder = 7;
 const int kMaxLinkPixelSize = 500;
 
 std::string BuildElidedText(const std::string& input) {
-  return UTF16ToUTF8(gfx::ElideText(
+  return UTF16ToUTF8(ui::ElideText(
       UTF8ToUTF16(input),
       gfx::Font(),
       kMaxLinkPixelSize,

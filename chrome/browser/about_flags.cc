@@ -124,17 +124,8 @@ const Experiment kExperiments[] = {
   {
     "remoting",  // FLAGS:RECORD_UMA
     IDS_FLAGS_REMOTING_NAME,
-#if defined(OS_WIN)
-    // Windows only supports host functionality at the moment.
-    IDS_FLAGS_REMOTING_HOST_DESCRIPTION,
-#elif defined(OS_LINUX)  // Also true for CrOS.
-    // Linux only supports client functionality at the moment.
-    IDS_FLAGS_REMOTING_CLIENT_DESCRIPTION,
-#else
-    // On other platforms, this lab isn't available at all.
-    0,
-#endif
-    kOsWin | kOsLinux | kOsCrOS,
+    IDS_FLAGS_REMOTING_DESCRIPTION,
+    kOsAll,
     SINGLE_VALUE_TYPE(switches::kEnableRemoting)
   },
   {
@@ -279,6 +270,13 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_BLOCK_ALL_THIRD_PARTY_COOKIES_DESCRIPTION,
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kBlockReadingThirdPartyCookies)
+  },
+  {
+    "disable-interactive-form-validation",
+    IDS_FLAGS_DISABLE_INTERACTIVE_FORM_VALIDATION_NAME,
+    IDS_FLAGS_DISABLE_INTERACTIVE_FORM_VALIDATION_DESCRIPTION,
+    kOsAll,
+    SINGLE_VALUE_TYPE(switches::kDisableInteractiveFormValidation)
   },
 };
 

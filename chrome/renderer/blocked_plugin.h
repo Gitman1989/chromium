@@ -6,14 +6,12 @@
 #define CHROME_RENDERER_BLOCKED_PLUGIN_H_
 #pragma once
 
-#include "chrome/renderer/custom_menu_listener.h"
+#include "chrome/renderer/render_view_observer.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginParams.h"
 #include "webkit/glue/cpp_bound_class.h"
 #include "webkit/plugins/npapi/webview_plugin.h"
 
 class GURL;
-class RenderView;
-
 
 namespace webkit {
 namespace npapi {
@@ -21,9 +19,9 @@ class PluginGroup;
 }
 }
 
-class BlockedPlugin : public CppBoundClass,
-                      public webkit::npapi::WebViewPlugin::Delegate,
-                      public CustomMenuListener {
+class BlockedPlugin : public RenderViewObserver,
+                      public CppBoundClass,
+                      public webkit::npapi::WebViewPlugin::Delegate {
  public:
   BlockedPlugin(RenderView* render_view,
                 WebKit::WebFrame* frame,
@@ -31,7 +29,8 @@ class BlockedPlugin : public CppBoundClass,
                 const WebKit::WebPluginParams& params,
                 const WebPreferences& settings,
                 int template_id,
-                const string16& message);
+                const string16& message,
+                bool is_blocked_for_prerendering);
 
   webkit::npapi::WebViewPlugin* plugin() { return plugin_; }
 
@@ -40,14 +39,16 @@ class BlockedPlugin : public CppBoundClass,
   virtual void WillDestroyPlugin();
   virtual void ShowContextMenu(const WebKit::WebMouseEvent&);
 
-  // CustomMenuListener methods:
-  virtual void MenuItemSelected(unsigned id);
+ private:
+  virtual ~BlockedPlugin();
+
+  // RenderViewObserver methods:
+  virtual bool OnMessageReceived(const IPC::Message& message);
+
+  void OnMenuItemSelected(unsigned id);
 
   // Load the blocked plugin.
   void LoadPlugin();
-
- private:
-  virtual ~BlockedPlugin();
 
   // Javascript callbacks:
   // Load the blocked plugin by calling LoadPlugin().
@@ -61,12 +62,14 @@ class BlockedPlugin : public CppBoundClass,
   // Hide the blocked plugin.
   void HidePlugin();
 
-  RenderView* render_view_;
   WebKit::WebFrame* frame_;
   WebKit::WebPluginParams plugin_params_;
   webkit::npapi::WebViewPlugin* plugin_;
   // The name of the plugin that was blocked.
   string16 name_;
+  // True iff the plugin was blocked because the page was being prerendered.
+  // Plugin will automatically be loaded when the page is displayed.
+  bool is_blocked_for_prerendering_;
 };
 
 #endif  // CHROME_RENDERER_BLOCKED_PLUGIN_H_

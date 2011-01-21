@@ -5,7 +5,6 @@
 {
   'variables': {
     'chromium_code': 1,
-    'javascript_engine': 0
   },
   'targets': [
     {
@@ -190,7 +189,6 @@
         'base/transport_security_state.cc',
         'base/transport_security_state.h',
         'base/sys_addrinfo.h',
-        'base/test_completion_callback.h',
         'base/upload_data.cc',
         'base/upload_data.h',
         'base/upload_data_stream.cc',
@@ -569,7 +567,7 @@
         'proxy/proxy_resolver_script.h',
         'proxy/proxy_resolver_script_data.cc',
         'proxy/proxy_resolver_script_data.h',
-#        'proxy/proxy_resolver_v8.cc',
+        'proxy/proxy_resolver_v8.cc',
         'proxy/proxy_resolver_v8.h',
         'proxy/proxy_resolver_winhttp.cc',
         'proxy/proxy_resolver_winhttp.h',
@@ -742,7 +740,7 @@
       'conditions': [
         ['javascript_engine=="v8"', {
           'dependencies': [
-#            '../v8/tools/gyp/v8.gyp:v8',
+            '../v8/tools/gyp/v8.gyp:v8',
           ],
         }],
         ['chromeos==1', {
@@ -1160,6 +1158,8 @@
       'sources': [
         'base/cert_test_util.cc',
         'base/cert_test_util.h',
+        'base/test_completion_callback.cc',
+        'base/test_completion_callback.h',
         'disk_cache/disk_cache_test_util.cc',
         'disk_cache/disk_cache_test_util.h',
         'proxy/proxy_config_service_common_unittest.cc',
@@ -1423,6 +1423,7 @@
           'type': 'executable',
           'dependencies': [
             'net',
+            'net_test_support',
             '../base/base.gyp:base',
           ],
           'sources': [

@@ -11,7 +11,6 @@
 #include <map>
 #include <string>
 
-#include "app/gtk_signal.h"
 #include "base/basictypes.h"
 #include "base/scoped_ptr.h"
 #include "base/scoped_vector.h"
@@ -20,15 +19,16 @@
 #include "chrome/browser/extensions/extension_context_menu_model.h"
 #include "chrome/browser/extensions/image_loading_tracker.h"
 #include "chrome/browser/first_run/first_run.h"
-#include "chrome/browser/gtk/info_bubble_gtk.h"
-#include "chrome/browser/gtk/menu_gtk.h"
-#include "chrome/browser/gtk/owned_widget_gtk.h"
+#include "chrome/browser/ui/gtk/info_bubble_gtk.h"
+#include "chrome/browser/ui/gtk/menu_gtk.h"
+#include "chrome/browser/ui/gtk/owned_widget_gtk.h"
 #include "chrome/browser/ui/omnibox/location_bar.h"
 #include "chrome/common/content_settings_types.h"
 #include "chrome/common/notification_observer.h"
 #include "chrome/common/notification_registrar.h"
 #include "chrome/common/page_transition_types.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/base/gtk/gtk_signal.h"
 #include "webkit/glue/window_open_disposition.h"
 
 class AutocompleteEditViewGtk;
@@ -97,7 +97,6 @@ class LocationBarViewGtk : public AutocompleteEditController,
   // For this implementation, the parameter is ignored.
   virtual bool OnCommitSuggestedText(const std::wstring& typed_text);
   virtual bool AcceptCurrentInstantPreview();
-  virtual void OnSetSuggestedSearchText(const string16& suggested_text);
   virtual void OnPopupBoundsChanged(const gfx::Rect& bounds);
   virtual void OnAutocompleteAccept(const GURL& url,
       WindowOpenDisposition disposition,

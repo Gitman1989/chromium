@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/gtk/keyword_editor_view.h"
+#include "chrome/browser/ui/gtk/keyword_editor_view.h"
 
 #include <gtk/gtk.h>
 
@@ -12,10 +12,10 @@
 #include "base/string16.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/gtk/gtk_tree.h"
 #include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_model.h"
 #include "chrome/browser/search_engines/template_url_table_model.h"
+#include "chrome/browser/ui/gtk/gtk_tree.h"
 #include "chrome/test/testing_profile.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -30,8 +30,8 @@ class KeywordEditorViewTest : public testing::Test {
                           const std::string& keyword,
                           bool make_default) {
     TemplateURL* template_url = new TemplateURL();
-    template_url->set_short_name(UTF8ToWide(name));
-    template_url->set_keyword(UTF8ToWide(keyword));
+    template_url->set_short_name(UTF8ToUTF16(name));
+    template_url->set_keyword(UTF8ToUTF16(keyword));
     template_url->SetURL("http://example.com/{searchTerms}", 0, 0);
     profile_->GetTemplateURLModel()->Add(template_url);
     if (make_default)

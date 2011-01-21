@@ -16,6 +16,7 @@ function afterCommit()
 
 function nonExistingKey()
 {
+    shouldBe("event.result", "undefined");
     window.setTimeout('afterCommit()', 0);
 }
 
@@ -37,8 +38,8 @@ function startTransaction()
     result.onerror = unexpectedErrorCallback;
 
     var emptyResult = store.get('nonExistingKey');
-    emptyResult.onsuccess = unexpectedSuccessCallback;
-    emptyResult.onerror = nonExistingKey;
+    emptyResult.onsuccess = nonExistingKey;
+    emptyResult.onerror = unexpectedErrorCallback;
 }
 
 function populateObjectStore()

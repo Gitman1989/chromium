@@ -8,10 +8,11 @@
 
 #include "base/basictypes.h"
 #include "base/callback.h"
-#include "base/lock.h"
 #include "base/scoped_ptr.h"
+#include "base/synchronization/lock.h"
 #include "base/threading/thread.h"
 #include "chrome/browser/chromeos/audio_mixer.h"
+#include "chrome/browser/prefs/pref_member.h"
 
 struct _snd_mixer_elem;
 struct _snd_mixer;
@@ -33,17 +34,25 @@ class AudioMixerAlsa : public AudioMixer {
   virtual void SetMute(bool mute);
   virtual State GetState() const;
 
+  // Registers volume and mute in preferences
+  static void RegisterPrefs(PrefService* local_state);
+
  private:
   // Called to do initialization in background from worker thread.
   void DoInit(InitDoneCallback* callback);
 
-  // Helper function to just get our message loop thread going.
+  // Helper functions to get our message loop thread and prefs initialized.
   bool InitThread();
+  void InitPrefs();
 
   // Try to connect to the ALSA mixer through their simple controls interface,
   // and cache mixer handle and mixer elements we'll be using.
   bool InitializeAlsaMixer();
   void FreeAlsaMixer();
+  void DoSetVolumeMute(double pref_volume, int pref_mute);
+
+  // Access to PrefMember variables must be done on UI thread.
+  void RestoreVolumeMuteOnUIThread();
 
   // All these internal volume commands must be called with the lock held.
   double DoGetVolumeDb_Locked() const;
@@ -79,13 +88,16 @@ class AudioMixerAlsa : public AudioMixer {
   // no effect.
   double save_volume_;
 
-  mutable Lock mixer_state_lock_;
+  mutable base::Lock mixer_state_lock_;
   mutable State mixer_state_;
 
   // Cached contexts for use in ALSA calls.
   _snd_mixer* alsa_mixer_;
   _snd_mixer_elem* elem_master_;
   _snd_mixer_elem* elem_pcm_;
+
+  IntegerPrefMember mute_pref_;
+  RealPrefMember volume_pref_;
 
   scoped_ptr<base::Thread> thread_;
 

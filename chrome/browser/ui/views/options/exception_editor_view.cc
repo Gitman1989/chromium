@@ -5,7 +5,6 @@
 #include "chrome/browser/ui/views/options/exception_editor_view.h"
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/content_exceptions_table_model.h"
 #include "googleurl/src/url_canon.h"
@@ -13,6 +12,7 @@
 #include "grit/app_resources.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "views/grid_layout.h"
 #include "views/controls/image_view.h"
 #include "views/controls/label.h"
@@ -123,7 +123,7 @@ void ExceptionEditorView::Init() {
       UTF16ToWide(l10n_util::GetStringUTF16(IDS_EXCEPTION_EDITOR_OTR_TITLE)));
   incognito_cb_->SetChecked(is_off_the_record_);
 
-  GridLayout* layout = CreatePanelGridLayout(this);
+  GridLayout* layout = GridLayout::CreatePanel(this);
   SetLayoutManager(layout);
 
   // For the Textfields.

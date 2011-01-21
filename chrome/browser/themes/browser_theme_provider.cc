@@ -4,7 +4,6 @@
 
 #include "chrome/browser/themes/browser_theme_provider.h"
 
-#include "app/resource_bundle.h"
 #include "base/string_split.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
@@ -18,9 +17,10 @@
 #include "chrome/common/pref_names.h"
 #include "grit/app_resources.h"
 #include "grit/theme_resources.h"
+#include "ui/base/resource/resource_bundle.h"
 
 #if defined(OS_WIN)
-#include "app/win/hwnd_util.h"
+#include "ui/base/win/hwnd_util.h"
 #endif
 
 // Strings used in alignment properties.
@@ -255,7 +255,7 @@ bool BrowserThemeProvider::ShouldUseNativeFrame() const {
   if (HasCustomImage(IDR_THEME_FRAME))
     return false;
 #if defined(OS_WIN)
-  return app::win::ShouldUseVistaFrame();
+  return ui::ShouldUseVistaFrame();
 #else
   return false;
 #endif

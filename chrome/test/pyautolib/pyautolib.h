@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -11,6 +11,7 @@
 
 #include "base/message_loop.h"
 #include "base/mac/scoped_nsautorelease_pool.h"
+#include "base/test/test_timeouts.h"
 #include "chrome/test/ui/ui_test.h"
 #include "chrome/test/ui/ui_test_suite.h"
 
@@ -53,6 +54,9 @@ class PyUITestBase : public UITestBase {
 
   // Navigate to the given URL in the active tab. Blocks until page loaded.
   void NavigateToURL(const char* url_string);
+
+  // Navigate to the given URL in the active tab in the given window.
+  void NavigateToURL(const char* url_string, int window_index);
 
   // Navigate to the given URL in given tab in the given window.
   // Blocks until page loaded.
@@ -183,6 +187,14 @@ class PyUITestBase : public UITestBase {
   // Gets a cookie value for the given url.
   std::string GetCookie(const GURL& cookie_url, int window_index = 0,
                         int tab_index = 0);
+
+  int action_max_timeout_ms() const {
+    return TestTimeouts::action_max_timeout_ms();
+  }
+
+  int command_execution_timeout_ms() const {
+    return TestTimeouts::command_execution_timeout_ms();
+  }
 
  private:
   // Enables PostTask to main thread.

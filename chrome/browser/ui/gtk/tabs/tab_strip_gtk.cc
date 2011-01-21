@@ -2,29 +2,27 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/gtk/tabs/tab_strip_gtk.h"
+#include "chrome/browser/ui/gtk/tabs/tab_strip_gtk.h"
 
 #include <algorithm>
 
-#include "app/gtk_dnd_util.h"
-#include "app/resource_bundle.h"
 #include "base/i18n/rtl.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/autocomplete/autocomplete.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
-#include "chrome/browser/gtk/browser_window_gtk.h"
-#include "chrome/browser/gtk/custom_button.h"
-#include "chrome/browser/gtk/gtk_theme_provider.h"
-#include "chrome/browser/gtk/gtk_util.h"
-#include "chrome/browser/gtk/tabs/dragged_tab_controller_gtk.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/tabs/tab_strip_model_delegate.h"
 #include "chrome/browser/themes/browser_theme_provider.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_navigator.h"
+#include "chrome/browser/ui/gtk/browser_window_gtk.h"
+#include "chrome/browser/ui/gtk/custom_button.h"
+#include "chrome/browser/ui/gtk/gtk_theme_provider.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
+#include "chrome/browser/ui/gtk/tabs/dragged_tab_controller_gtk.h"
 #include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
 #include "chrome/common/notification_service.h"
 #include "chrome/common/notification_type.h"
@@ -34,6 +32,8 @@
 #include "grit/theme_resources.h"
 #include "ui/base/animation/animation_delegate.h"
 #include "ui/base/animation/slide_animation.h"
+#include "ui/base/dragdrop/gtk_dnd_util.h"
+#include "ui/base/resource/resource_bundle.h"
 
 namespace {
 
@@ -738,11 +738,11 @@ void TabStripGtk::Init() {
                     NULL, 0,
                     static_cast<GdkDragAction>(
                         GDK_ACTION_COPY | GDK_ACTION_MOVE | GDK_ACTION_LINK));
-  static const int targets[] = { gtk_dnd_util::TEXT_URI_LIST,
-                                 gtk_dnd_util::NETSCAPE_URL,
-                                 gtk_dnd_util::TEXT_PLAIN,
+  static const int targets[] = { ui::TEXT_URI_LIST,
+                                 ui::NETSCAPE_URL,
+                                 ui::TEXT_PLAIN,
                                  -1 };
-  gtk_dnd_util::SetDestTargetList(tabstrip_.get(), targets);
+  ui::SetDestTargetList(tabstrip_.get(), targets);
 
   g_signal_connect(tabstrip_.get(), "expose-event",
                    G_CALLBACK(OnExposeThunk), this);
@@ -1206,7 +1206,7 @@ bool TabStripGtk::HasAvailableDragActions() const {
   return model_->delegate()->GetDragActions() != 0;
 }
 
-ThemeProvider* TabStripGtk::GetThemeProvider() {
+ui::ThemeProvider* TabStripGtk::GetThemeProvider() {
   return theme_provider_;
 }
 
@@ -1976,10 +1976,10 @@ gboolean TabStripGtk::OnDragDataReceived(GtkWidget* widget,
                                          guint info, guint time) {
   bool success = false;
 
-  if (info == gtk_dnd_util::TEXT_URI_LIST ||
-      info == gtk_dnd_util::NETSCAPE_URL ||
-      info == gtk_dnd_util::TEXT_PLAIN) {
-    success = CompleteDrop(data->data, info == gtk_dnd_util::TEXT_PLAIN);
+  if (info == ui::TEXT_URI_LIST ||
+      info == ui::NETSCAPE_URL ||
+      info == ui::TEXT_PLAIN) {
+    success = CompleteDrop(data->data, info == ui::TEXT_PLAIN);
   }
 
   gtk_drag_finish(context, success, success, time);

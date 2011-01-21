@@ -20,12 +20,12 @@
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/global_descriptors_posix.h"
-#include "base/lock.h"
 #include "base/logging.h"
 #include "base/process_util.h"
 #include "base/scoped_ptr.h"
 #include "base/singleton.h"
 #include "base/string_util.h"
+#include "base/synchronization/lock.h"
 #include "ipc/ipc_descriptors.h"
 #include "ipc/ipc_switches.h"
 #include "ipc/file_descriptor_set_posix.h"
@@ -91,7 +91,7 @@ class PipeMap {
 
   // Lookup a given channel id. Return -1 if not found.
   int Lookup(const std::string& channel_id) {
-    AutoLock locked(lock_);
+    base::AutoLock locked(lock_);
 
     ChannelToFDMap::const_iterator i = map_.find(channel_id);
     if (i == map_.end())
@@ -102,7 +102,7 @@ class PipeMap {
   // Remove the mapping for the given channel id. No error is signaled if the
   // channel_id doesn't exist
   void RemoveAndClose(const std::string& channel_id) {
-    AutoLock locked(lock_);
+    base::AutoLock locked(lock_);
 
     ChannelToFDMap::iterator i = map_.find(channel_id);
     if (i != map_.end()) {
@@ -115,7 +115,7 @@ class PipeMap {
   // Insert a mapping from @channel_id to @fd. It's a fatal error to insert a
   // mapping if one already exists for the given channel_id
   void Insert(const std::string& channel_id, int fd) {
-    AutoLock locked(lock_);
+    base::AutoLock locked(lock_);
     DCHECK(fd != -1);
 
     ChannelToFDMap::const_iterator i = map_.find(channel_id);
@@ -126,7 +126,7 @@ class PipeMap {
   }
 
  private:
-  Lock lock_;
+  base::Lock lock_;
   typedef std::map<std::string, int> ChannelToFDMap;
   ChannelToFDMap map_;
 
@@ -167,14 +167,14 @@ bool CreateServerUnixDomainSocket(const std::string& pipe_name,
   // Delete any old FS instances.
   unlink(pipe_name.c_str());
 
-    // Make sure the path we need exists.
+  // Make sure the path we need exists.
   FilePath path(pipe_name);
   FilePath dir_path = path.DirName();
   if (!file_util::CreateDirectory(dir_path)) {
     return false;
   }
 
-  // Create unix_addr structure
+  // Create unix_addr structure.
   struct sockaddr_un unix_addr;
   memset(&unix_addr, 0, sizeof(unix_addr));
   unix_addr.sun_family = AF_UNIX;
@@ -188,6 +188,14 @@ bool CreateServerUnixDomainSocket(const std::string& pipe_name,
   if (bind(fd, reinterpret_cast<const sockaddr*>(&unix_addr),
            unix_addr_len) != 0) {
     PLOG(ERROR) << "bind " << pipe_name;
+    if (HANDLE_EINTR(close(fd)) < 0)
+      PLOG(ERROR) << "close " << pipe_name;
+    return false;
+  }
+
+  // Adjust the socket permissions.
+  if (chmod(pipe_name.c_str(), 0600)) {
+    PLOG(ERROR) << "fchmod " << pipe_name;
     if (HANDLE_EINTR(close(fd)) < 0)
       PLOG(ERROR) << "close " << pipe_name;
     return false;

@@ -31,14 +31,14 @@ class TabContentsContainer;
 class RenderViewContextMenuViews;
 struct NavigationInfo;
 
-namespace app {
+namespace ui {
 class ViewProp;
 }
 
 // This class serves as the container window for an external tab.
 // An external tab is a Chrome tab that is meant to displayed in an
 // external process. This class provides the FocusManger needed by the
-// TabContents as well as an implementation of TabContentsDelagate.
+// TabContents as well as an implementation of TabContentsDelegate.
 class ExternalTabContainer : public TabContentsDelegate,
                              public NotificationObserver,
                              public views::WidgetWin,
@@ -207,7 +207,7 @@ class ExternalTabContainer : public TabContentsDelegate,
   }
 
   // InfoBarContainer::Delegate overrides
-  virtual void InfoBarSizeChanged(bool is_animating);
+  virtual void InfoBarContainerSizeChanged(bool is_animating);
 
   virtual void TabContentsCreated(TabContents* new_contents);
 
@@ -336,7 +336,7 @@ class ExternalTabContainer : public TabContentsDelegate,
   // page without chrome frame.
   bool route_all_top_level_navigations_;
 
-  scoped_ptr<app::ViewProp> prop_;
+  scoped_ptr<ui::ViewProp> prop_;
 
   DISALLOW_COPY_AND_ASSIGN(ExternalTabContainer);
 };

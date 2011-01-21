@@ -6,7 +6,6 @@
 
 #include <vector>
 
-#include "app/resource_bundle.h"
 #include "base/logging.h"
 #include "base/scoped_ptr.h"
 #include "base/singleton.h"
@@ -21,6 +20,7 @@
 #include "third_party/cros/chromeos_wm_ipc_enums.h"
 #include "third_party/skia/include/effects/SkBlurMaskFilter.h"
 #include "third_party/skia/include/effects/SkGradientShader.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "views/controls/button/image_button.h"
 #include "views/controls/image_view.h"
 #include "views/controls/label.h"
@@ -107,7 +107,7 @@ PanelController::PanelController(Delegate* delegate,
                                  GtkWindow* window)
     :  delegate_(delegate),
        panel_(window),
-       panel_xid_(x11_util::GetX11WindowFromGtkWidget(GTK_WIDGET(panel_))),
+       panel_xid_(ui::GetX11WindowFromGtkWidget(GTK_WIDGET(panel_))),
        title_window_(NULL),
        title_(NULL),
        title_content_(NULL),
@@ -129,7 +129,7 @@ void PanelController::Init(bool initial_focus,
   gtk_widget_set_size_request(title_window_->GetNativeView(),
                               title_bounds.width(), title_bounds.height());
   title_ = title_window_->GetNativeView();
-  title_xid_ = x11_util::GetX11WindowFromGtkWidget(title_);
+  title_xid_ = ui::GetX11WindowFromGtkWidget(title_);
 
   WmIpc::instance()->SetWindowType(
       title_,

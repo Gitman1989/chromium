@@ -7,6 +7,22 @@
     'chromium_code': 1,
     'toolkit_views': 1
   },
+
+  'conditions': [
+    [ 'OS=="linux" or OS=="freebsd" or OS=="openbsd"', {
+      'conditions': [
+        ['sysroot!=""', {
+          'variables': {
+            'pkg-config': './pkg-config-wrapper "<(sysroot)"',
+          },
+        }, {
+          'variables': {
+            'pkg-config': 'pkg-config'
+          },
+        }],]
+    }],
+  ],
+
   'target_defaults': {
     'sources/': [
       ['exclude', '/(cocoa|gtk|qt|win)/'],
@@ -288,6 +304,8 @@
         'standard_layout.h',
         'touchui/gesture_manager.cc',
         'touchui/gesture_manager.h',
+        'touchui/touch_factory.cc',
+        'touchui/touch_factory.h',
         'view.cc',
         'view.h',
         'view_constants.cc',
@@ -402,6 +420,15 @@
             ['exclude', 'focus/accelerator_handler_gtk.cc'],
             ['exclude', 'controls/menu/native_menu_gtk.cc'],
           ],
+          'conditions': [
+            ['"<!@(<(pkg-config) --atleast-version=2.0 inputproto || echo $?)"!=""', {
+              # Exclude TouchFactory if XInput2 is not available.
+              'sources/': [
+                ['exclude', 'touchui/touch_factory.cc'],
+                ['exclude', 'touchui/touch_factory.h'],
+              ],
+            }],
+          ],
         }],
         ['OS=="win"', {
           'sources!': [
@@ -446,8 +473,8 @@
       ],
       'link_settings': {
         'libraries': [
-          '/home/pimeja/cpp/qtsdk-2010.05/qt/lib/libQtCore.so',
-          '/home/pimeja/cpp/qtsdk-2010.05/qt/lib/libQtGui.so'
+          '/home/petro/cpp/qtsdk-2010.05/qt/lib/libQtCore.so',
+          '/home/petro/cpp/qtsdk-2010.05/qt/lib/libQtGui.so'
         ]
       },
       'conditions': [

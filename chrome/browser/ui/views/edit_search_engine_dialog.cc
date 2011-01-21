@@ -5,7 +5,6 @@
 #include "chrome/browser/ui/views/edit_search_engine_dialog.h"
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/i18n/rtl.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
@@ -15,6 +14,7 @@
 #include "grit/app_resources.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "views/controls/label.h"
 #include "views/controls/image_view.h"
 #include "views/controls/table/table_view.h"
@@ -147,7 +147,7 @@ void EditSearchEngineDialog::Init() {
   const int unrelated_y = kUnrelatedControlVerticalSpacing;
 
   // View and GridLayout take care of deleting GridLayout for us.
-  GridLayout* layout = CreatePanelGridLayout(this);
+  GridLayout* layout = GridLayout::CreatePanel(this);
   SetLayoutManager(layout);
 
   // Define the structure of the layout.

@@ -7,7 +7,6 @@
 #include <Carbon/Carbon.h>  // kVK_Return
 
 #include "app/mac/nsimage_cache.h"
-#include "app/resource_bundle.h"
 #include "base/string_util.h"
 #include "base/sys_string_conversions.h"
 #include "base/utf_string_conversions.h"
@@ -24,6 +23,7 @@
 #include "net/base/escape.h"
 #import "third_party/mozilla/NSPasteboard+Utils.h"
 #include "ui/base/clipboard/clipboard.h"
+#include "ui/base/resource/resource_bundle.h"
 
 // Focus-handling between |field_| and |model_| is a bit subtle.
 // Other platforms detect change of focus, which is inconvenient
@@ -136,7 +136,6 @@ NSImage* AutocompleteEditViewMac::ImageForResource(int resource_id) {
     case IDR_OMNIBOX_SEARCH: image_name = @"omnibox_search.pdf"; break;
     case IDR_OMNIBOX_HTTP: image_name = @"omnibox_http.pdf"; break;
     case IDR_OMNIBOX_HISTORY: image_name = @"omnibox_history.pdf"; break;
-    case IDR_OMNIBOX_MORE: image_name = @"omnibox_more.pdf"; break;
 
     // Values from |ToolbarModel::GetIcon()|.
     case IDR_OMNIBOX_HTTPS_VALID:
@@ -649,8 +648,9 @@ bool AutocompleteEditViewMac::OnAfterPossibleChange() {
   const std::wstring new_text(GetText());
   const size_t length = new_text.length();
 
-  const bool selection_differs = !NSEqualRanges(new_selection,
-                                                selection_before_change_);
+  const bool selection_differs =
+      (new_selection.length || selection_before_change_.length) &&
+      !NSEqualRanges(new_selection, selection_before_change_);
   const bool at_end_of_edit = (length == new_selection.location);
   const bool text_differs = (new_text != text_before_change_) ||
       !NSEqualRanges(marked_range_before_change_, GetMarkedRange());
@@ -811,10 +811,8 @@ bool AutocompleteEditViewMac::OnDoCommandBySelector(SEL cmd) {
 
   if (cmd == @selector(insertTab:) ||
       cmd == @selector(insertTabIgnoringFieldEditor:)) {
-    if (model_->is_keyword_hint() && !model_->keyword().empty()) {
-      model_->AcceptKeyword();
-      return true;
-    }
+    if (model_->is_keyword_hint())
+      return model_->AcceptKeyword();
 
     if (suggest_text_length_ > 0) {
       controller_->OnCommitSuggestedText(GetText());
@@ -940,10 +938,8 @@ void AutocompleteEditViewMac::OnPaste() {
   NSTextView* editor = static_cast<NSTextView*>([field_ currentEditor]);
   const NSRange selectedRange = GetSelectedRange();
   if ([editor shouldChangeTextInRange:selectedRange replacementString:s]) {
-    // If this paste will be replacing all the text, record that, so
-    // we can do different behaviors in such a case.
-    if (IsSelectAll())
-      model_->on_paste_replacing_all();
+    // Record this paste, so we can do different behavior.
+    model_->on_paste();
 
     // Force a Paste operation to trigger the text_changed code in
     // OnAfterPossibleChange(), even if identical contents are pasted

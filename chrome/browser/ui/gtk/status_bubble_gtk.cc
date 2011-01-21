@@ -2,22 +2,22 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/gtk/status_bubble_gtk.h"
+#include "chrome/browser/ui/gtk/status_bubble_gtk.h"
 
 #include <gtk/gtk.h>
 
 #include <algorithm>
 
-#include "app/text_elider.h"
 #include "base/i18n/rtl.h"
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/gtk/gtk_theme_provider.h"
-#include "chrome/browser/gtk/gtk_util.h"
-#include "chrome/browser/gtk/rounded_window.h"
-#include "chrome/browser/gtk/slide_animator_gtk.h"
+#include "chrome/browser/ui/gtk/gtk_theme_provider.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
+#include "chrome/browser/ui/gtk/rounded_window.h"
+#include "chrome/browser/ui/gtk/slide_animator_gtk.h"
 #include "chrome/common/notification_service.h"
 #include "ui/base/animation/slide_animation.h"
+#include "ui/base/text/text_elider.h"
 
 namespace {
 
@@ -105,8 +105,8 @@ void StatusBubbleGtk::SetStatusTextToURL() {
   }
 
   // TODO(tc): We don't actually use gfx::Font as the font in the status
-  // bubble.  We should extend gfx::ElideUrl to take some sort of pango font.
-  url_text_ = UTF16ToUTF8(gfx::ElideUrl(url_, gfx::Font(), desired_width,
+  // bubble.  We should extend ui::ElideUrl to take some sort of pango font.
+  url_text_ = UTF16ToUTF8(ui::ElideUrl(url_, gfx::Font(), desired_width,
                           UTF16ToWideHack(languages_)));
   SetStatusTextTo(url_text_);
 }
@@ -115,7 +115,7 @@ void StatusBubbleGtk::Show() {
   // If we were going to hide, stop.
   hide_timer_.Stop();
 
-  gtk_widget_show_all(container_.get());
+  gtk_widget_show(container_.get());
   if (container_->window)
     gdk_window_raise(container_->window);
 }
@@ -125,7 +125,7 @@ void StatusBubbleGtk::Hide() {
   expand_timer_.Stop();
   expand_animation_.reset();
 
-  gtk_widget_hide_all(container_.get());
+  gtk_widget_hide(container_.get());
 }
 
 void StatusBubbleGtk::SetStatusTextTo(const std::string& status_utf8) {
@@ -253,8 +253,10 @@ void StatusBubbleGtk::InitWidgets() {
       kInternalLeftRightPadding + (ltr ? 0 : kCornerSize),
       kInternalLeftRightPadding + (ltr ? kCornerSize : 0));
   gtk_container_add(GTK_CONTAINER(padding_), label_);
+  gtk_widget_show_all(padding_);
 
   container_.Own(gtk_event_box_new());
+  gtk_widget_set_no_show_all(container_.get(), TRUE);
   gtk_util::ActAsRoundedWindow(
       container_.get(), gtk_util::kGdkWhite, kCornerSize,
       gtk_util::ROUNDED_TOP_RIGHT,

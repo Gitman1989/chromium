@@ -122,8 +122,7 @@
         '<(DEPTH)/webkit/support/webkit_support.gyp:glue',
       ],
       'conditions': [
-        # http://code.google.com/p/chromium/issues/detail?id=18337
-        ['target_arch!="x64" and target_arch!="arm"', {
+        ['target_arch!="arm"', {
           'dependencies': [
             'copy_npapi_test_plugin',
           ],
@@ -176,6 +175,7 @@
               'action_name': 'test_shell_repack',
               'variables': {
                 'pak_inputs': [
+                  '<(SHARED_INTERMEDIATE_DIR)/gfx/gfx_resources.pak',
                   '<(SHARED_INTERMEDIATE_DIR)/net/net_resources.pak',
                   '<(SHARED_INTERMEDIATE_DIR)/test_shell/test_shell_resources.pak',
                   '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_chromium_resources.pak',
@@ -331,6 +331,7 @@
           ],
         }, { # OS != "mac"
           'dependencies': [
+            '<(DEPTH)/gfx/gfx.gyp:gfx_resources',
             '<(DEPTH)/net/net.gyp:net_resources',
             '<(DEPTH)/webkit/support/webkit_support.gyp:webkit_resources',
             '<(DEPTH)/webkit/support/webkit_support.gyp:webkit_strings',
@@ -502,7 +503,7 @@
     },
   ],
   'conditions': [
-    ['target_arch!="x64" and target_arch!="arm"', {
+    ['target_arch!="arm"', {
       'targets': [
         {
           'target_name': 'npapi_test_common',

@@ -122,11 +122,6 @@ class SSLConnectJob : public ConnectJob {
     STATE_NONE,
   };
 
-  // Starts the SSL connection process.  Returns OK on success and
-  // ERR_IO_PENDING if it cannot immediately service the request.
-  // Otherwise, it returns a net error code.
-  virtual int ConnectInternal();
-
   void OnIOComplete(int result);
 
   // Runs the state transition loop.
@@ -140,6 +135,11 @@ class SSLConnectJob : public ConnectJob {
   int DoTunnelConnectComplete(int result);
   int DoSSLConnect();
   int DoSSLConnectComplete(int result);
+
+  // Starts the SSL connection process.  Returns OK on success and
+  // ERR_IO_PENDING if it cannot immediately service the request.
+  // Otherwise, it returns a net error code.
+  virtual int ConnectInternal();
 
   scoped_refptr<SSLSocketParams> params_;
   TCPClientSocketPool* const tcp_pool_;
@@ -229,13 +229,13 @@ class SSLClientSocketPool : public ClientSocketPool,
   virtual ClientSocketPoolHistograms* histograms() const;
 
  private:
+  typedef ClientSocketPoolBase<SSLSocketParams> PoolBase;
+
   // SSLConfigService::Observer methods:
 
   // When the user changes the SSL config, we flush all idle sockets so they
   // won't get re-used.
   virtual void OnSSLConfigChanged();
-
-  typedef ClientSocketPoolBase<SSLSocketParams> PoolBase;
 
   class SSLConnectJobFactory : public PoolBase::ConnectJobFactory {
    public:

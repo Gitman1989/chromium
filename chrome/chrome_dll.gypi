@@ -83,7 +83,6 @@
                 'worker',
                 '../printing/printing.gyp:printing',
                 '../net/net.gyp:net_resources',
-                '../build/util/support/support.gyp:*',
                 '../third_party/cld/cld.gyp:cld',
                 '../views/views.gyp:views',
                 '../webkit/support/webkit_support.gyp:webkit_resources',
@@ -271,7 +270,6 @@
                 'app/theme/omnibox_https_invalid.pdf',
                 'app/theme/omnibox_https_valid.pdf',
                 'app/theme/omnibox_https_warning.pdf',
-                'app/theme/omnibox_more.pdf',
                 'app/theme/omnibox_search.pdf',
                 'app/theme/omnibox_star.pdf',
                 'app/theme/otr_icon.pdf',
@@ -289,7 +287,6 @@
               'dependencies': [
                 # Bring in pdfsqueeze and run it on all pdfs
                 '../build/temp_gyp/pdfsqueeze.gyp:pdfsqueeze',
-                '../build/util/support/support.gyp:*',
                 # On Mac, Flash gets put into the framework, so we need this
                 # dependency here. flash_player.gyp will copy the Flash bundle
                 # into PRODUCT_DIR.

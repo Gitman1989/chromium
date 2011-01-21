@@ -2,22 +2,21 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/gtk/tabs/tab_renderer_gtk.h"
+#include "chrome/browser/ui/gtk/tabs/tab_renderer_gtk.h"
 
 #include <algorithm>
 #include <utility>
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/defaults.h"
-#include "chrome/browser/gtk/bookmark_utils_gtk.h"
-#include "chrome/browser/gtk/custom_button.h"
-#include "chrome/browser/gtk/gtk_theme_provider.h"
-#include "chrome/browser/gtk/gtk_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/gtk/bookmark_utils_gtk.h"
+#include "chrome/browser/ui/gtk/custom_button.h"
+#include "chrome/browser/ui/gtk/gtk_theme_provider.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
 #include "chrome/common/notification_service.h"
 #include "gfx/canvas_skia_paint.h"
 #include "gfx/favicon_size.h"
@@ -28,6 +27,7 @@
 #include "grit/theme_resources.h"
 #include "ui/base/animation/slide_animation.h"
 #include "ui/base/animation/throb_animation.h"
+#include "ui/base/resource/resource_bundle.h"
 
 namespace {
 
@@ -89,7 +89,8 @@ gfx::Rect GetWidgetBoundsRelativeToParent(GtkWidget* parent,
 
 }  // namespace
 
-TabRendererGtk::LoadingAnimation::Data::Data(ThemeProvider* theme_provider) {
+TabRendererGtk::LoadingAnimation::Data::Data(
+    ui::ThemeProvider* theme_provider) {
   // The loading animation image is a strip of states. Each state must be
   // square, so the height must divide the width evenly.
   loading_animation_frames = theme_provider->GetBitmapNamed(IDR_THROBBER);
@@ -144,7 +145,7 @@ SkColor TabRendererGtk::unselected_title_color_ = SkColorSetRGB(64, 64, 64);
 // TabRendererGtk::LoadingAnimation, public:
 //
 TabRendererGtk::LoadingAnimation::LoadingAnimation(
-    ThemeProvider* theme_provider)
+    ui::ThemeProvider* theme_provider)
     : data_(new Data(theme_provider)),
       theme_provider_(theme_provider),
       animation_state_(ANIMATION_NONE),
@@ -243,7 +244,7 @@ class TabRendererGtk::FavIconCrashAnimation : public ui::LinearAnimation,
 ////////////////////////////////////////////////////////////////////////////////
 // TabRendererGtk, public:
 
-TabRendererGtk::TabRendererGtk(ThemeProvider* theme_provider)
+TabRendererGtk::TabRendererGtk(ui::ThemeProvider* theme_provider)
     : showing_icon_(false),
       showing_close_button_(false),
       fav_icon_hiding_offset_(0),

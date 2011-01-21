@@ -31,6 +31,7 @@
 #include "base/file_util.h"
 #include "base/message_loop.h"
 #include "base/path_service.h"
+#include "base/test/test_timeouts.h"
 #include "chrome/browser/net/url_request_mock_http_job.h"
 #include "chrome/browser/plugin_download_helper.h"
 #include "chrome/common/chrome_switches.h"
@@ -75,8 +76,8 @@ class PluginTest : public UITest {
   }
 
  protected:
-#if defined(OS_WIN)
   virtual void SetUp() {
+#if defined(OS_WIN)
     const testing::TestInfo* const test_info =
         testing::UnitTest::GetInstance()->current_test_info();
     if (strcmp(test_info->name(), "MediaPlayerNew") == 0) {
@@ -85,7 +86,7 @@ class PluginTest : public UITest {
       base::win::RegKey regkey;
       if (regkey.Open(HKEY_LOCAL_MACHINE,
                       L"Software\\Microsoft\\MediaPlayer\\ShimInclusionList",
-                      KEY_WRITE)) {
+                      KEY_WRITE) == ERROR_SUCCESS) {
         regkey.CreateKey(L"CHROME.EXE", KEY_READ);
       }
     } else if (strcmp(test_info->name(), "MediaPlayerOld") == 0) {
@@ -96,10 +97,12 @@ class PluginTest : public UITest {
       launch_arguments_.AppendSwitchASCII(switches::kTestSandbox,
                                           "security_tests.dll");
     }
+#endif  // defined(OS_WIN)
+
+    launch_arguments_.AppendSwitch(switches::kAllowOutdatedPlugins);
 
     UITest::SetUp();
   }
-#endif  // defined(OS_WIN)
 
   void TestPlugin(const std::string& test_case,
                   int timeout,
@@ -123,12 +126,7 @@ class PluginTest : public UITest {
   }
 };
 
-// http://crbug.com/68303
-#if defined(OS_MACOSX) || defined(OS_LINUX)
-TEST_F(PluginTest, DISABLED_Flash) {
-#else
 TEST_F(PluginTest, Flash) {
-#endif
   // Note: This does not work with the npwrapper on 64-bit Linux. Install the
   // native 64-bit Flash to run the test.
   // TODO(thestig) Update this list if we decide to only test against internal
@@ -142,7 +140,8 @@ TEST_F(PluginTest, Flash) {
       "libflashplayer.so"
 #endif
       ;
-  TestPlugin("flash.html?" + kFlashQuery, action_max_timeout_ms(), false);
+  TestPlugin("flash.html?" + kFlashQuery,
+             TestTimeouts::action_max_timeout_ms(), false);
 }
 
 class ClickToPlayPluginTest : public PluginTest {
@@ -152,12 +151,7 @@ class ClickToPlayPluginTest : public PluginTest {
   }
 };
 
-// http://crbug.com/68303
-#if defined(OS_MACOSX)
-TEST_F(ClickToPlayPluginTest, DISABLED_Flash) {
-#else
 TEST_F(ClickToPlayPluginTest, Flash) {
-#endif
   scoped_refptr<BrowserProxy> browser(automation()->GetBrowserWindow(0));
   ASSERT_TRUE(browser.get());
   ASSERT_TRUE(browser->SetDefaultContentSetting(CONTENT_SETTINGS_TYPE_PLUGINS,
@@ -171,15 +165,10 @@ TEST_F(ClickToPlayPluginTest, Flash) {
 
   ASSERT_TRUE(tab->LoadBlockedPlugins());
 
-  WaitForFinish(action_max_timeout_ms(), true);
+  WaitForFinish(TestTimeouts::action_max_timeout_ms(), true);
 }
 
-// http://crbug.com/68303
-#if defined(OS_MACOSX)
-TEST_F(ClickToPlayPluginTest, DISABLED_FlashDocument) {
-#else
 TEST_F(ClickToPlayPluginTest, FlashDocument) {
-#endif
   scoped_refptr<BrowserProxy> browser(automation()->GetBrowserWindow(0));
   ASSERT_TRUE(browser.get());
   ASSERT_TRUE(browser->SetDefaultContentSetting(CONTENT_SETTINGS_TYPE_PLUGINS,
@@ -197,13 +186,13 @@ TEST_F(ClickToPlayPluginTest, FlashDocument) {
 
   ASSERT_TRUE(tab->LoadBlockedPlugins());
 
-  WaitForFinish(action_max_timeout_ms(), true);
+  WaitForFinish(TestTimeouts::action_max_timeout_ms(), true);
 }
 
 #if defined(OS_WIN)
 // Windows only test
 TEST_F(PluginTest, DISABLED_FlashSecurity) {
-  TestPlugin("flash.html", action_max_timeout_ms(), false);
+  TestPlugin("flash.html", TestTimeouts::action_max_timeout_ms(), false);
 }
 #endif  // defined(OS_WIN)
 
@@ -212,26 +201,27 @@ TEST_F(PluginTest, DISABLED_FlashSecurity) {
 // plugins.
 // Flaky: http://crbug.com/55915
 TEST_F(PluginTest, FLAKY_Quicktime) {
-  TestPlugin("quicktime.html", action_max_timeout_ms(), false);
+  TestPlugin("quicktime.html", TestTimeouts::action_max_timeout_ms(), false);
 }
 
 // Disabled - http://crbug.com/44662
 TEST_F(PluginTest, DISABLED_MediaPlayerNew) {
-  TestPlugin("wmp_new.html", action_max_timeout_ms(), false);
+  TestPlugin("wmp_new.html", TestTimeouts::action_max_timeout_ms(), false);
 }
 
 // http://crbug.com/4809
 TEST_F(PluginTest, DISABLED_MediaPlayerOld) {
-  TestPlugin("wmp_old.html", action_max_timeout_ms(), false);
+  TestPlugin("wmp_old.html", TestTimeouts::action_max_timeout_ms(), false);
 }
 
 // Disabled - http://crbug.com/44673
 TEST_F(PluginTest, DISABLED_Real) {
-  TestPlugin("real.html", action_max_timeout_ms(), false);
+  TestPlugin("real.html", TestTimeouts::action_max_timeout_ms(), false);
 }
 
 TEST_F(PluginTest, FlashOctetStream) {
-  TestPlugin("flash-octet-stream.html", action_max_timeout_ms(), false);
+  TestPlugin("flash-octet-stream.html",
+             TestTimeouts::action_max_timeout_ms(), false);
 }
 
 #if defined(OS_WIN)
@@ -240,16 +230,17 @@ TEST_F(PluginTest, FLAKY_FlashLayoutWhilePainting) {
 #else
 TEST_F(PluginTest, FlashLayoutWhilePainting) {
 #endif
-  TestPlugin("flash-layout-while-painting.html", action_max_timeout_ms(), true);
+  TestPlugin("flash-layout-while-painting.html",
+             TestTimeouts::action_max_timeout_ms(), true);
 }
 
 // http://crbug.com/8690
 TEST_F(PluginTest, DISABLED_Java) {
-  TestPlugin("Java.html", action_max_timeout_ms(), false);
+  TestPlugin("Java.html", TestTimeouts::action_max_timeout_ms(), false);
 }
 
 TEST_F(PluginTest, Silverlight) {
-  TestPlugin("silverlight.html", action_max_timeout_ms(), false);
+  TestPlugin("silverlight.html", TestTimeouts::action_max_timeout_ms(), false);
 }
 
 // This class provides functionality to test the plugin installer download

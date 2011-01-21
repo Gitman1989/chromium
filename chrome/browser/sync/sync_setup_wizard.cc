@@ -4,7 +4,6 @@
 
 #include "chrome/browser/sync/sync_setup_wizard.h"
 
-#include "app/resource_bundle.h"
 #include "base/message_loop.h"
 #include "base/singleton.h"
 #include "chrome/browser/browser_thread.h"
@@ -22,6 +21,7 @@
 #include "grit/browser_resources.h"
 #include "grit/chromium_strings.h"
 #include "grit/locale_settings.h"
+#include "ui/base/resource/resource_bundle.h"
 
 namespace {
 
@@ -51,6 +51,7 @@ class SyncResourcesSource : public ChromeURLDataManager::DataSource {
   static const char* kInvalidPasswordHelpUrl;
   static const char* kCanNotAccessAccountUrl;
   static const char* kCreateNewAccountUrl;
+  static const char* kEncryptionHelpUrl;
 
  private:
   virtual ~SyncResourcesSource() {}
@@ -64,11 +65,13 @@ class SyncResourcesSource : public ChromeURLDataManager::DataSource {
 };
 
 const char* SyncResourcesSource::kInvalidPasswordHelpUrl =
-  "http://www.google.com/support/accounts/bin/answer.py?ctx=ch&answer=27444";
+    "http://www.google.com/support/accounts/bin/answer.py?ctx=ch&answer=27444";
 const char* SyncResourcesSource::kCanNotAccessAccountUrl =
-  "http://www.google.com/support/accounts/bin/answer.py?answer=48598";
+    "http://www.google.com/support/accounts/bin/answer.py?answer=48598";
+const char* SyncResourcesSource::kEncryptionHelpUrl =
+    "http://www.google.com/support/chrome/bin/answer.py?answer=165139";
 const char* SyncResourcesSource::kCreateNewAccountUrl =
-  "https://www.google.com/accounts/NewAccount?service=chromiumsync";
+    "https://www.google.com/accounts/NewAccount?service=chromiumsync";
 
 void SyncResourcesSource::StartDataRequest(const std::string& path_raw,
     bool is_off_the_record, int request_id) {
@@ -163,6 +166,10 @@ void SyncResourcesSource::StartDataRequest(const std::string& path_raw,
     AddString(dict, "passphraseWarning", IDS_SYNC_PASSPHRASE_WARNING);
     AddString(dict, "cleardata", IDS_SYNC_CLEAR_DATA_FOR_PASSPHRASE);
     AddString(dict, "cleardatalink", IDS_SYNC_CLEAR_DATA_LINK);
+
+    AddString(dict, "learnmore", IDS_LEARN_MORE);
+    dict->SetString("encryptionhelpurl",
+                    GetLocalizedUrl(kEncryptionHelpUrl));
 
     // Stuff for the footer.
     AddString(dict, "ok", IDS_OK);

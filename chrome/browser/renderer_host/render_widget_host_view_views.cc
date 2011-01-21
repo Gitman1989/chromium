@@ -8,7 +8,6 @@
 #include <string>
 
 #include "app/l10n_util.h"
-#include "app/x11_util.h"
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/message_loop.h"
@@ -25,6 +24,7 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/gtk/WebInputEventFactory.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "ui/base/keycodes/keyboard_code_conversion_gtk.h"
+#include "ui/base/x/x11_util.h"
 #include "views/event.h"
 #include "views/widget/widget.h"
 #include "views/widget/widget_gtk.h"
@@ -130,8 +130,6 @@ RenderWidgetHostViewViews::RenderWidgetHostViewViews(RenderWidgetHost* host)
 }
 
 RenderWidgetHostViewViews::~RenderWidgetHostViewViews() {
-  RenderViewGone(base::TERMINATION_STATUS_NORMAL_TERMINATION,
-                 ResultCodes::NORMAL_EXIT);
 }
 
 void RenderWidgetHostViewViews::InitAsChild() {
@@ -284,6 +282,7 @@ void RenderWidgetHostViewViews::DidUpdateBackingStore(
     else
       SchedulePaint(rect, false);
   }
+  invalid_rect_ = invalid_rect_.Intersect(bounds());
 }
 
 void RenderWidgetHostViewViews::RenderViewGone(base::TerminationStatus status,
@@ -293,8 +292,12 @@ void RenderWidgetHostViewViews::RenderViewGone(base::TerminationStatus status,
 }
 
 void RenderWidgetHostViewViews::Destroy() {
-  // TODO(anicolao): deal with any special popup cleanup
-  NOTIMPLEMENTED();
+  // host_'s destruction brought us here, null it out so we don't use it
+  host_ = NULL;
+
+  if (GetParent())
+    GetParent()->RemoveChildView(this);
+  MessageLoop::current()->DeleteSoon(FROM_HERE, this);
 }
 
 void RenderWidgetHostViewViews::SetTooltipText(const std::wstring& tip) {
@@ -326,7 +329,7 @@ BackingStore* RenderWidgetHostViewViews::AllocBackingStore(
   if (!nview)
     return NULL;
   return new BackingStoreX(host_, size,
-                           x11_util::GetVisualFromGtkWidget(nview),
+                           ui::GetVisualFromGtkWidget(nview),
                            gtk_widget_get_visual(nview)->depth);
 }
 
@@ -356,7 +359,8 @@ void RenderWidgetHostViewViews::Paint(gfx::Canvas* canvas) {
   // Paint a "hole" in the canvas so that the render of the web page is on
   // top of whatever else has already been painted in the views hierarchy.
   // Later views might still get to paint on top.
-  canvas->FillRectInt(SK_ColorBLACK, 0, 0, kMaxWindowWidth, kMaxWindowHeight,
+  canvas->FillRectInt(SK_ColorBLACK, 0, 0,
+                      bounds().width(), bounds().height(),
                       SkXfermode::kClear_Mode);
 
   // Don't do any painting if the GPU process is rendering directly
@@ -393,7 +397,7 @@ void RenderWidgetHostViewViews::Paint(gfx::Canvas* canvas) {
         // In the common case, use XCopyArea. We don't draw more than once, so
         // we don't need to double buffer.
         backing_store->XShowRect(origin,
-            paint_rect, x11_util::GetX11WindowFromGdkWindow(window));
+            paint_rect, ui::GetX11WindowFromGdkWindow(window));
       } else {
         // If the grey blend is showing, we make two drawing calls. Use double
         // buffering to prevent flicker. Use CairoShowRect because XShowRect
@@ -669,9 +673,11 @@ TODO(bryeung): key bindings
   host_->ForwardKeyboardEvent(event);
 }
 
-bool RenderWidgetHostViewViews::OnTouchEvent(const views::TouchEvent& e) {
+views::View::TouchStatus RenderWidgetHostViewViews::OnTouchEvent(
+    const views::TouchEvent& e) {
   // Update the list of touch points first.
   WebKit::WebTouchPoint* point = NULL;
+  TouchStatus status = TOUCH_STATUS_UNKNOWN;
 
   switch (e.GetType()) {
     case views::Event::ET_TOUCH_PRESSED:
@@ -680,6 +686,14 @@ bool RenderWidgetHostViewViews::OnTouchEvent(const views::TouchEvent& e) {
           WebTouchEvent::touchPointsLengthCap) {
         point = &touch_event_.touchPoints[touch_event_.touchPointsLength++];
         point->id = e.identity();
+
+        if (touch_event_.touchPointsLength == 1) {
+          // A new touch sequence has started.
+          status = TOUCH_STATUS_START;
+
+          // We also want the focus.
+          RequestFocus();
+        }
       }
       break;
     case views::Event::ET_TOUCH_RELEASED:
@@ -689,14 +703,13 @@ bool RenderWidgetHostViewViews::OnTouchEvent(const views::TouchEvent& e) {
       // _PRESSED event. So find that.
       // At the moment, only a maximum of 4 touch-points are allowed. So a
       // simple loop should be sufficient.
-      for (int i = 0; i < WebTouchEvent::touchPointsLengthCap; ++i) {
+      for (int i = 0; i < touch_event_.touchPointsLength; ++i) {
         point = touch_event_.touchPoints + i;
         if (point->id == e.identity()) {
           break;
         }
         point = NULL;
       }
-      DCHECK(point != NULL) << "Touchpoint not found for event " << e.GetType();
       break;
     }
     default:
@@ -705,11 +718,22 @@ bool RenderWidgetHostViewViews::OnTouchEvent(const views::TouchEvent& e) {
   }
 
   if (!point)
-    return false;
+    return TOUCH_STATUS_UNKNOWN;
+
+  if (status != TOUCH_STATUS_START)
+    status = TOUCH_STATUS_CONTINUE;
 
   // Update the location and state of the point.
-  UpdateTouchPointPosition(&e, GetPosition(), point);
   point->state = TouchPointStateFromEvent(&e);
+  if (point->state == WebKit::WebTouchPoint::StateMoved) {
+    // It is possible for badly written touch drivers to emit Move events even
+    // when the touch location hasn't changed. In such cases, consume the event
+    // and pretend nothing happened.
+    if (point->position.x == e.x() && point->position.y == e.y()) {
+      return status;
+    }
+  }
+  UpdateTouchPointPosition(&e, GetPosition(), point);
 
   // Mark the rest of the points as stationary.
   for (int i = 0; i < touch_event_.touchPointsLength; ++i) {
@@ -734,9 +758,13 @@ bool RenderWidgetHostViewViews::OnTouchEvent(const views::TouchEvent& e) {
          ++i) {
       touch_event_.touchPoints[i] = touch_event_.touchPoints[i + 1];
     }
+    if (touch_event_.touchPointsLength == 0)
+      status = TOUCH_STATUS_END;
+  } else if (e.GetType() == views::Event::ET_TOUCH_CANCELLED) {
+    status = TOUCH_STATUS_CANCEL;
   }
 
-  return true;
+  return status;
 }
 
 // static

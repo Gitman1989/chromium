@@ -10,7 +10,6 @@
 
 #include <gtk/gtk.h>
 
-#include "app/gtk_signal.h"
 #include "base/basictypes.h"
 #include "base/gtest_prod_util.h"
 #include "base/scoped_ptr.h"
@@ -19,9 +18,10 @@
 #include "chrome/browser/browsing_data_database_helper.h"
 #include "chrome/browser/browsing_data_indexed_db_helper.h"
 #include "chrome/browser/browsing_data_local_storage_helper.h"
-#include "chrome/browser/gtk/gtk_chrome_cookie_view.h"
-#include "chrome/browser/gtk/gtk_tree.h"
+#include "chrome/browser/ui/gtk/gtk_chrome_cookie_view.h"
+#include "chrome/browser/ui/gtk/gtk_tree.h"
 #include "net/base/cookie_monster.h"
+#include "ui/base/gtk/gtk_signal.h"
 
 class CookieDisplayGtk;
 class CookiesTreeModel;

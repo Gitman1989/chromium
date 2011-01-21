@@ -147,11 +147,13 @@ class PolicyJson(skeleton_gatherer.SkeletonGatherer):
       'caption': 'Caption',
       'label': 'Label',
     }
-    if type == 'policy':
+    if item_type == 'policy':
       return '%s of the policy named %s' % (key_map[key], item['name'])
-    elif type == 'enum_item':
+    elif item_type == 'enum_item':
       return ('%s of the option named %s in policy %s' %
               (key_map[key], item['name'], parent_item['name']))
+    else:
+      raise Exception('Unexpected type %s' % item_type)
 
   def _AddPolicyKey(self, item, item_type, parent_item, key, depth):
     '''Given a policy/enumeration item and a key, adds that key and its value
@@ -178,7 +180,7 @@ class PolicyJson(skeleton_gatherer.SkeletonGatherer):
     else:
       str_val = item[key]
       if type(str_val) == types.StringType:
-        str_val = "'%s'" % str_val
+        str_val = "'%s'" % self.Escape(str_val)
       else:
         str_val = str(str_val)
       self._AddNontranslateableChunk(str_val + ',\n')

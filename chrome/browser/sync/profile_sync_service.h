@@ -185,6 +185,8 @@ class ProfileSyncService : public browser_sync::SyncFrontend,
   virtual void OnClearServerDataFailed();
   virtual void OnClearServerDataTimeout();
   virtual void OnClearServerDataSucceeded();
+  virtual void OnPassphraseRequired(bool for_decryption);
+  virtual void OnPassphraseAccepted();
 
   // Called when a user enters credentials through UI.
   virtual void OnUserSubmittedAuth(const std::string& username,
@@ -225,6 +227,11 @@ class ProfileSyncService : public browser_sync::SyncFrontend,
     return wizard_.IsVisible();
   }
   virtual void ShowLoginDialog(gfx::NativeWindow parent_window);
+
+  // This method handles clicks on "sync error" UI, showing the appropriate
+  // dialog for the error condition (relogin / enter passphrase).
+  virtual void ShowErrorUI(gfx::NativeWindow parent_window);
+
   void ShowConfigure(gfx::NativeWindow parent_window);
   void PromptForExistingPassphrase(gfx::NativeWindow parent_window);
   void SigninForPassphrase(TabContents* container);
@@ -464,6 +471,8 @@ class ProfileSyncService : public browser_sync::SyncFrontend,
 
   // Sets the last synced time to the current time.
   void UpdateLastSyncedTime();
+
+  void NotifyObservers();
 
   static const char* GetPrefNameForDataType(syncable::ModelType data_type);
 

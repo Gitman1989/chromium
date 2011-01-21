@@ -10,8 +10,6 @@
 #include <vector>
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
-#include "app/text_elider.h"
 #include "base/i18n/rtl.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
@@ -43,6 +41,8 @@
 #include "grit/theme_resources.h"
 #include "ui/base/animation/slide_animation.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
+#include "ui/base/resource/resource_bundle.h"
+#include "ui/base/text/text_elider.h"
 #include "views/controls/button/menu_button.h"
 #include "views/controls/label.h"
 #include "views/controls/menu/menu_item_view.h"
@@ -144,7 +144,7 @@ static std::wstring CreateToolTipForURLAndTitle(const gfx::Point& screen_loc,
   if (!title.empty()) {
     std::wstring localized_title = title;
     base::i18n::AdjustStringForLocaleDirection(&localized_title);
-    result.append(UTF16ToWideHack(gfx::ElideText(WideToUTF16Hack(
+    result.append(UTF16ToWideHack(ui::ElideText(WideToUTF16Hack(
         localized_title), tt_font, max_width, false)));
   }
 
@@ -159,7 +159,7 @@ static std::wstring CreateToolTipForURLAndTitle(const gfx::Point& screen_loc,
     // "/http://www.yahoo.com" when rendered, as is, in an RTL context since
     // the Unicode BiDi algorithm puts certain characters on the left by
     // default.
-    string16 elided_url(gfx::ElideUrl(url, tt_font, max_width, languages));
+    string16 elided_url(ui::ElideUrl(url, tt_font, max_width, languages));
     elided_url = base::i18n::GetDisplayStringInLTRDirectionality(elided_url);
     result.append(UTF16ToWideHack(elided_url));
   }
@@ -674,7 +674,7 @@ int BookmarkBarView::OnPerformDrop(const DropTargetEvent& event) {
     bookmark_drop_menu_->Cancel();
 
   if (!drop_info_.get() || !drop_info_->drag_operation)
-    return DragDropTypes::DRAG_NONE;
+    return ui::DragDropTypes::DRAG_NONE;
 
   const BookmarkNode* root =
       drop_info_->is_over_other ? model_->other_node() :
@@ -1134,7 +1134,7 @@ int BookmarkBarView::GetDragOperations(View* sender, const gfx::Point& p) {
     // the new tab page, on the new tab page size_animation_ is always 0). This
     // typically is only hit if the user does something to inadvertanty trigger
     // dnd, such as pressing the mouse and hitting control-b.
-    return DragDropTypes::DRAG_NONE;
+    return ui::DragDropTypes::DRAG_NONE;
   }
 
   for (int i = 0; i < GetBookmarkButtonCount(); ++i) {
@@ -1144,7 +1144,7 @@ int BookmarkBarView::GetDragOperations(View* sender, const gfx::Point& p) {
     }
   }
   NOTREACHED();
-  return DragDropTypes::DRAG_NONE;
+  return ui::DragDropTypes::DRAG_NONE;
 }
 
 bool BookmarkBarView::CanStartDrag(views::View* sender,
@@ -1205,7 +1205,7 @@ void BookmarkBarView::ButtonPressed(views::Button* sender,
   if (sender->tag() == kSyncErrorButtonTag) {
     DCHECK(sender == sync_error_button_);
     DCHECK(sync_service_ && !sync_service_->IsManaged());
-    sync_service_->ShowLoginDialog(GetWindow()->GetNativeWindow());
+    sync_service_->ShowErrorUI(GetWindow()->GetNativeWindow());
     return;
   }
 
@@ -1426,7 +1426,7 @@ int BookmarkBarView::CalculateDropOperation(const DropTargetEvent& event,
       event.y() >= other_bookmarked_button_->y() +
                       other_bookmarked_button_->height()) {
     // Mouse isn't over a button.
-    return DragDropTypes::DRAG_NONE;
+    return ui::DragDropTypes::DRAG_NONE;
   }
 
   bool found = false;
@@ -1441,8 +1441,8 @@ int BookmarkBarView::CalculateDropOperation(const DropTargetEvent& event,
     // No bookmarks, accept the drop.
     *index = 0;
     int ops = data.GetFirstNode(profile_)
-        ? DragDropTypes::DRAG_MOVE
-        : DragDropTypes::DRAG_COPY | DragDropTypes::DRAG_LINK;
+        ? ui::DragDropTypes::DRAG_MOVE
+        : ui::DragDropTypes::DRAG_COPY | ui::DragDropTypes::DRAG_LINK;
     return
         bookmark_utils::PreferredDropOperation(event.GetSourceOperations(),
                                                ops);
@@ -1488,14 +1488,14 @@ int BookmarkBarView::CalculateDropOperation(const DropTargetEvent& event,
         // use the last visible index.
         *index = GetFirstHiddenNodeIndex();
       } else {
-        return DragDropTypes::DRAG_NONE;
+        return ui::DragDropTypes::DRAG_NONE;
       }
     } else if (mirrored_x < other_bookmarked_button_->x()) {
       // Mouse is after the last visible button but before more recently
       // bookmarked; use the last visible index.
       *index = GetFirstHiddenNodeIndex();
     } else {
-      return DragDropTypes::DRAG_NONE;
+      return ui::DragDropTypes::DRAG_NONE;
     }
   }
 
@@ -1577,7 +1577,7 @@ void BookmarkBarView::StopThrobbing(bool immediate) {
 
 void BookmarkBarView::UpdateColors() {
   // We don't always have a theme provider (ui tests, for example).
-  const ThemeProvider* theme_provider = GetThemeProvider();
+  const ui::ThemeProvider* theme_provider = GetThemeProvider();
   if (!theme_provider)
     return;
   SkColor text_color =

@@ -27,17 +27,18 @@
 #include "chrome/browser/geolocation/geolocation_prefs.h"
 #include "chrome/browser/google/google_url_tracker.h"
 #include "chrome/browser/host_zoom_map.h"
-#include "chrome/browser/intranet_redirect_detector.h"
 #include "chrome/browser/instant/instant_controller.h"
+#include "chrome/browser/intranet_redirect_detector.h"
 #include "chrome/browser/metrics/metrics_log.h"
 #include "chrome/browser/metrics/metrics_service.h"
+#include "chrome/browser/net/net_pref_observer.h"
 #include "chrome/browser/net/predictor_api.h"
 #include "chrome/browser/net/pref_proxy_config_service.h"
-#include "chrome/browser/net/net_pref_observer.h"
-#include "chrome/browser/notifications/notification_ui_manager.h"
 #include "chrome/browser/notifications/desktop_notification_service.h"
+#include "chrome/browser/notifications/notification_ui_manager.h"
 #include "chrome/browser/page_info_model.h"
 #include "chrome/browser/password_manager/password_manager.h"
+#include "chrome/browser/policy/profile_policy_context.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile_impl.h"
 #include "chrome/browser/renderer_host/browser_render_process_host.h"
@@ -61,10 +62,11 @@
 #endif
 
 #if defined(TOOLKIT_GTK)
-#include "chrome/browser/gtk/browser_window_gtk.h"
+#include "chrome/browser/ui/gtk/browser_window_gtk.h"
 #endif
 
 #if defined(OS_CHROMEOS)
+#include "chrome/browser/chromeos/audio_mixer_alsa.h"
 #include "chrome/browser/chromeos/login/apply_services_customization.h"
 #include "chrome/browser/chromeos/login/signed_settings_temp_storage.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
@@ -103,6 +105,7 @@ void RegisterLocalState(PrefService* local_state) {
   BackgroundPageTracker::RegisterPrefs(local_state);
   NotificationUIManager::RegisterPrefs(local_state);
 #if defined(OS_CHROMEOS)
+  chromeos::AudioMixerAlsa::RegisterPrefs(local_state);
   chromeos::UserManager::RegisterPrefs(local_state);
   chromeos::UserCrosSettingsProvider::RegisterPrefs(local_state);
   WizardController::RegisterPrefs(local_state);
@@ -153,6 +156,7 @@ void RegisterUserPrefs(PrefService* user_prefs) {
   TemplateURLModel::RegisterUserPrefs(user_prefs);
   InstantController::RegisterUserPrefs(user_prefs);
   NetPrefObserver::RegisterPrefs(user_prefs);
+  policy::ProfilePolicyContext::RegisterUserPrefs(user_prefs);
 }
 
 }  // namespace browser

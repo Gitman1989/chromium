@@ -4,14 +4,14 @@ vars = {
   "googlecode_url": "http://%s.googlecode.com/svn",
   "webkit_trunk": "http://svn.webkit.org/repository/webkit/trunk",
   "nacl_trunk": "http://src.chromium.org/native_client/trunk",
-  "webkit_revision": "75931",
+  "webkit_revision": "76356",
   "chromium_git": "http://git.chromium.org/git",
   "swig_revision": "69281",
-  "nacl_revision": "4139",
+  "nacl_revision": "4182",
   "libjingle_revision": "50",
   "libvpx_revision": "65287",
-  "ffmpeg_revision": "70984",
-  "skia_revision": "699",
+  "ffmpeg_revision": "71842",
+  "skia_revision": "716",
 }
 
 deps = {
@@ -34,10 +34,10 @@ deps = {
     (Var("googlecode_url") % "googletest") + "/trunk@492",
 
   "src/third_party/angle":
-    (Var("googlecode_url") % "angleproject") + "/trunk@531",
+    (Var("googlecode_url") % "angleproject") + "/trunk@536",
 
   "src/third_party/WebKit":
-    "/trunk/deps/third_party/WebKit@71060",
+    "/trunk/deps/third_party/WebKit@71605",
 
   "src/third_party/icu":
     "/trunk/deps/third_party/icu42@69864",
@@ -58,13 +58,16 @@ deps = {
     (Var("googlecode_url") % "gyp") + "/trunk@874",
 
   "src/v8":
-    (Var("googlecode_url") % "v8") + "/trunk@6238",
+    (Var("googlecode_url") % "v8") + "/trunk@6387",
 
   "src/native_client":
     Var("nacl_trunk") + "/src/native_client@" + Var("nacl_revision"),
   "src/chrome/test/data/extensions/api_test/permissions/nacl_enabled/bin":
     Var("nacl_trunk") + "/src/native_client/tests/prebuilt@" +
     Var("nacl_revision"),
+
+  "src/third_party/skia/gpu":
+    (Var("googlecode_url") % "skia") + "/trunk/gpu@" + Var("skia_revision"),
 
   "src/third_party/skia/src":
     (Var("googlecode_url") % "skia") + "/trunk/src@" + Var("skia_revision"),
@@ -85,7 +88,7 @@ deps = {
     Var("webkit_trunk") + "/Tools/Scripts@" + Var("webkit_revision"),
 
   "src/third_party/ots":
-    (Var("googlecode_url") % "ots") + "/trunk@44",
+    (Var("googlecode_url") % "ots") + "/trunk@47",
 
   "src/tools/page_cycler/acid3":
     "/trunk/deps/page_cycler/acid3@19546",
@@ -225,7 +228,7 @@ deps_os = {
        Var("nacl_revision")),
 
     "src/rlz":
-      (Var("googlecode_url") % "rlz") + "/trunk@32",
+      (Var("googlecode_url") % "rlz") + "/trunk@33",
 
     # Dependencies used by libjpeg-turbo
     "src/third_party/yasm/binaries":
@@ -238,7 +241,7 @@ deps_os = {
     "src/third_party/GTM":
       (Var("googlecode_url") % "google-toolbox-for-mac") + "/trunk@425",
     "src/third_party/pdfsqueeze":
-      (Var("googlecode_url") % "pdfsqueeze") + "/trunk@2",
+      (Var("googlecode_url") % "pdfsqueeze") + "/trunk@4",
     "src/third_party/lighttpd":
       "/trunk/deps/third_party/lighttpd@33737",
 

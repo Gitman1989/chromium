@@ -267,6 +267,12 @@ const char kTLS1Enabled[] = "ssl.tls1.enabled";
 #endif
 
 #if defined(OS_CHROMEOS)
+// An integer pref to initially mute volume if 1.
+const char kAudioMute[] = "settings.audio.mute";
+
+// A double pref to set initial volume.
+const char kAudioVolume[] = "settings.audio.volume";
+
 // A boolean pref set to true if TapToClick is being done in browser.
 const char kTapToClickEnabled[] = "settings.touchpad.enable_tap_to_click";
 
@@ -629,6 +635,11 @@ const char kEnableTranslate[] = "translate.enabled";
 
 const char kPinnedTabs[] = "pinned_tabs";
 
+// Integer that specifies the policy refresh rate in milliseconds. Not all
+// values are meaningful, so it is clamped to a sane range by the policy
+// provider.
+const char kPolicyRefreshRate[] = "policy.refresh_rate";
+
 // Integer containing the default Geolocation content setting.
 const char kGeolocationDefaultContentSetting[] =
     "geolocation.default_content_setting";
@@ -743,6 +754,20 @@ const char kStabilityRendererHangCount[] =
 // last report.
 const char kStabilityChildProcessCrashCount[] =
     "user_experience_metrics.stability.child_process_crash_count";
+
+// On Chrome OS, total number of non-Chrome user process crashes
+// since the last report.
+const char kStabilityOtherUserCrashCount[] =
+    "user_experience_metrics.stability.other_user_crash_count";
+
+// On Chrome OS, total number of kernel crashes since the last report.
+const char kStabilityKernelCrashCount[] =
+    "user_experience_metrics.stability.kernel_crash_count";
+
+// On Chrome OS, total number of unclean system shutdowns since the
+// last report.
+const char kStabilitySystemUncleanShutdownCount[] =
+    "user_experience_metrics.stability.system_unclean_shutdowns";
 
 // Number of times the browser has been able to register crash reporting.
 const char kStabilityBreakpadRegistrationSuccess[] =

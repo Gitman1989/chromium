@@ -7,7 +7,6 @@
 #include <string>
 
 #include "app/l10n_util.h"
-#include "app/view_prop.h"
 #include "base/debug/trace_event.h"
 #include "base/i18n/rtl.h"
 #include "base/logging.h"
@@ -46,11 +45,12 @@
 #include "chrome/common/url_constants.h"
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
+#include "ui/base/view_prop.h"
 #include "views/grid_layout.h"
 #include "views/widget/root_view.h"
 #include "views/window/window.h"
 
-using app::ViewProp;
+using ui::ViewProp;
 
 static const char kWindowObjectKey[] = "ChromeWindowObject";
 
@@ -921,10 +921,9 @@ void ExternalTabContainer::SetEnableExtensionAutomation(
   }
 }
 
-void ExternalTabContainer::InfoBarSizeChanged(bool is_animating) {
-  if (external_tab_view_) {
+void ExternalTabContainer::InfoBarContainerSizeChanged(bool is_animating) {
+  if (external_tab_view_)
     external_tab_view_->Layout();
-  }
 }
 
 // ExternalTabContainer instances do not have a window.

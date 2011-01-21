@@ -1,10 +1,9 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/automation/testing_automation_provider.h"
 
-#include "app/message_box_flags.h"
 #include "base/command_line.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
@@ -75,6 +74,7 @@
 #include "chrome/common/automation_messages.h"
 #include "net/base/cookie_store.h"
 #include "net/url_request/url_request_context.h"
+#include "ui/base/message_box_flags.h"
 #include "views/event.h"
 #include "webkit/plugins/npapi/plugin_list.h"
 
@@ -1676,11 +1676,10 @@ void TestingAutomationProvider::ClickInfoBarAccept(
   if (tab_tracker_->ContainsHandle(handle)) {
     NavigationController* nav_controller = tab_tracker_->GetResource(handle);
     if (nav_controller) {
-      int count = nav_controller->tab_contents()->infobar_delegate_count();
-      if (info_bar_index >= 0 && info_bar_index < count) {
-        if (wait_for_navigation) {
+      if (info_bar_index >= 0 && info_bar_index < nav_controller->
+          tab_contents()->infobar_delegate_count()) {
+        if (wait_for_navigation)
           AddNavigationStatusListener(nav_controller, reply_message, 1, false);
-        }
         InfoBarDelegate* delegate =
             nav_controller->tab_contents()->GetInfoBarDelegateAt(
                 info_bar_index);
@@ -1780,7 +1779,7 @@ void TestingAutomationProvider::GetShowingAppModalDialog(bool* showing_dialog,
       AppModalDialogQueue::GetInstance()->active_dialog();
   if (!active_dialog) {
     *showing_dialog = false;
-    *dialog_button = MessageBoxFlags::DIALOGBUTTON_NONE;
+    *dialog_button = ui::MessageBoxFlags::DIALOGBUTTON_NONE;
     return;
   }
   NativeAppModalDialog* native_dialog = active_dialog->native_dialog();
@@ -1788,7 +1787,7 @@ void TestingAutomationProvider::GetShowingAppModalDialog(bool* showing_dialog,
   if (*showing_dialog)
     *dialog_button = native_dialog->GetAppModalDialogButtons();
   else
-    *dialog_button = MessageBoxFlags::DIALOGBUTTON_NONE;
+    *dialog_button = ui::MessageBoxFlags::DIALOGBUTTON_NONE;
 }
 
 void TestingAutomationProvider::ClickAppModalDialogButton(int button,
@@ -1799,13 +1798,13 @@ void TestingAutomationProvider::ClickAppModalDialogButton(int button,
       AppModalDialogQueue::GetInstance()->active_dialog()->native_dialog();
   if (native_dialog &&
       (native_dialog->GetAppModalDialogButtons() & button) == button) {
-    if ((button & MessageBoxFlags::DIALOGBUTTON_OK) ==
-        MessageBoxFlags::DIALOGBUTTON_OK) {
+    if ((button & ui::MessageBoxFlags::DIALOGBUTTON_OK) ==
+        ui::MessageBoxFlags::DIALOGBUTTON_OK) {
       native_dialog->AcceptAppModalDialog();
       *success =  true;
     }
-    if ((button & MessageBoxFlags::DIALOGBUTTON_CANCEL) ==
-        MessageBoxFlags::DIALOGBUTTON_CANCEL) {
+    if ((button & ui::MessageBoxFlags::DIALOGBUTTON_CANCEL) ==
+        ui::MessageBoxFlags::DIALOGBUTTON_CANCEL) {
       DCHECK(!*success) << "invalid param, OK and CANCEL specified";
       native_dialog->CancelAppModalDialog();
       *success =  true;
@@ -1814,7 +1813,8 @@ void TestingAutomationProvider::ClickAppModalDialogButton(int button,
 }
 
 void TestingAutomationProvider::WaitForBrowserWindowCountToBecome(
-    int target_count, IPC::Message* reply_message) {
+    int target_count,
+    IPC::Message* reply_message) {
   if (static_cast<int>(BrowserList::size()) == target_count) {
     AutomationMsg_WaitForBrowserWindowCountToBecome::WriteReplyParams(
         reply_message, true);
@@ -2123,11 +2123,9 @@ void TestingAutomationProvider::SetWindowDimensions(
 ListValue* TestingAutomationProvider::GetInfobarsInfo(TabContents* tc) {
   // Each infobar may have different properties depending on the type.
   ListValue* infobars = new ListValue;
-  for (int infobar_index = 0;
-       infobar_index < tc->infobar_delegate_count();
-       ++infobar_index) {
+  for (int i = 0; i < tc->infobar_delegate_count(); ++i) {
     DictionaryValue* infobar_item = new DictionaryValue;
-    InfoBarDelegate* infobar = tc->GetInfoBarDelegateAt(infobar_index);
+    InfoBarDelegate* infobar = tc->GetInfoBarDelegateAt(i);
     if (infobar->AsConfirmInfoBarDelegate()) {
       // Also covers ThemeInstalledInfoBarDelegate and
       // CrashedExtensionInfoBarDelegate.
@@ -2138,13 +2136,13 @@ ListValue* TestingAutomationProvider::GetInfobarsInfo(TabContents* tc) {
       infobar_item->SetString("link_text", confirm_infobar->GetLinkText());
       ListValue* buttons_list = new ListValue;
       int buttons = confirm_infobar->GetButtons();
-      if (ConfirmInfoBarDelegate::BUTTON_OK & buttons) {
+      if (buttons & ConfirmInfoBarDelegate::BUTTON_OK) {
         StringValue* button_label = new StringValue(
             confirm_infobar->GetButtonLabel(
               ConfirmInfoBarDelegate::BUTTON_OK));
         buttons_list->Append(button_label);
       }
-      if (ConfirmInfoBarDelegate::BUTTON_CANCEL & buttons) {
+      if (buttons & ConfirmInfoBarDelegate::BUTTON_CANCEL) {
         StringValue* button_label = new StringValue(
             confirm_infobar->GetButtonLabel(
               ConfirmInfoBarDelegate::BUTTON_CANCEL));
@@ -2521,14 +2519,15 @@ void TestingAutomationProvider::GetDownloadsInfo(Browser* browser,
                                                  IPC::Message* reply_message) {
   AutomationJSONReply reply(this, reply_message);
 
-  if (!profile_->HasCreatedDownloadManager()) {
+  if (!browser->profile()->HasCreatedDownloadManager()) {
       reply.SendError("no download manager");
       return;
   }
 
   scoped_ptr<DictionaryValue> return_value(new DictionaryValue);
   std::vector<DownloadItem*> downloads;
-  profile_->GetDownloadManager()->GetAllDownloads(FilePath(), &downloads);
+  browser->profile()->GetDownloadManager()->
+      GetAllDownloads(FilePath(), &downloads);
 
   ListValue* list_of_downloads = new ListValue;
   for (std::vector<DownloadItem*>::iterator it = downloads.begin();
@@ -2548,18 +2547,18 @@ void TestingAutomationProvider::WaitForDownloadsToComplete(
     IPC::Message* reply_message) {
 
   // Look for a quick return.
-  if (!profile_->HasCreatedDownloadManager()) {
+  if (!browser->profile()->HasCreatedDownloadManager()) {
     // No download manager.
     AutomationJSONReply(this, reply_message).SendSuccess(NULL);
     return;
   }
   std::vector<DownloadItem*> downloads;
-  profile_->GetDownloadManager()->GetCurrentDownloads(FilePath(), &downloads);
+  browser->profile()->GetDownloadManager()->
+      GetCurrentDownloads(FilePath(), &downloads);
   if (downloads.empty()) {
     AutomationJSONReply(this, reply_message).SendSuccess(NULL);
     return;
   }
-
   // The observer owns itself.  When the last observed item pings, it
   // deletes itself.
   AutomationProviderDownloadItemObserver* item_observer =
@@ -2602,7 +2601,7 @@ void TestingAutomationProvider::PerformActionOnDownload(
   int id;
   std::string action;
 
-  if (!profile_->HasCreatedDownloadManager()) {
+  if (!browser->profile()->HasCreatedDownloadManager()) {
     AutomationJSONReply(this, reply_message).SendError("No download manager.");
     return;
   }
@@ -2612,7 +2611,7 @@ void TestingAutomationProvider::PerformActionOnDownload(
     return;
   }
 
-  DownloadManager* download_manager = profile_->GetDownloadManager();
+  DownloadManager* download_manager = browser->profile()->GetDownloadManager();
   DownloadItem* selected_item = GetDownloadItemFromId(id, download_manager);
   if (!selected_item) {
     AutomationJSONReply(this, reply_message).SendError(
@@ -2687,9 +2686,9 @@ void TestingAutomationProvider::GetSearchEngineInfo(
   for (std::vector<const TemplateURL*>::const_iterator it =
        template_urls.begin(); it != template_urls.end(); ++it) {
     DictionaryValue* search_engine = new DictionaryValue;
-    search_engine->SetString("short_name", WideToUTF8((*it)->short_name()));
-    search_engine->SetString("description", WideToUTF8((*it)->description()));
-    search_engine->SetString("keyword", WideToUTF8((*it)->keyword()));
+    search_engine->SetString("short_name", UTF16ToUTF8((*it)->short_name()));
+    search_engine->SetString("description", UTF16ToUTF8((*it)->description()));
+    search_engine->SetString("keyword", UTF16ToUTF8((*it)->keyword()));
     search_engine->SetBoolean("in_default_list", (*it)->ShowInDefaultList());
     search_engine->SetBoolean("is_default",
         (*it) == url_model->GetDefaultSearchProvider());
@@ -2700,7 +2699,7 @@ void TestingAutomationProvider::GetSearchEngineInfo(
     search_engine->SetString("host", (*it)->url()->GetHost());
     search_engine->SetString("path", (*it)->url()->GetPath());
     search_engine->SetString("display_url",
-                             WideToUTF8((*it)->url()->DisplayURL()));
+                             UTF16ToUTF8((*it)->url()->DisplayURL()));
     search_engines->Append(search_engine);
   }
   return_value->Set("search_engines", search_engines);
@@ -2726,11 +2725,11 @@ void TestingAutomationProvider::AddOrEditSearchEngine(
     return;
   }
   std::string new_ref_url = TemplateURLRef::DisplayURLToURLRef(
-      UTF8ToWide(new_url));
+      UTF8ToUTF16(new_url));
   scoped_ptr<KeywordEditorController> controller(
       new KeywordEditorController(profile_));
   if (args->GetString("keyword", &keyword)) {
-    template_url = url_model->GetTemplateURLForKeyword(UTF8ToWide(keyword));
+    template_url = url_model->GetTemplateURLForKeyword(UTF8ToUTF16(keyword));
     if (template_url == NULL) {
       AutomationJSONReply(this, reply_message).SendError(
           StringPrintf("No match for keyword: %s", keyword.c_str()));
@@ -2763,7 +2762,7 @@ void TestingAutomationProvider::PerformActionOnSearchEngine(
     return;
   }
   const TemplateURL* template_url(
-      url_model->GetTemplateURLForKeyword(UTF8ToWide(keyword)));
+      url_model->GetTemplateURLForKeyword(UTF8ToUTF16(keyword)));
   if (template_url == NULL) {
     AutomationJSONReply(this, reply_message).SendError(
         StringPrintf("No match for keyword: %s", keyword.c_str()));

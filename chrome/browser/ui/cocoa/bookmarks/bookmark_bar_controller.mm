@@ -5,7 +5,6 @@
 #import "chrome/browser/ui/cocoa/bookmarks/bookmark_bar_controller.h"
 
 #include "app/l10n_util_mac.h"
-#include "app/resource_bundle.h"
 #include "base/mac/mac_util.h"
 #include "base/sys_string_conversions.h"
 #include "chrome/browser/bookmarks/bookmark_editor.h"
@@ -34,16 +33,17 @@
 #import "chrome/browser/ui/cocoa/browser_window_controller.h"
 #import "chrome/browser/ui/cocoa/event_utils.h"
 #import "chrome/browser/ui/cocoa/fullscreen_controller.h"
-#import "chrome/browser/ui/cocoa/import_settings_dialog.h"
+#import "chrome/browser/ui/cocoa/importer/import_settings_dialog.h"
 #import "chrome/browser/ui/cocoa/menu_button.h"
 #import "chrome/browser/ui/cocoa/themed_window.h"
-#import "chrome/browser/ui/cocoa/toolbar_controller.h"
+#import "chrome/browser/ui/cocoa/toolbar/toolbar_controller.h"
 #import "chrome/browser/ui/cocoa/view_id_util.h"
 #import "chrome/browser/ui/cocoa/view_resizer.h"
 #include "grit/app_resources.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "skia/ext/skia_utils_mac.h"
+#include "ui/base/resource/resource_bundle.h"
 
 // Bookmark bar state changing and animations
 //
@@ -718,8 +718,8 @@ const NSTimeInterval kBookmarkBarAnimationDuration = 0.12;
 
 // Called after the current theme has changed.
 - (void)themeDidChangeNotification:(NSNotification*)aNotification {
-  ThemeProvider* themeProvider =
-      static_cast<ThemeProvider*>([[aNotification object] pointerValue]);
+  ui::ThemeProvider* themeProvider =
+      static_cast<ui::ThemeProvider*>([[aNotification object] pointerValue]);
   [self updateTheme:themeProvider];
 }
 
@@ -1103,7 +1103,7 @@ const NSTimeInterval kBookmarkBarAnimationDuration = 0.12;
   // the hierarchy.  If that second part is now true, set the color.
   // (If not we'll set the color on the 1st themeChanged:
   // notification.)
-  ThemeProvider* themeProvider = [[[self view] window] themeProvider];
+  ui::ThemeProvider* themeProvider = [[[self view] window] themeProvider];
   if (themeProvider) {
     NSColor* color =
         themeProvider->GetNSColor(BrowserThemeProvider::COLOR_BOOKMARK_TEXT,
@@ -1582,7 +1582,7 @@ const NSTimeInterval kBookmarkBarAnimationDuration = 0.12;
 // because our trigger is an [NSView viewWillMoveToWindow:], which the
 // controller doesn't normally know about.  Otherwise we don't have
 // access to the theme before we know what window we will be on.
-- (void)updateTheme:(ThemeProvider*)themeProvider {
+- (void)updateTheme:(ui::ThemeProvider*)themeProvider {
   if (!themeProvider)
     return;
   NSColor* color =
@@ -1972,7 +1972,7 @@ static BOOL ValueInRangeInclusive(CGFloat low, CGFloat value, CGFloat high) {
   return tc ? tc->view()->GetContainerSize().height() : 0;
 }
 
-- (ThemeProvider*)themeProvider {
+- (ui::ThemeProvider*)themeProvider {
   return browser_->profile()->GetThemeProvider();
 }
 

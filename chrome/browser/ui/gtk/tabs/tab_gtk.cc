@@ -2,20 +2,20 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/gtk/tabs/tab_gtk.h"
+#include "chrome/browser/ui/gtk/tabs/tab_gtk.h"
 
 #include <gdk/gdkkeysyms.h>
 
-#include "app/gtk_dnd_util.h"
 #include "base/singleton.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
-#include "chrome/browser/gtk/accelerators_gtk.h"
-#include "chrome/browser/gtk/menu_gtk.h"
+#include "chrome/browser/ui/gtk/accelerators_gtk.h"
+#include "chrome/browser/ui/gtk/menu_gtk.h"
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
 #include "gfx/path.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "ui/base/dragdrop/gtk_dnd_util.h"
 #include "ui/base/models/accelerator_gtk.h"
 
 namespace {
@@ -365,8 +365,7 @@ void TabGtk::DestroyDragWidget() {
 void TabGtk::StartDragging(gfx::Point drag_offset) {
   CreateDragWidget();
 
-  GtkTargetList* list = gtk_dnd_util::GetTargetListFromCodeMask(
-      gtk_dnd_util::CHROME_TAB);
+  GtkTargetList* list = ui::GetTargetListFromCodeMask(ui::CHROME_TAB);
   gtk_drag_begin(drag_widget_, list, GDK_ACTION_MOVE,
                  1,  // Drags are always initiated by the left button.
                  last_mouse_down_);

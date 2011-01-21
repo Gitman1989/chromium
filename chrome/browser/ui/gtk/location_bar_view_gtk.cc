@@ -2,15 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/gtk/location_bar_view_gtk.h"
+#include "chrome/browser/ui/gtk/location_bar_view_gtk.h"
 
 #include <algorithm>
 #include <string>
 #include <vector>
 
-#include "app/gtk_dnd_util.h"
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/basictypes.h"
 #include "base/command_line.h"
 #include "base/i18n/rtl.h"
@@ -28,25 +26,25 @@
 #include "chrome/browser/content_setting_image_model.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/extensions/extension_browser_event_router.h"
-#include "chrome/browser/extensions/extension_tabs_module.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/gtk/bookmark_bubble_gtk.h"
-#include "chrome/browser/gtk/bookmark_utils_gtk.h"
-#include "chrome/browser/gtk/cairo_cached_surface.h"
-#include "chrome/browser/gtk/content_setting_bubble_gtk.h"
-#include "chrome/browser/gtk/extension_popup_gtk.h"
-#include "chrome/browser/gtk/first_run_bubble.h"
-#include "chrome/browser/gtk/gtk_theme_provider.h"
-#include "chrome/browser/gtk/gtk_util.h"
-#include "chrome/browser/gtk/nine_box.h"
-#include "chrome/browser/gtk/rounded_window.h"
-#include "chrome/browser/gtk/view_id_util.h"
+#include "chrome/browser/extensions/extension_tabs_module.h"
 #include "chrome/browser/instant/instant_controller.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_model.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/gtk/bookmark_bubble_gtk.h"
+#include "chrome/browser/ui/gtk/bookmark_utils_gtk.h"
+#include "chrome/browser/ui/gtk/cairo_cached_surface.h"
+#include "chrome/browser/ui/gtk/content_setting_bubble_gtk.h"
+#include "chrome/browser/ui/gtk/extension_popup_gtk.h"
+#include "chrome/browser/ui/gtk/first_run_bubble.h"
+#include "chrome/browser/ui/gtk/gtk_theme_provider.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
+#include "chrome/browser/ui/gtk/nine_box.h"
+#include "chrome/browser/ui/gtk/rounded_window.h"
+#include "chrome/browser/ui/gtk/view_id_util.h"
 #include "chrome/browser/ui/omnibox/location_bar_util.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
@@ -61,6 +59,8 @@
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "net/base/net_util.h"
+#include "ui/base/dragdrop/gtk_dnd_util.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "webkit/glue/window_open_disposition.h"
 
 namespace {
@@ -370,10 +370,10 @@ void LocationBarViewGtk::SetSiteTypeDragSource() {
 
   gtk_drag_source_set(site_type_event_box_, GDK_BUTTON1_MASK,
                       NULL, 0, GDK_ACTION_COPY);
-  gtk_dnd_util::SetSourceTargetListFromCodeMask(site_type_event_box_,
-                                                gtk_dnd_util::TEXT_PLAIN |
-                                                gtk_dnd_util::TEXT_URI_LIST |
-                                                gtk_dnd_util::CHROME_NAMED_URL);
+  ui::SetSourceTargetListFromCodeMask(site_type_event_box_,
+                                      ui::TEXT_PLAIN |
+                                      ui::TEXT_URI_LIST |
+                                      ui::CHROME_NAMED_URL);
 }
 
 void LocationBarViewGtk::SetProfile(Profile* profile) {
@@ -465,11 +465,6 @@ bool LocationBarViewGtk::OnCommitSuggestedText(
 
 bool LocationBarViewGtk::AcceptCurrentInstantPreview() {
   return InstantController::CommitIfCurrent(browser_->instant());
-}
-
-void LocationBarViewGtk::OnSetSuggestedSearchText(
-    const string16& suggested_text) {
-  SetSuggestedText(suggested_text);
 }
 
 void LocationBarViewGtk::OnPopupBoundsChanged(const gfx::Rect& bounds) {
@@ -985,15 +980,16 @@ void LocationBarViewGtk::SetKeywordLabel(const std::wstring& keyword) {
     return;
 
   bool is_extension_keyword;
-  const std::wstring short_name = profile_->GetTemplateURLModel()->
-      GetKeywordShortName(keyword, &is_extension_keyword);
+  const string16 short_name = profile_->GetTemplateURLModel()->
+      GetKeywordShortName(WideToUTF16Hack(keyword), &is_extension_keyword);
   int message_id = is_extension_keyword ?
       IDS_OMNIBOX_EXTENSION_KEYWORD_TEXT : IDS_OMNIBOX_KEYWORD_TEXT;
   string16 full_name = l10n_util::GetStringFUTF16(message_id,
-                                                  WideToUTF16Hack(short_name));
+                                                  short_name);
   string16 partial_name = l10n_util::GetStringFUTF16(
       message_id,
-      WideToUTF16Hack(location_bar_util::CalculateMinString(short_name)));
+      WideToUTF16Hack(
+          location_bar_util::CalculateMinString(UTF16ToWideHack(short_name))));
   gtk_label_set_text(GTK_LABEL(tab_to_search_full_label_),
                      UTF16ToUTF8(full_name).c_str());
   gtk_label_set_text(GTK_LABEL(tab_to_search_partial_label_),
@@ -1004,7 +1000,8 @@ void LocationBarViewGtk::SetKeywordLabel(const std::wstring& keyword) {
 
     if (is_extension_keyword) {
       const TemplateURL* template_url =
-          profile_->GetTemplateURLModel()->GetTemplateURLForKeyword(keyword);
+          profile_->GetTemplateURLModel()->GetTemplateURLForKeyword(
+              WideToUTF16Hack(keyword));
       const SkBitmap& bitmap = profile_->GetExtensionService()->
           GetOmniboxIcon(template_url->GetExtensionId());
       GdkPixbuf* pixbuf = gfx::GdkPixbufFromSkBitmap(&bitmap);
@@ -1027,15 +1024,15 @@ void LocationBarViewGtk::SetKeywordHintLabel(const std::wstring& keyword) {
     return;
 
   bool is_extension_keyword;
-  const std::wstring short_name = profile_->GetTemplateURLModel()->
-      GetKeywordShortName(keyword, &is_extension_keyword);
+  const string16 short_name = profile_->GetTemplateURLModel()->
+      GetKeywordShortName(WideToUTF16Hack(keyword), &is_extension_keyword);
   int message_id = is_extension_keyword ?
       IDS_OMNIBOX_EXTENSION_KEYWORD_HINT : IDS_OMNIBOX_KEYWORD_HINT;
   std::vector<size_t> content_param_offsets;
   const string16 keyword_hint = l10n_util::GetStringFUTF16(
       message_id,
       string16(),
-      WideToUTF16Hack(short_name),
+      short_name,
       &content_param_offsets);
   if (content_param_offsets.size() != 2) {
     // See comments on an identical NOTREACHED() in search_provider.cc.
@@ -1122,7 +1119,7 @@ void LocationBarViewGtk::OnIconDragData(GtkWidget* sender,
   TabContents* tab = GetTabContents();
   if (!tab)
     return;
-  gtk_dnd_util::WriteURLWithName(data, tab->GetURL(), tab->GetTitle(), info);
+  ui::WriteURLWithName(data, tab->GetURL(), tab->GetTitle(), info);
 }
 
 void LocationBarViewGtk::OnIconDragBegin(GtkWidget* sender,
@@ -1201,12 +1198,10 @@ void LocationBarViewGtk::AdjustChildrenVisibility() {
 
   // Only one of |tab_to_search_box_| and |tab_to_search_hint_| can be visible
   // at the same time.
-  if (!show_selected_keyword_ && GTK_WIDGET_VISIBLE(tab_to_search_box_)) {
+  if (!show_selected_keyword_ && GTK_WIDGET_VISIBLE(tab_to_search_box_))
     gtk_widget_hide(tab_to_search_box_);
-  } else if (!show_keyword_hint_ && GTK_WIDGET_VISIBLE(tab_to_search_hint_)) {
+  else if (!show_keyword_hint_ && GTK_WIDGET_VISIBLE(tab_to_search_hint_))
     gtk_widget_hide(tab_to_search_hint_);
-    location_entry_->set_enable_tab_to_search(false);
-  }
 
   if (show_selected_keyword_) {
     GtkRequisition box, full_label, partial_label;
@@ -1244,17 +1239,14 @@ void LocationBarViewGtk::AdjustChildrenVisibility() {
 
     if (icon.width >= entry_box_width_ - kInnerPadding) {
       gtk_widget_hide(tab_to_search_hint_);
-      location_entry_->set_enable_tab_to_search(false);
     } else if (full_width >= available_width) {
       gtk_widget_hide(tab_to_search_hint_leading_label_);
       gtk_widget_hide(tab_to_search_hint_trailing_label_);
       gtk_widget_show(tab_to_search_hint_);
-      location_entry_->set_enable_tab_to_search(true);
     } else if (full_width < available_width) {
       gtk_widget_show(tab_to_search_hint_leading_label_);
       gtk_widget_show(tab_to_search_hint_trailing_label_);
       gtk_widget_show(tab_to_search_hint_);
-      location_entry_->set_enable_tab_to_search(true);
     }
   }
 }

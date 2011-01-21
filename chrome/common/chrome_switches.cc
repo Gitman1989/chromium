@@ -263,6 +263,10 @@ const char kDisableHistoryURLProvider[]   = "disable-history-url-provider";
 // Disable the Indexed Database API.
 const char kDisableIndexedDatabase[]         = "disable-indexed-database";
 
+// Disables HTML5 Forms interactive validation.
+const char kDisableInteractiveFormValidation[] =
+    "disable-interactive-form-validation";
+
 // Disable the internal Flash Player.
 const char kDisableInternalFlash[]          = "disable-internal-flash";
 
@@ -493,6 +497,11 @@ const char kEnableFastback[]                = "enable-fastback";
 // testing, for example page cycler and layout tests.  See bug 1157243.
 const char kEnableFileCookies[]             = "enable-file-cookies";
 
+// Enable the in-browser thumbnailing, which is more efficient than the
+// in-renderer thumbnailing, as we can use more information to determine
+// if we need to update thumbnails.
+const char kEnableInBrowserThumbnailing[]   = "enable-in-browser-thumbnailing";
+
 // Enable IPv6 support, even if probes suggest that it may not be fully
 // supported.  Some probes may require internet connections, and this flag will
 // allow support independent of application testing.
@@ -558,6 +567,9 @@ const char kEnableSearchProviderApiV2[]     = "enable-search-provider-api-v2";
 // Enables 0-RTT HTTPS handshakes.
 const char kEnableSnapStart[]               = "enable-snap-start";
 
+// Enables speech input.
+const char kEnableSpeechInput[]             = "enable-speech-input";
+
 // Enables StatsTable, logging statistics to a global named shared memory table.
 const char kEnableStatsTable[]              = "enable-stats-table";
 
@@ -576,9 +588,6 @@ const char kEnableSyncTypedUrls[]           = "enable-sync-typed-urls";
 // Enable use of experimental TCP sockets API for sending data in the
 // SYN packet.
 const char kEnableTcpFastOpen[]             = "enable-tcp-fastopen";
-
-// Enables TopSites.
-const char kEnableTopSites[]                = "enable-top-sites";
 
 // Whether or not the touch events API is exposed.
 const char kEnableTouch[]                   = "enable-touch";
@@ -935,10 +944,6 @@ const char kPpapiPluginProcess[]            = "ppapi";
 // Causes the PPAPI sub process to display a dialog on launch.
 const char kPpapiStartupDialog[]            = "ppapi-startup-dialog";
 
-// Establishes a channel to the GPU process asynchronously and (re)launches it
-// if necessary when a renderer process starts.
-const char kPrelaunchGpuProcess[]           = "prelaunch-gpu-process";
-
 // Prints the pages on the screen.
 const char kPrint[]                         = "print";
 
@@ -1233,6 +1238,9 @@ const char kZygoteProcess[]                 = "zygote";
 // Enable the redirection of viewable document requests to the Google
 // Document Viewer.
 const char kEnableGView[]                   = "enable-gview";
+
+// Should we show the image based login?
+const char kEnableLoginImages[]             = "enable-login-images";
 
 // Enable Chrome-as-a-login-manager behavior.
 const char kLoginManager[]                  = "login-manager";

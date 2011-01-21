@@ -15,7 +15,6 @@
 
 #include "base/file_path.h"
 #include "base/json/json_reader.h"
-#include "base/lock.h"
 #include "base/logging.h"
 #include "base/md5.h"
 #include "base/message_loop.h"
@@ -72,7 +71,7 @@ class PrintSystemCUPS : public PrintSystem {
   explicit PrintSystemCUPS(const DictionaryValue* print_system_settings);
 
   // PrintSystem implementation.
-  virtual void Init();
+  virtual PrintSystemResult Init();
 
   virtual void EnumeratePrinters(printing::PrinterList* printer_list);
 
@@ -405,9 +404,10 @@ void PrintSystemCUPS::AddPrintServer(const std::string& url) {
   print_servers_.push_back(print_server);
 }
 
-void PrintSystemCUPS::Init() {
+PrintSystem::PrintSystemResult PrintSystemCUPS::Init() {
   UpdatePrinters();
   initialized_ = true;
+  return PrintSystemResult(true, std::string());
 }
 
 void PrintSystemCUPS::UpdatePrinters() {

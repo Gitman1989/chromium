@@ -5,15 +5,16 @@
 #include "views/widget/widget_win.h"
 
 #include "app/l10n_util_win.h"
-#include "app/system_monitor.h"
-#include "app/view_prop.h"
-#include "app/win/hwnd_util.h"
 #include "app/win/win_util.h"
 #include "base/string_util.h"
 #include "gfx/canvas_skia.h"
 #include "gfx/native_theme_win.h"
 #include "gfx/path.h"
 #include "ui/base/keycodes/keyboard_code_conversion_win.h"
+#include "ui/base/system_monitor/system_monitor.h"
+#include "ui/base/theme_provider.h"
+#include "ui/base/view_prop.h"
+#include "ui/base/win/hwnd_util.h"
 #include "views/accessibility/view_accessibility.h"
 #include "views/controls/native_control_win.h"
 #include "views/focus/focus_util_win.h"
@@ -27,7 +28,7 @@
 #include "views/widget/widget_utils.h"
 #include "views/window/window_win.h"
 
-using app::ViewProp;
+using ui::ViewProp;
 
 namespace views {
 
@@ -78,7 +79,7 @@ WidgetWin* WidgetWin::GetWidget(HWND hwnd) {
   //                 WindowImpl).
   if (!WindowImpl::IsWindowImpl(hwnd))
     return NULL;
-  return reinterpret_cast<WidgetWin*>(app::win::GetWindowUserData(hwnd));
+  return reinterpret_cast<WidgetWin*>(ui::GetWindowUserData(hwnd));
 }
 
 // static
@@ -239,8 +240,9 @@ void WidgetWin::GetBounds(gfx::Rect* out, bool including_frame) const {
 }
 
 void WidgetWin::SetBounds(const gfx::Rect& bounds) {
-  if (IsZoomed())
-    ShowWindow(SW_SHOWNOACTIVATE);
+  LONG style = GetWindowLong(GWL_STYLE);
+  if (style & WS_MAXIMIZE)
+    SetWindowLong(GWL_STYLE, style & ~WS_MAXIMIZE);
   SetWindowPos(NULL, bounds.x(), bounds.y(), bounds.width(), bounds.height(),
                SWP_NOACTIVATE | SWP_NOZORDER);
 }
@@ -869,7 +871,7 @@ void WidgetWin::OnPaint(HDC dc) {
 }
 
 LRESULT WidgetWin::OnPowerBroadcast(DWORD power_event, DWORD data) {
-  SystemMonitor* monitor = SystemMonitor::Get();
+  ui::SystemMonitor* monitor = ui::SystemMonitor::Get();
   if (monitor)
     monitor->ProcessWmPowerBroadcastMessage(power_event);
   SetMsgHandled(FALSE);
@@ -1109,7 +1111,7 @@ Window* WidgetWin::GetWindowImpl(HWND hwnd) {
   HWND parent = hwnd;
   while (parent) {
     WidgetWin* widget =
-        reinterpret_cast<WidgetWin*>(app::win::GetWindowUserData(parent));
+        reinterpret_cast<WidgetWin*>(ui::GetWindowUserData(parent));
     if (widget && widget->is_window_)
       return static_cast<WindowWin*>(widget);
     parent = ::GetParent(parent);

@@ -5,7 +5,6 @@
 #include <string>
 
 #include "app/app_switches.h"
-#include "app/message_box_flags.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/file_path.h"
@@ -42,6 +41,8 @@
 #define GMOCK_MUTANT_INCLUDE_LATE_OBJECT_BINDING
 #include "testing/gmock_mutant.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/base/message_box_flags.h"
+#include "ui/base/ui_base_switches.h"
 #include "views/event.h"
 
 using ui_test_utils::TimedMessageLoopRunner;
@@ -472,8 +473,8 @@ TEST_F(AutomationProxyTest, NavigateToURLAsync) {
   GURL newurl = net::FilePathToFileURL(filename);
 
   ASSERT_TRUE(tab->NavigateToURLAsync(newurl));
-  std::string value = WaitUntilCookieNonEmpty(tab.get(), newurl, "foo",
-                                              action_max_timeout_ms());
+  std::string value = WaitUntilCookieNonEmpty(
+      tab.get(), newurl, "foo", TestTimeouts::action_max_timeout_ms());
   ASSERT_STREQ("baz", value.c_str());
 }
 
@@ -650,8 +651,8 @@ TEST_F(AutomationProxyTest, BlockedPopupTest) {
 
   ASSERT_TRUE(tab->NavigateToURL(net::FilePathToFileURL(filename)));
 
-  ASSERT_TRUE(tab->WaitForBlockedPopupCountToChangeTo(2,
-                                                      action_max_timeout_ms()));
+  ASSERT_TRUE(tab->WaitForBlockedPopupCountToChangeTo(
+      2, TestTimeouts::action_max_timeout_ms()));
 }
 
 // TODO(port): Remove HWND if possible
@@ -914,7 +915,7 @@ TEST_F(ExternalTabUITest, FLAKY_CreateExternalTab1) {
       .WillOnce(QUIT_LOOP(&loop));
 
   tab = mock_->CreateTabWithUrl(GURL(simple_data_url));
-  loop.RunFor(action_max_timeout_ms());
+  loop.RunFor(TestTimeouts::action_max_timeout_ms());
 }
 
 // Create with empty url and then navigate
@@ -938,7 +939,7 @@ TEST_F(ExternalTabUITest, FLAKY_CreateExternalTab2) {
 
   tab = mock_->CreateTabWithUrl(GURL());
   mock_->NavigateInExternalTab(tab->handle(), GURL(simple_data_url));
-  loop.RunFor(action_max_timeout_ms());
+  loop.RunFor(TestTimeouts::action_max_timeout_ms());
 }
 
 // FLAKY: http://crbug.com/60409
@@ -1024,7 +1025,7 @@ TEST_F(ExternalTabUITest, FLAKY_TabPostMessage) {
   EXPECT_CALL(*mock_, HandleClosed(1)).Times(1);
 
   tab = mock_->CreateTabWithUrl(GURL(content));
-  loop.RunFor(action_max_timeout_ms());
+  loop.RunFor(TestTimeouts::action_max_timeout_ms());
 }
 
 // Flaky: http://crbug.com/62143
@@ -1067,7 +1068,7 @@ TEST_F(ExternalTabUITest, FLAKY_PostMessageTarget)  {
   s.load_requests_via_automation = false;
   s.initial_url = GURL("http://localhost:1337/files/post_message.html");
   tab = mock_->CreateHostWindowAndTab(s);
-  loop.RunFor(action_max_timeout_ms());
+  loop.RunFor(TestTimeouts::action_max_timeout_ms());
 }
 
 // Flaky, http://crbug.com/42545.
@@ -1138,7 +1139,7 @@ TEST_F(ExternalTabUITest, FLAKY_HostNetworkStack) {
     .WillOnce(QUIT_LOOP_SOON(&loop, 300));
 
   tab = mock_->CreateTabWithUrl(GURL(url));
-  loop.RunFor(action_max_timeout_ms());
+  loop.RunFor(TestTimeouts::action_max_timeout_ms());
 }
 
 // Flaky, http://crbug.com/61023.
@@ -1180,7 +1181,7 @@ TEST_F(ExternalTabUITest, FLAKY_HostNetworkStackAbortRequest) {
       .WillOnce(QUIT_LOOP_SOON(&loop, 300));
 
   tab = mock_->CreateTabWithUrl(GURL(url));
-  loop.RunFor(action_max_timeout_ms());
+  loop.RunFor(TestTimeouts::action_max_timeout_ms());
 }
 
 // Flaky, http://crbug.com/61023.
@@ -1249,7 +1250,7 @@ TEST_F(ExternalTabUITest, FLAKY_HostNetworkStackUnresponsiveRenderer) {
   EXPECT_CALL(*mock_, HandleClosed(1)).Times(1);
 
   tab = mock_->CreateTabWithUrl(GURL(url));
-  loop.RunFor(action_max_timeout_ms());
+  loop.RunFor(TestTimeouts::action_max_timeout_ms());
   mock_->DestroyHostWindow();
 }
 
@@ -1325,7 +1326,7 @@ TEST_F(ExternalTabUITestPopupEnabled, MAYBE_WindowDotOpen) {
 
   mock_->CreateTabWithUrl(main_url);
 
-  loop.RunFor(action_max_timeout_ms());
+  loop.RunFor(TestTimeouts::action_max_timeout_ms());
 
   EXPECT_CALL(*mock_, HandleClosed(1));
   EXPECT_CALL(*mock_, HandleClosed(2));
@@ -1365,7 +1366,7 @@ TEST_F(ExternalTabUITestPopupEnabled, MAYBE_UserGestureTargetBlank) {
       .WillOnce(QUIT_LOOP_SOON(&loop, 500));
 
   mock_->CreateTabWithUrl(main_url);
-  loop.RunFor(action_max_timeout_ms());
+  loop.RunFor(TestTimeouts::action_max_timeout_ms());
 
   EXPECT_CALL(*mock_, HandleClosed(1));
   ::DestroyWindow(foo_host);
@@ -1407,7 +1408,7 @@ TEST_F(AutomationProxyTest, AutocompleteParallelProxy) {
       browser2->GetAutocompleteEdit());
   ASSERT_TRUE(edit2.get());
   EXPECT_TRUE(browser2->GetTab(0)->WaitForTabToBeRestored(
-      action_max_timeout_ms()));
+      TestTimeouts::action_max_timeout_ms()));
   const std::wstring text_to_set1 = L"Lollerskates";
   const std::wstring text_to_set2 = L"Roflcopter";
   std::wstring actual_text1, actual_text2;
@@ -1438,7 +1439,7 @@ TEST_F(AutomationProxyVisibleTest, AutocompleteMatchesTest) {
   EXPECT_TRUE(browser->ApplyAccelerator(IDC_FOCUS_LOCATION));
   ASSERT_TRUE(edit->WaitForFocus());
   EXPECT_TRUE(edit->SetText(L"Roflcopter"));
-  EXPECT_TRUE(edit->WaitForQuery(action_max_timeout_ms()));
+  EXPECT_TRUE(edit->WaitForQuery(TestTimeouts::action_max_timeout_ms()));
   bool query_in_progress;
   EXPECT_TRUE(edit->IsQueryInProgress(&query_in_progress));
   EXPECT_FALSE(query_in_progress);
@@ -1455,11 +1456,12 @@ TEST_F(AutomationProxyTest, FLAKY_AppModalDialogTest) {
   ASSERT_TRUE(tab.get());
 
   bool modal_dialog_showing = false;
-  MessageBoxFlags::DialogButton button = MessageBoxFlags::DIALOGBUTTON_NONE;
+  ui::MessageBoxFlags::DialogButton button =
+      ui::MessageBoxFlags::DIALOGBUTTON_NONE;
   EXPECT_TRUE(automation()->GetShowingAppModalDialog(&modal_dialog_showing,
                                                      &button));
   EXPECT_FALSE(modal_dialog_showing);
-  EXPECT_EQ(MessageBoxFlags::DIALOGBUTTON_NONE, button);
+  EXPECT_EQ(ui::MessageBoxFlags::DIALOGBUTTON_NONE, button);
 
   // Show a simple alert.
   std::string content =
@@ -1472,19 +1474,19 @@ TEST_F(AutomationProxyTest, FLAKY_AppModalDialogTest) {
   EXPECT_TRUE(automation()->GetShowingAppModalDialog(&modal_dialog_showing,
                                                      &button));
   EXPECT_TRUE(modal_dialog_showing);
-  EXPECT_EQ(MessageBoxFlags::DIALOGBUTTON_OK, button);
+  EXPECT_EQ(ui::MessageBoxFlags::DIALOGBUTTON_OK, button);
 
   // Test that clicking missing button fails graciously and does not close the
   // dialog.
   EXPECT_FALSE(automation()->ClickAppModalDialogButton(
-      MessageBoxFlags::DIALOGBUTTON_CANCEL));
+      ui::MessageBoxFlags::DIALOGBUTTON_CANCEL));
   EXPECT_TRUE(automation()->GetShowingAppModalDialog(&modal_dialog_showing,
                                                      &button));
   EXPECT_TRUE(modal_dialog_showing);
 
   // Now click OK, that should close the dialog.
   EXPECT_TRUE(automation()->ClickAppModalDialogButton(
-      MessageBoxFlags::DIALOGBUTTON_OK));
+      ui::MessageBoxFlags::DIALOGBUTTON_OK));
   EXPECT_TRUE(automation()->GetShowingAppModalDialog(&modal_dialog_showing,
                                                      &button));
   EXPECT_FALSE(modal_dialog_showing);
@@ -1500,12 +1502,12 @@ TEST_F(AutomationProxyTest, FLAKY_AppModalDialogTest) {
   EXPECT_TRUE(automation()->GetShowingAppModalDialog(&modal_dialog_showing,
                                                      &button));
   EXPECT_TRUE(modal_dialog_showing);
-  EXPECT_EQ(MessageBoxFlags::DIALOGBUTTON_OK |
-            MessageBoxFlags::DIALOGBUTTON_CANCEL, button);
+  EXPECT_EQ(ui::MessageBoxFlags::DIALOGBUTTON_OK |
+            ui::MessageBoxFlags::DIALOGBUTTON_CANCEL, button);
 
   // Click OK.
   EXPECT_TRUE(automation()->ClickAppModalDialogButton(
-      MessageBoxFlags::DIALOGBUTTON_OK));
+      ui::MessageBoxFlags::DIALOGBUTTON_OK));
   EXPECT_TRUE(automation()->GetShowingAppModalDialog(&modal_dialog_showing,
                                                      &button));
   EXPECT_FALSE(modal_dialog_showing);
@@ -1521,12 +1523,12 @@ TEST_F(AutomationProxyTest, FLAKY_AppModalDialogTest) {
   EXPECT_TRUE(automation()->GetShowingAppModalDialog(&modal_dialog_showing,
                                                      &button));
   EXPECT_TRUE(modal_dialog_showing);
-  EXPECT_EQ(MessageBoxFlags::DIALOGBUTTON_OK |
-            MessageBoxFlags::DIALOGBUTTON_CANCEL, button);
+  EXPECT_EQ(ui::MessageBoxFlags::DIALOGBUTTON_OK |
+            ui::MessageBoxFlags::DIALOGBUTTON_CANCEL, button);
 
   // Click Cancel this time.
   EXPECT_TRUE(automation()->ClickAppModalDialogButton(
-      MessageBoxFlags::DIALOGBUTTON_CANCEL));
+      ui::MessageBoxFlags::DIALOGBUTTON_CANCEL));
   EXPECT_TRUE(automation()->GetShowingAppModalDialog(&modal_dialog_showing,
                                                      &button));
   EXPECT_FALSE(modal_dialog_showing);

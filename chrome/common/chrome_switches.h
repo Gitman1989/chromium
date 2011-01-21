@@ -82,6 +82,7 @@ extern const char kDisableGpuWatchdog[];
 extern const char kDisableHangMonitor[];
 extern const char kDisableHistoryQuickProvider[];
 extern const char kDisableHistoryURLProvider[];
+extern const char kDisableInteractiveFormValidation[];
 extern const char kDisableInternalFlash[];
 extern const char kDisableIndexedDatabase[];
 extern const char kDisableIPv6[];
@@ -148,6 +149,7 @@ extern const char kEnableExtensionTimelineApi[];
 extern const char kEnableFastback[];
 extern const char kEnableFileCookies[];
 extern const char kEnableGPUPlugin[];
+extern const char kEnableInBrowserThumbnailing[];
 extern const char kEnableIPv6[];
 extern const char kEnableLogging[];
 extern const char kEnableMemoryInfo[];
@@ -165,6 +167,7 @@ extern const char kEnableRemoting[];
 extern const char kEnableResourceContentSettings[];
 extern const char kEnableSearchProviderApiV2[];
 extern const char kEnableSnapStart[];
+extern const char kEnableSpeechInput[];
 extern const char kEnableStatsTable[];
 extern const char kEnableSync[];
 extern const char kEnableSyncAutofill[];
@@ -267,7 +270,6 @@ extern const char kPpapiOutOfProcess[];
 extern const char kPpapiPluginLauncher[];
 extern const char kPpapiPluginProcess[];
 extern const char kPpapiStartupDialog[];
-extern const char kPrelaunchGpuProcess[];
 extern const char kPrint[];
 extern const char kProcessPerSite[];
 extern const char kProcessPerTab[];
@@ -345,6 +347,7 @@ extern const char kZygoteProcess[];
 
 #if defined(OS_CHROMEOS)
 extern const char kEnableGView[];
+extern const char kEnableLoginImages[];
 extern const char kLoginManager[];
 // TODO(avayvod): Remove this flag when it's unnecessary for testing
 // purposes.

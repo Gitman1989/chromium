@@ -120,6 +120,9 @@ class UITestBase {
   // This method doesn't return until the navigation is complete.
   void NavigateToURL(const GURL& url);
 
+  // Navigate to the given URL in the active tab of the given app window.
+  void NavigateToURL(const GURL& url, int window_index);
+
   // Same as above, except in the given tab and window.
   void NavigateToURL(const GURL& url, int window_index, int tab_index);
 
@@ -239,15 +242,6 @@ class UITestBase {
   // Return how long the shutdown took.
   base::TimeDelta browser_quit_time() const {
     return launcher_->browser_quit_time();
-  }
-
-  // Compatibility timeout accessors.
-  // TODO(phajdan.jr): update callers and remove these.
-  static int command_execution_timeout_ms() {
-    return TestTimeouts::command_execution_timeout_ms();
-  }
-  static int action_max_timeout_ms() {
-    return TestTimeouts::action_max_timeout_ms();
   }
 
   // Fetch the state which determines whether the profile will be cleared on

@@ -7,12 +7,12 @@
     'chromium_code': 1,
     'grit_info_cmd': ['python', '../tools/grit/grit_info.py',
                       '<@(grit_defines)'],
-    'grit_cmd': ['python', '../tools/grit/grit.py'],    
+    'grit_cmd': ['python', '../tools/grit/grit.py'],
     'grit_out_dir': '<(SHARED_INTERMEDIATE_DIR)/gfx',
   },
   'target_defaults': {
     'sources/': [
-      ['exclude', '_(gtk)\\.(cc|mm?)$'],
+      ['exclude', '_(gtk|qt)\\.(cc|mm?)$'],
     ],
     'conditions': [
       ['(OS=="linux" or OS=="freebsd" or OS=="openbsd") and (toolkit_uses_qt==0)', {'sources/': [
@@ -123,6 +123,8 @@
         'font.cc',
         'gfx_paths.cc',
         'gfx_paths.h',
+        'gfx_module.cc',
+        'gfx_module.h',
         'insets.cc',
         'insets.h',
         'native_widget_types.h',
@@ -173,7 +175,7 @@
           'include_dirs': [
             '..',
             '<(DEPTH)/third_party/wtl/include',
-          ],          
+          ],
         }],
         ['OS=="linux" or OS=="freebsd" or OS=="openbsd"', {
           'dependencies': [
@@ -233,7 +235,7 @@
         }],
       ],
     },
-    
+
   ],
 }
 

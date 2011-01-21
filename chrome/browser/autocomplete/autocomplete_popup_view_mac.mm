@@ -6,8 +6,6 @@
 
 #include "chrome/browser/autocomplete/autocomplete_popup_view_mac.h"
 
-#include "app/resource_bundle.h"
-#include "app/text_elider.h"
 #include "base/stl_util-inl.h"
 #include "base/sys_string_conversions.h"
 #include "base/utf_string_conversions.h"
@@ -28,6 +26,8 @@
 #include "skia/ext/skia_utils_mac.h"
 #import "third_party/GTM/AppKit/GTMNSAnimation+Duration.h"
 #import "third_party/GTM/AppKit/GTMNSBezierPath+RoundRect.h"
+#include "ui/base/resource/resource_bundle.h"
+#include "ui/base/text/text_elider.h"
 
 namespace {
 
@@ -163,7 +163,7 @@ NSMutableAttributedString* AutocompletePopupViewMac::ElideString(
   }
 
   // If ElideText() decides to do nothing, nothing to be done.
-  const std::wstring elided(UTF16ToWideHack(ElideText(
+  const std::wstring elided(UTF16ToWideHack(ui::ElideText(
       WideToUTF16Hack(originalString), font, width, false)));
   if (0 == elided.compare(originalString)) {
     return aString;

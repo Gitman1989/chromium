@@ -9,12 +9,12 @@
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
-#include "base/lock.h"
 #include "base/path_service.h"
 #include "base/scoped_ptr.h"
 #include "base/singleton.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
+#include "base/synchronization/lock.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
@@ -37,6 +37,7 @@
 #include "chrome/browser/net/gaia/token_service.h"
 #include "chrome/browser/net/preconnect.h"
 #include "chrome/browser/net/pref_proxy_config_service.h"
+#include "chrome/browser/plugin_updater.h"
 #include "chrome/browser/prefs/pref_member.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -171,7 +172,7 @@ class LoginUtilsWrapper {
   }
 
   LoginUtils* get() {
-    AutoLock create(create_lock_);
+    base::AutoLock create(create_lock_);
     if (!ptr_.get())
       reset(new LoginUtilsImpl);
     return ptr_.get();
@@ -186,7 +187,7 @@ class LoginUtilsWrapper {
 
   LoginUtilsWrapper() {}
 
-  Lock create_lock_;
+  base::Lock create_lock_;
   scoped_ptr<LoginUtils> ptr_;
 
   DISALLOW_COPY_AND_ASSIGN(LoginUtilsWrapper);
@@ -306,6 +307,10 @@ void LoginUtilsImpl::CompleteLogin(
   if (first_login) {
     SetFirstLoginPrefs(profile->GetPrefs());
   }
+
+  // Enable/disable plugins based on user preferences.
+  PluginUpdater::GetInstance()->DisablePluginGroupsFromPrefs(profile);
+  btl->AddLoginTimeMarker("PluginsStateUpdated", false);
 
   // We suck. This is a hack since we do not have the enterprise feature
   // done yet to pull down policies from the domain admin. We'll take this

@@ -13,7 +13,6 @@
 #include <vector>
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/callback.h"
 #include "base/i18n/rtl.h"
 #include "base/string_number_conversions.h"
@@ -36,6 +35,7 @@
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
 #include "grit/theme_resources.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "views/controls/textfield/textfield.h"
 #include "views/controls/throbber.h"
 #include "views/standard_layout.h"
@@ -159,6 +159,9 @@ void AboutChromeView::Init() {
 
   current_version_ = version_info.Version();
 
+  // This code only runs as a result of the user opening the About box so
+  // doing registry access to get the version string modifier should be fine.
+  base::ThreadRestrictions::ScopedAllowIO allow_io;
   std::string version_modifier = platform_util::GetVersionStringModifier();
   if (!version_modifier.empty())
     version_details_ += " " + version_modifier;
@@ -752,8 +755,13 @@ void AboutChromeView::UpdateStatus(GoogleUpdateUpgradeResult result,
       // are running the latest version and if not, notify the user by falling
       // into the next case of UPGRADE_SUCCESSFUL.
       BrowserDistribution* dist = BrowserDistribution::GetDistribution();
+      base::ThreadRestrictions::ScopedAllowIO allow_io;
       scoped_ptr<Version> installed_version(
           InstallUtil::GetChromeVersion(dist, false));
+      if (!installed_version.get()) {
+        // User-level Chrome is not installed, check system-level.
+        installed_version.reset(InstallUtil::GetChromeVersion(dist, true));
+      }
       scoped_ptr<Version> running_version(
           Version::GetVersionFromString(current_version_));
       if (!installed_version.get() ||

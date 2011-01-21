@@ -274,12 +274,24 @@ bool NativeTextfieldViews::IsIMEComposing() const {
   return false;
 }
 
+void NativeTextfieldViews::GetSelectedRange(TextRange* range) const {
+  model_->GetSelectedRange(range);
+}
+
+void NativeTextfieldViews::SelectRange(const TextRange& range) {
+  model_->SelectRange(range);
+  SchedulePaint();
+}
+
+size_t NativeTextfieldViews::GetCursorPosition() const {
+  return model_->cursor_pos();
+}
+
 bool NativeTextfieldViews::HandleKeyPressed(const views::KeyEvent& e) {
   Textfield::Controller* controller = textfield_->GetController();
   bool handled = false;
-  if (controller) {
+  if (controller)
     handled = controller->HandleKeyEvent(textfield_, e);
-  }
   return handled || HandleKeyEvent(e);
 }
 
@@ -317,18 +329,19 @@ bool NativeTextfieldViews::IsCommandIdChecked(int command_id) const {
 }
 
 bool NativeTextfieldViews::IsCommandIdEnabled(int command_id) const {
+  bool editable = !textfield_->read_only();
   string16 result;
   switch (command_id) {
     case IDS_APP_CUT:
-      return model_->HasSelection();
+      return editable && model_->HasSelection();
     case IDS_APP_COPY:
       return model_->HasSelection();
     case IDS_APP_PASTE:
       views::ViewsDelegate::views_delegate->GetClipboard()
           ->ReadText(ui::Clipboard::BUFFER_STANDARD, &result);
-      return !result.empty();
+      return editable && !result.empty();
     case IDS_APP_DELETE:
-      return model_->HasSelection();
+      return editable && model_->HasSelection();
     case IDS_APP_SELECT_ALL:
       return true;
     default:
@@ -344,18 +357,22 @@ bool NativeTextfieldViews::GetAcceleratorForCommandId(int command_id,
 
 void NativeTextfieldViews::ExecuteCommand(int command_id) {
   bool text_changed = false;
+  bool editable = !textfield_->read_only();
   switch (command_id) {
     case IDS_APP_CUT:
-      text_changed = model_->Cut();
+      if (editable)
+        text_changed = model_->Cut();
       break;
     case IDS_APP_COPY:
       model_->Copy();
       break;
     case IDS_APP_PASTE:
-      text_changed = model_->Paste();
+      if (editable)
+        text_changed = model_->Paste();
       break;
     case IDS_APP_DELETE:
-      text_changed = model_->Delete();
+      if (editable)
+        text_changed = model_->Delete();
       break;
     case IDS_APP_SELECT_ALL:
       SelectAll();
@@ -507,6 +524,7 @@ bool NativeTextfieldViews::HandleKeyEvent(const KeyEvent& key_event) {
     // TODO(oshima): shift-tab does not work. Figure out why and fix.
     if (key_code == ui::VKEY_TAB)
       return false;
+    bool editable = !textfield_->read_only();
     bool selection = key_event.IsShiftDown();
     bool control = key_event.IsControlDown();
     bool text_changed = false;
@@ -519,7 +537,7 @@ bool NativeTextfieldViews::HandleKeyEvent(const KeyEvent& key_event) {
         }
         break;
       case ui::VKEY_X:
-        if (control)
+        if (control && editable)
           text_changed = model_->Cut();
         break;
       case ui::VKEY_C:
@@ -527,7 +545,7 @@ bool NativeTextfieldViews::HandleKeyEvent(const KeyEvent& key_event) {
           model_->Copy();
         break;
       case ui::VKEY_V:
-        if (control)
+        if (control && editable)
           text_changed = model_->Paste();
         break;
       case ui::VKEY_RIGHT:
@@ -549,6 +567,8 @@ bool NativeTextfieldViews::HandleKeyEvent(const KeyEvent& key_event) {
         cursor_changed = true;
         break;
       case ui::VKEY_BACK:
+        if (!editable)
+          break;
         if (!model_->HasSelection()) {
           if (selection && control) {
             // If both shift and control are pressed, then erase upto the
@@ -567,6 +587,8 @@ bool NativeTextfieldViews::HandleKeyEvent(const KeyEvent& key_event) {
         cursor_changed = true;
         break;
       case ui::VKEY_DELETE:
+        if (!editable)
+          break;
         if (!model_->HasSelection()) {
           if (selection && control) {
             // If both shift and control are pressed, then erase upto the
@@ -591,7 +613,7 @@ bool NativeTextfieldViews::HandleKeyEvent(const KeyEvent& key_event) {
         break;
     }
     char16 print_char = GetPrintableChar(key_event);
-    if (!control && print_char) {
+    if (!control && print_char && editable) {
       if (insert_)
         model_->Insert(print_char);
       else

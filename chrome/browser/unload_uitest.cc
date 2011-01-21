@@ -1,9 +1,9 @@
-// Copyright (c) 2006-2009 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "app/message_box_flags.h"
 #include "base/file_util.h"
+#include "base/test/test_timeouts.h"
 #include "chrome/browser/net/url_request_mock_http_job.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/common/chrome_switches.h"
@@ -12,6 +12,7 @@
 #include "chrome/test/automation/window_proxy.h"
 #include "chrome/test/ui/ui_test.h"
 #include "net/url_request/url_request_unittest.h"
+#include "ui/base/message_box_flags.h"
 #include "views/event.h"
 
 const std::string NOLISTENERS_HTML =
@@ -104,7 +105,7 @@ class UnloadTest : public UITest {
 
   void WaitForBrowserClosed() {
     const int kCheckDelayMs = 100;
-    for (int max_wait_time = action_max_timeout_ms();
+    for (int max_wait_time = TestTimeouts::action_max_timeout_ms();
          max_wait_time > 0; max_wait_time -= kCheckDelayMs) {
       CrashAwareSleep(kCheckDelayMs);
       if (!IsBrowserRunning())
@@ -116,7 +117,7 @@ class UnloadTest : public UITest {
 
   void CheckTitle(const std::wstring& expected_title) {
     const int kCheckDelayMs = 100;
-    for (int max_wait_time = action_max_timeout_ms();
+    for (int max_wait_time = TestTimeouts::action_max_timeout_ms();
          max_wait_time > 0; max_wait_time -= kCheckDelayMs) {
       CrashAwareSleep(kCheckDelayMs);
       if (expected_title == GetActiveTabTitle())
@@ -164,9 +165,9 @@ class UnloadTest : public UITest {
     EXPECT_TRUE(CloseBrowser(browser.get(), &application_closed));
   }
 
-  void ClickModalDialogButton(MessageBoxFlags::DialogButton button) {
+  void ClickModalDialogButton(ui::MessageBoxFlags::DialogButton button) {
     bool modal_dialog_showing = false;
-    MessageBoxFlags::DialogButton available_buttons;
+    ui::MessageBoxFlags::DialogButton available_buttons;
     EXPECT_TRUE(automation()->WaitForAppModalDialog());
     EXPECT_TRUE(automation()->GetShowingAppModalDialog(&modal_dialog_showing,
         &available_buttons));
@@ -299,7 +300,7 @@ TEST_F(UnloadTest, BrowserCloseBeforeUnloadOK) {
   NavigateToDataURL(BEFORE_UNLOAD_HTML, L"beforeunload");
 
   CloseBrowserAsync(browser.get());
-  ClickModalDialogButton(MessageBoxFlags::DIALOGBUTTON_OK);
+  ClickModalDialogButton(ui::MessageBoxFlags::DIALOGBUTTON_OK);
   WaitForBrowserClosed();
 }
 
@@ -311,14 +312,14 @@ TEST_F(UnloadTest, BrowserCloseBeforeUnloadCancel) {
   NavigateToDataURL(BEFORE_UNLOAD_HTML, L"beforeunload");
 
   CloseBrowserAsync(browser.get());
-  ClickModalDialogButton(MessageBoxFlags::DIALOGBUTTON_CANCEL);
+  ClickModalDialogButton(ui::MessageBoxFlags::DIALOGBUTTON_CANCEL);
   // There's no real graceful way to wait for something _not_ to happen, so
   // we just wait a short period.
   CrashAwareSleep(500);
   ASSERT_TRUE(IsBrowserRunning());
 
   CloseBrowserAsync(browser.get());
-  ClickModalDialogButton(MessageBoxFlags::DIALOGBUTTON_OK);
+  ClickModalDialogButton(ui::MessageBoxFlags::DIALOGBUTTON_OK);
   WaitForBrowserClosed();
 }
 
@@ -340,7 +341,7 @@ TEST_F(UnloadTest, MAYBE_BrowserCloseWithInnerFocusedFrame) {
   NavigateToDataURL(INNER_FRAME_WITH_FOCUS_HTML, L"innerframewithfocus");
 
   CloseBrowserAsync(browser.get());
-  ClickModalDialogButton(MessageBoxFlags::DIALOGBUTTON_OK);
+  ClickModalDialogButton(ui::MessageBoxFlags::DIALOGBUTTON_OK);
   WaitForBrowserClosed();
 }
 

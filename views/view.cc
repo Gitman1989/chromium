@@ -9,13 +9,13 @@
 #include <iostream>
 #endif
 
-#include "app/drag_drop_types.h"
 #include "base/logging.h"
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
 #include "gfx/canvas_skia.h"
 #include "gfx/path.h"
 #include "third_party/skia/include/core/SkShader.h"
+#include "ui/base/dragdrop/drag_drop_types.h"
 #include "views/background.h"
 #include "views/layout_manager.h"
 #include "views/views_delegate.h"
@@ -29,7 +29,7 @@
 #include "views/accessibility/view_accessibility.h"
 #endif
 #if defined(OS_LINUX)
-#include "app/scoped_handle_gtk.h"
+#include "ui/base/gtk/scoped_handle_gtk.h"
 #endif
 
 namespace views {
@@ -455,7 +455,7 @@ bool View::HitTest(const gfx::Point& l) const {
       base::win::ScopedRegion rgn(mask.CreateNativeRegion());
       return !!PtInRegion(rgn, l.x(), l.y());
 #elif defined(TOOLKIT_USES_GTK)
-      ScopedRegion rgn(mask.CreateNativeRegion());
+      ui::ScopedRegion rgn(mask.CreateNativeRegion());
       return gdk_region_point_in(rgn.Get(), l.x(), l.y());
 #endif
     }
@@ -497,7 +497,7 @@ bool View::ProcessMousePressed(const MouseEvent& e, DragInfo* drag_info) {
   if (!enabled)
     return result;
 
-  if (drag_operations != DragDropTypes::DRAG_NONE) {
+  if (drag_operations != ui::DragDropTypes::DRAG_NONE) {
     drag_info->PossibleDrag(e.location());
     return true;
   }
@@ -540,11 +540,10 @@ void View::ProcessMouseReleased(const MouseEvent& e, bool canceled) {
 }
 
 #if defined(TOUCH_UI)
-bool View::ProcessTouchEvent(const TouchEvent& e) {
+View::TouchStatus View::ProcessTouchEvent(const TouchEvent& e) {
   // TODO(rjkroege): Implement a grab scheme similar to as
   // as is found in MousePressed.
-  const bool result = OnTouchEvent(e);
-  return result;
+  return OnTouchEvent(e);
 }
 #endif
 
@@ -607,7 +606,7 @@ void View::RemoveAllChildViews(bool delete_views) {
 
 void View::DoDrag(const MouseEvent& e, const gfx::Point& press_pt) {
   int drag_operations = GetDragOperations(press_pt);
-  if (drag_operations == DragDropTypes::DRAG_NONE)
+  if (drag_operations == ui::DragDropTypes::DRAG_NONE)
     return;
 
   OSExchangeData data;
@@ -1144,7 +1143,7 @@ void View::UnregisterAccelerators(bool leave_data_intact) {
 int View::GetDragOperations(const gfx::Point& press_pt) {
   return drag_controller_ ?
       drag_controller_->GetDragOperations(this, press_pt) :
-      DragDropTypes::DRAG_NONE;
+      ui::DragDropTypes::DRAG_NONE;
 }
 
 void View::WriteDragData(const gfx::Point& press_pt, OSExchangeData* data) {
@@ -1294,9 +1293,9 @@ void View::OnMouseExited(const MouseEvent& e) {
 }
 
 #if defined(TOUCH_UI)
-bool View::OnTouchEvent(const TouchEvent& event) {
+View::TouchStatus View::OnTouchEvent(const TouchEvent& event) {
   DVLOG(1) << "visited the OnTouchEvent";
-  return false;
+  return TOUCH_STATUS_UNKNOWN;
 }
 #endif
 
@@ -1392,14 +1391,14 @@ void View::OnDragEntered(const DropTargetEvent& event) {
 }
 
 int View::OnDragUpdated(const DropTargetEvent& event) {
-  return DragDropTypes::DRAG_NONE;
+  return ui::DragDropTypes::DRAG_NONE;
 }
 
 void View::OnDragExited() {
 }
 
 int View::OnPerformDrop(const DropTargetEvent& event) {
-  return DragDropTypes::DRAG_NONE;
+  return ui::DragDropTypes::DRAG_NONE;
 }
 
 // static

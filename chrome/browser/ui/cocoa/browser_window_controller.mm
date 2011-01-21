@@ -41,18 +41,18 @@
 #import "chrome/browser/ui/cocoa/fullscreen_controller.h"
 #import "chrome/browser/ui/cocoa/fullscreen_window.h"
 #import "chrome/browser/ui/cocoa/image_utils.h"
-#import "chrome/browser/ui/cocoa/infobar_container_controller.h"
+#import "chrome/browser/ui/cocoa/infobars/infobar_container_controller.h"
 #import "chrome/browser/ui/cocoa/location_bar/autocomplete_text_field_editor.h"
 #import "chrome/browser/ui/cocoa/previewable_contents_controller.h"
 #import "chrome/browser/ui/cocoa/sad_tab_controller.h"
 #import "chrome/browser/ui/cocoa/sidebar_controller.h"
 #import "chrome/browser/ui/cocoa/status_bubble_mac.h"
 #import "chrome/browser/ui/cocoa/tab_contents_controller.h"
-#import "chrome/browser/ui/cocoa/tab_strip_controller.h"
-#import "chrome/browser/ui/cocoa/tab_strip_view.h"
-#import "chrome/browser/ui/cocoa/tab_view.h"
+#import "chrome/browser/ui/cocoa/tabs/tab_strip_controller.h"
+#import "chrome/browser/ui/cocoa/tabs/tab_strip_view.h"
+#import "chrome/browser/ui/cocoa/tabs/tab_view.h"
 #import "chrome/browser/ui/cocoa/tabpose_window.h"
-#import "chrome/browser/ui/cocoa/toolbar_controller.h"
+#import "chrome/browser/ui/cocoa/toolbar/toolbar_controller.h"
 #include "chrome/browser/ui/omnibox/location_bar.h"
 #include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
 #include "chrome/browser/ui/tabs/dock_info.h"
@@ -1477,7 +1477,7 @@
   [[self window] setViewsNeedDisplay:YES];
 }
 
-- (ThemeProvider*)themeProvider {
+- (ui::ThemeProvider*)themeProvider {
   return browser_->profile()->GetThemeProvider();
 }
 

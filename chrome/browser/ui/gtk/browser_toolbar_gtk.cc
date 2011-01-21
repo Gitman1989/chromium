@@ -2,13 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/gtk/browser_toolbar_gtk.h"
+#include "chrome/browser/ui/gtk/browser_toolbar_gtk.h"
 
 #include <X11/XF86keysym.h>
 #include <gdk/gdkkeysyms.h>
 #include <gtk/gtk.h>
 
-#include "app/gtk_dnd_util.h"
 #include "app/l10n_util.h"
 #include "base/base_paths.h"
 #include "base/command_line.h"
@@ -18,20 +17,6 @@
 #include "base/singleton.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/background_page_tracker.h"
-#include "chrome/browser/gtk/accelerators_gtk.h"
-#include "chrome/browser/gtk/back_forward_button_gtk.h"
-#include "chrome/browser/gtk/browser_actions_toolbar_gtk.h"
-#include "chrome/browser/gtk/browser_window_gtk.h"
-#include "chrome/browser/gtk/cairo_cached_surface.h"
-#include "chrome/browser/gtk/custom_button.h"
-#include "chrome/browser/gtk/gtk_chrome_button.h"
-#include "chrome/browser/gtk/gtk_theme_provider.h"
-#include "chrome/browser/gtk/gtk_util.h"
-#include "chrome/browser/gtk/location_bar_view_gtk.h"
-#include "chrome/browser/gtk/reload_button_gtk.h"
-#include "chrome/browser/gtk/rounded_window.h"
-#include "chrome/browser/gtk/tabs/tab_strip_gtk.h"
-#include "chrome/browser/gtk/view_id_util.h"
 #include "chrome/browser/metrics/user_metrics.h"
 #include "chrome/browser/net/url_fixer_upper.h"
 #include "chrome/browser/prefs/pref_service.h"
@@ -39,6 +24,20 @@
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/themes/browser_theme_provider.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/gtk/accelerators_gtk.h"
+#include "chrome/browser/ui/gtk/back_forward_button_gtk.h"
+#include "chrome/browser/ui/gtk/browser_actions_toolbar_gtk.h"
+#include "chrome/browser/ui/gtk/browser_window_gtk.h"
+#include "chrome/browser/ui/gtk/cairo_cached_surface.h"
+#include "chrome/browser/ui/gtk/custom_button.h"
+#include "chrome/browser/ui/gtk/gtk_chrome_button.h"
+#include "chrome/browser/ui/gtk/gtk_theme_provider.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
+#include "chrome/browser/ui/gtk/location_bar_view_gtk.h"
+#include "chrome/browser/ui/gtk/reload_button_gtk.h"
+#include "chrome/browser/ui/gtk/rounded_window.h"
+#include "chrome/browser/ui/gtk/tabs/tab_strip_gtk.h"
+#include "chrome/browser/ui/gtk/view_id_util.h"
 #include "chrome/browser/ui/toolbar/encoding_menu_controller.h"
 #include "chrome/browser/upgrade_detector.h"
 #include "chrome/common/notification_details.h"
@@ -52,6 +51,7 @@
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "ui/base/dragdrop/gtk_dnd_util.h"
 #include "ui/base/models/accelerator_gtk.h"
 
 namespace {
@@ -421,11 +421,10 @@ void BrowserToolbarGtk::SetUpDragForHomeButton(bool enable) {
   if (enable) {
     gtk_drag_dest_set(home_->widget(), GTK_DEST_DEFAULT_ALL,
                       NULL, 0, GDK_ACTION_COPY);
-    static const int targets[] = { gtk_dnd_util::TEXT_PLAIN,
-                                   gtk_dnd_util::TEXT_URI_LIST, -1 };
-    gtk_dnd_util::SetDestTargetList(home_->widget(), targets);
+    static const int targets[] = { ui::TEXT_PLAIN, ui::TEXT_URI_LIST, -1 };
+    ui::SetDestTargetList(home_->widget(), targets);
 
-    drop_handler_.reset(new GtkSignalRegistrar());
+    drop_handler_.reset(new ui::GtkSignalRegistrar());
     drop_handler_->Connect(home_->widget(), "drag-data-received",
                            G_CALLBACK(OnDragDataReceivedThunk), this);
   } else {
@@ -599,7 +598,7 @@ gboolean BrowserToolbarGtk::OnMenuButtonPressEvent(GtkWidget* button,
 void BrowserToolbarGtk::OnDragDataReceived(GtkWidget* widget,
     GdkDragContext* drag_context, gint x, gint y,
     GtkSelectionData* data, guint info, guint time) {
-  if (info != gtk_dnd_util::TEXT_PLAIN) {
+  if (info != ui::TEXT_PLAIN) {
     NOTIMPLEMENTED() << "Only support plain text drops for now, sorry!";
     return;
   }

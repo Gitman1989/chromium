@@ -5,7 +5,6 @@
 #include "chrome/browser/ui/views/toolbar_view.h"
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/i18n/number_formatting.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
@@ -31,6 +30,7 @@
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "views/controls/button/button_dropdown.h"
 #include "views/focus/view_storage.h"
 #include "views/widget/tooltip_manager.h"
@@ -657,7 +657,7 @@ int ToolbarView::PopupTopSpacing() const {
 }
 
 void ToolbarView::LoadImages() {
-  ThemeProvider* tp = GetThemeProvider();
+  ui::ThemeProvider* tp = GetThemeProvider();
 
   back_->SetImage(views::CustomButton::BS_NORMAL, tp->GetBitmapNamed(IDR_BACK));
   back_->SetImage(views::CustomButton::BS_HOT, tp->GetBitmapNamed(IDR_BACK_H));
@@ -717,7 +717,7 @@ void ToolbarView::UpdateAppMenuBadge() {
 }
 
 SkBitmap ToolbarView::GetAppMenuIcon(views::CustomButton::ButtonState state) {
-  ThemeProvider* tp = GetThemeProvider();
+  ui::ThemeProvider* tp = GetThemeProvider();
 
   int id = 0;
   switch (state) {

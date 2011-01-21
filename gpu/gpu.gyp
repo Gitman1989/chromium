@@ -5,6 +5,14 @@
 {
   'variables': {
     'chromium_code': 1,
+    # These are defined here because we need to build this library twice. Once
+    # with extra parameter checking. Once with no parameter checking to be 100%
+    # OpenGL ES 2.0 compliant for the conformance tests.
+    'gles2_c_lib_source_files': [
+      'command_buffer/client/gles2_c_lib.h',
+      'command_buffer/client/gles2_c_lib.cc',
+      'command_buffer/client/gles2_c_lib_autogen.h',
+    ],
   },
   'targets': [
     {
@@ -93,9 +101,22 @@
         'gles2_lib',
       ],
       'sources': [
-        'command_buffer/client/gles2_c_lib.h',
-        'command_buffer/client/gles2_c_lib.cc',
-        'command_buffer/client/gles2_c_lib_autogen.h',
+        '<@(gles2_c_lib_source_files)',
+      ],
+    },
+    {
+      # Same as gles2_c_lib except with no parameter checking. Required for
+      # OpenGL ES 2.0 conformance tests.
+      'target_name': 'gles2_c_lib_nocheck',
+      'type': 'static_library',
+      'defines': [
+        'GLES2_CONFORMANCE_TESTS=1',
+      ],
+      'dependencies': [
+        'gles2_lib',
+      ],
+      'sources': [
+        '<@(gles2_c_lib_source_files)',
       ],
     },
     {
@@ -216,6 +237,7 @@
         'command_buffer_client',
         'command_buffer_common',
         'command_buffer_service',
+        'gpu_unittest_utils',
         'gles2_lib',
         'gles2_implementation',
         'gles2_cmd_helper',
@@ -229,8 +251,6 @@
         'command_buffer/common/bitfield_helpers_test.cc',
         'command_buffer/common/command_buffer_mock.cc',
         'command_buffer/common/command_buffer_mock.h',
-        'command_buffer/common/gl_mock.h',
-        'command_buffer/common/gl_mock.cc',
         'command_buffer/common/gles2_cmd_format_test.cc',
         'command_buffer/common/gles2_cmd_format_test_autogen.h',
         'command_buffer/common/gles2_cmd_id_test.cc',
@@ -270,6 +290,22 @@
         'command_buffer/service/test_helper.h',
         'command_buffer/service/test_helper.cc',
         'command_buffer/service/texture_manager_unittest.cc',
+      ],
+    },
+    {
+      'target_name': 'gpu_unittest_utils',
+      'type': 'static_library',
+      'dependencies': [
+        '../app/app.gyp:app_base',
+        '../testing/gmock.gyp:gmock',
+        '../testing/gtest.gyp:gtest',
+      ],
+      'include_dirs': [
+        '..',
+      ],
+      'sources': [
+        'command_buffer/common/gl_mock.h',
+        'command_buffer/common/gl_mock.cc',
       ],
     },
     {

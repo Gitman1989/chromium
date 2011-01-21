@@ -15,6 +15,30 @@
 #include "webkit/plugins/ppapi/resource.h"
 #include "webkit/plugins/ppapi/var.h"
 
+enum PPIdType {
+  PP_ID_TYPE_MODULE,
+  PP_ID_TYPE_INSTANCE,
+  PP_ID_TYPE_RESOURCE,
+  PP_ID_TYPE_VAR,
+  PP_ID_TYPE_COUNT
+};
+
+static const unsigned int kPPIdTypeBits = 2;
+COMPILE_ASSERT(PP_ID_TYPE_COUNT <= (1<<kPPIdTypeBits),
+               kPPIdTypeBits_is_too_small_for_all_id_types);
+
+template <typename T> static inline T MakeTypedId(T value, PPIdType type) {
+  return (value << kPPIdTypeBits) | static_cast<T>(type);
+}
+
+template <typename T> static inline bool CheckIdType(T id, PPIdType type) {
+  // 0 is a valid resource.
+  if (!id)
+    return true;
+  const T mask = (static_cast<T>(1) << kPPIdTypeBits) - 1;
+  return (id & mask) == type;
+}
+
 namespace webkit {
 namespace ppapi {
 
@@ -22,6 +46,8 @@ static base::LazyInstance<ResourceTracker> g_resource_tracker(
     base::LINKER_INITIALIZED);
 
 scoped_refptr<Resource> ResourceTracker::GetResource(PP_Resource res) const {
+  DLOG_IF(ERROR, !CheckIdType(res, PP_ID_TYPE_RESOURCE))
+      << res << " is not a PP_Resource.";
   ResourceMap::const_iterator result = live_resources_.find(res);
   if (result == live_resources_.end()) {
     return scoped_refptr<Resource>();
@@ -48,30 +74,32 @@ ResourceTracker* ResourceTracker::Get() {
 }
 
 PP_Resource ResourceTracker::AddResource(Resource* resource) {
-  // If the plugin manages to create 4 billion resources, don't do crazy stuff.
-  if (last_resource_id_ == std::numeric_limits<PP_Resource>::max())
+  // If the plugin manages to create 1 billion resources, don't do crazy stuff.
+  if (last_resource_id_ ==
+      (std::numeric_limits<PP_Resource>::max() >> kPPIdTypeBits))
     return 0;
 
   // Add the resource with plugin use-count 1.
-  PP_Resource new_id = ++last_resource_id_;
+  PP_Resource new_id = MakeTypedId(++last_resource_id_, PP_ID_TYPE_RESOURCE);
   live_resources_.insert(std::make_pair(new_id, std::make_pair(resource, 1)));
   instance_to_resources_[resource->instance()->pp_instance()].insert(new_id);
   return new_id;
 }
 
 int32 ResourceTracker::AddVar(Var* var) {
-  // If the plugin manages to create 4B strings...
-  if (last_var_id_ == std::numeric_limits<int32>::max()) {
+  // If the plugin manages to create 1B strings...
+  if (last_var_id_ == std::numeric_limits<int32>::max() >> kPPIdTypeBits) {
     return 0;
   }
   // Add the resource with plugin use-count 1.
-  ++last_var_id_;
-  live_vars_.insert(std::make_pair(last_var_id_,
-                                   std::make_pair(var, 1)));
-  return last_var_id_;
+  int32 new_id = MakeTypedId(++last_var_id_, PP_ID_TYPE_VAR);
+  live_vars_.insert(std::make_pair(new_id, std::make_pair(var, 1)));
+  return new_id;
 }
 
 bool ResourceTracker::AddRefResource(PP_Resource res) {
+  DLOG_IF(ERROR, !CheckIdType(res, PP_ID_TYPE_RESOURCE))
+      << res << " is not a PP_Resource.";
   ResourceMap::iterator i = live_resources_.find(res);
   if (i != live_resources_.end()) {
     // We don't protect against overflow, since a plugin as malicious as to ref
@@ -85,6 +113,8 @@ bool ResourceTracker::AddRefResource(PP_Resource res) {
 }
 
 bool ResourceTracker::UnrefResource(PP_Resource res) {
+  DLOG_IF(ERROR, !CheckIdType(res, PP_ID_TYPE_RESOURCE))
+      << res << " is not a PP_Resource.";
   ResourceMap::iterator i = live_resources_.find(res);
   if (i != live_resources_.end()) {
     if (!--i->second.second) {
@@ -105,6 +135,8 @@ bool ResourceTracker::UnrefResource(PP_Resource res) {
 }
 
 void ResourceTracker::ForceDeletePluginResourceRefs(PP_Resource res) {
+  DLOG_IF(ERROR, !CheckIdType(res, PP_ID_TYPE_RESOURCE))
+      << res << " is not a PP_Resource.";
   ResourceMap::iterator i = live_resources_.find(res);
   if (i == live_resources_.end())
     return;  // Nothing to do.
@@ -123,21 +155,18 @@ void ResourceTracker::ForceDeletePluginResourceRefs(PP_Resource res) {
   live_resources_.erase(i);
 }
 
-uint32 ResourceTracker::GetLiveObjectsForModule(PluginModule* module) const {
-  // Since this is for testing only, we'll just go through all of them and
-  // count.
-  //
-  // TODO(brettw) we will eventually need to implement more efficient
-  // module->resource lookup to free resources when a module is unloaded. In
-  // this case, this function can be implemented using that system.
-  uint32 count = 0;
-  for (ResourceMap::const_iterator i = live_resources_.begin();
-       i != live_resources_.end(); ++i)
-    count++;
-  return count;
+uint32 ResourceTracker::GetLiveObjectsForInstance(
+    PP_Instance instance) const {
+  InstanceToResourceMap::const_iterator found =
+      instance_to_resources_.find(instance);
+  if (found == instance_to_resources_.end())
+    return 0;
+  return static_cast<uint32>(found->second.size());
 }
 
 scoped_refptr<Var> ResourceTracker::GetVar(int32 var_id) const {
+  DLOG_IF(ERROR, !CheckIdType(var_id, PP_ID_TYPE_VAR))
+      << var_id << " is not a PP_Var ID.";
   VarMap::const_iterator result = live_vars_.find(var_id);
   if (result == live_vars_.end()) {
     return scoped_refptr<Var>();
@@ -146,6 +175,8 @@ scoped_refptr<Var> ResourceTracker::GetVar(int32 var_id) const {
 }
 
 bool ResourceTracker::AddRefVar(int32 var_id) {
+  DLOG_IF(ERROR, !CheckIdType(var_id, PP_ID_TYPE_VAR))
+      << var_id << " is not a PP_Var ID.";
   VarMap::iterator i = live_vars_.find(var_id);
   if (i != live_vars_.end()) {
     // We don't protect against overflow, since a plugin as malicious as to ref
@@ -158,6 +189,8 @@ bool ResourceTracker::AddRefVar(int32 var_id) {
 }
 
 bool ResourceTracker::UnrefVar(int32 var_id) {
+  DLOG_IF(ERROR, !CheckIdType(var_id, PP_ID_TYPE_VAR))
+      << var_id << " is not a PP_Var ID.";
   VarMap::iterator i = live_vars_.find(var_id);
   if (i != live_vars_.end()) {
     if (!--i->second.second)
@@ -184,7 +217,8 @@ PP_Instance ResourceTracker::AddInstance(PluginInstance* instance) {
   // Need to make sure the random number isn't a duplicate or 0.
   PP_Instance new_instance;
   do {
-    new_instance = static_cast<PP_Instance>(base::RandUint64());
+    new_instance = MakeTypedId(static_cast<PP_Instance>(base::RandUint64()),
+                               PP_ID_TYPE_INSTANCE);
   } while (!new_instance ||
            instance_map_.find(new_instance) != instance_map_.end());
   instance_map_[new_instance] = instance;
@@ -192,6 +226,8 @@ PP_Instance ResourceTracker::AddInstance(PluginInstance* instance) {
 }
 
 void ResourceTracker::InstanceDeleted(PP_Instance instance) {
+  DLOG_IF(ERROR, !CheckIdType(instance, PP_ID_TYPE_INSTANCE))
+      << instance << " is not a PP_Instance.";
   // Force release all plugin references to resources associated with the
   // deleted instance.
   ResourceSet& resource_set = instance_to_resources_[instance];
@@ -215,6 +251,8 @@ void ResourceTracker::InstanceDeleted(PP_Instance instance) {
 }
 
 PluginInstance* ResourceTracker::GetInstance(PP_Instance instance) {
+  DLOG_IF(ERROR, !CheckIdType(instance, PP_ID_TYPE_INSTANCE))
+      << instance << " is not a PP_Instance.";
   InstanceMap::iterator found = instance_map_.find(instance);
   if (found == instance_map_.end())
     return NULL;
@@ -232,7 +270,8 @@ PP_Module ResourceTracker::AddModule(PluginModule* module) {
   // See AddInstance above.
   PP_Module new_module;
   do {
-    new_module = static_cast<PP_Module>(base::RandUint64());
+    new_module = MakeTypedId(static_cast<PP_Module>(base::RandUint64()),
+                             PP_ID_TYPE_MODULE);
   } while (!new_module ||
            module_map_.find(new_module) != module_map_.end());
   module_map_[new_module] = module;
@@ -240,6 +279,8 @@ PP_Module ResourceTracker::AddModule(PluginModule* module) {
 }
 
 void ResourceTracker::ModuleDeleted(PP_Module module) {
+  DLOG_IF(ERROR, !CheckIdType(module, PP_ID_TYPE_MODULE))
+      << module << " is not a PP_Module.";
   ModuleMap::iterator found = module_map_.find(module);
   if (found == module_map_.end()) {
     NOTREACHED();
@@ -249,6 +290,8 @@ void ResourceTracker::ModuleDeleted(PP_Module module) {
 }
 
 PluginModule* ResourceTracker::GetModule(PP_Module module) {
+  DLOG_IF(ERROR, !CheckIdType(module, PP_ID_TYPE_MODULE))
+      << module << " is not a PP_Module.";
   ModuleMap::iterator found = module_map_.find(module);
   if (found == module_map_.end())
     return NULL;

@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,19 +11,19 @@
 #include <algorithm>
 #include <string>
 
-#include "app/gtk_signal.h"
-#include "app/gtk_signal_registrar.h"
 #include "base/basictypes.h"
 #include "base/scoped_ptr.h"
 #include "base/string_util.h"
 #include "chrome/browser/autocomplete/autocomplete_edit_view.h"
-#include "chrome/browser/gtk/owned_widget_gtk.h"
+#include "chrome/browser/ui/gtk/owned_widget_gtk.h"
 #include "chrome/browser/ui/toolbar/toolbar_model.h"
 #include "chrome/common/notification_observer.h"
 #include "chrome/common/notification_registrar.h"
 #include "chrome/common/page_transition_types.h"
 #include "gfx/rect.h"
 #include "ui/base/animation/animation_delegate.h"
+#include "ui/base/gtk/gtk_signal.h"
+#include "ui/base/gtk/gtk_signal_registrar.h"
 #include "webkit/glue/window_open_disposition.h"
 
 class AccessibleWidgetHelper;
@@ -184,13 +184,6 @@ class AutocompleteEditViewGtk : public AutocompleteEditView,
   void UpdateInstantViewColors();
 
   bool CommitInstantSuggestion();
-
-  // Used by LocationBarViewGtk to inform AutocompleteEditViewGtk if the tab to
-  // search should be enabled or not. See the comment of |enable_tab_to_search_|
-  // for details.
-  void set_enable_tab_to_search(bool enable) {
-    enable_tab_to_search_ = enable;
-  }
 
   GtkWidget* text_view() {
     return text_view_;
@@ -495,11 +488,6 @@ class AutocompleteEditViewGtk : public AutocompleteEditView,
   // is needed.
   CharRange strikethrough_;
 
-  // Indicate if the tab to search should be enabled or not. It's true by
-  // default and will only be set to false if the location bar view is not able
-  // to show the tab to search hint.
-  bool enable_tab_to_search_;
-
   // Indicates if the selected text is suggested text or not. If the selection
   // is not suggested text, that means the user manually made the selection.
   bool selection_suggested_;
@@ -534,7 +522,7 @@ class AutocompleteEditViewGtk : public AutocompleteEditView,
   // "focus-out" events.
   GtkWidget* going_to_focus_;
 
-  GtkSignalRegistrar signals_;
+  ui::GtkSignalRegistrar signals_;
 
 #if defined(TOOLKIT_VIEWS)
   scoped_ptr<AccessibleWidgetHelper> accessible_widget_helper_;

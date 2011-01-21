@@ -5,10 +5,11 @@
 #include "chrome/renderer/blocked_plugin.h"
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/string_piece.h"
+#include "base/string_util.h"
 #include "base/values.h"
 #include "chrome/common/jstemplate_builder.h"
+#include "chrome/common/render_messages.h"
 #include "chrome/renderer/render_view.h"
 #include "grit/generated_resources.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebContextMenuData.h"
@@ -21,6 +22,7 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebTextCaseSensitivity.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebVector.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "webkit/glue/webpreferences.h"
 #include "webkit/plugins/npapi/plugin_group.h"
 #include "webkit/plugins/npapi/webview_plugin.h"
@@ -39,6 +41,9 @@ using WebKit::WebString;
 using WebKit::WebVector;
 
 static const char* const kBlockedPluginDataURL = "chrome://blockedplugindata/";
+// TODO(cevans) - move these to a shared header file so that there are no
+// collisions in the longer term. Currently, blocked_plugin.cc is the only
+// user of custom menu commands (extension menu items have their own range).
 static const unsigned kMenuActionLoad = 1;
 static const unsigned kMenuActionRemove = 2;
 
@@ -48,10 +53,12 @@ BlockedPlugin::BlockedPlugin(RenderView* render_view,
                              const WebPluginParams& params,
                              const WebPreferences& preferences,
                              int template_id,
-                             const string16& message)
-    : render_view_(render_view),
+                             const string16& message,
+                             bool is_blocked_for_prerendering)
+    : RenderViewObserver(render_view),
       frame_(frame),
-      plugin_params_(params) {
+      plugin_params_(params),
+      is_blocked_for_prerendering_(is_blocked_for_prerendering) {
   const base::StringPiece template_html(
       ResourceBundle::GetSharedInstance().GetRawDataResource(template_id));
 
@@ -71,13 +78,9 @@ BlockedPlugin::BlockedPlugin(RenderView* render_view,
                                                  preferences,
                                                  html_data,
                                                  GURL(kBlockedPluginDataURL));
-
-  render_view_->RegisterBlockedPlugin(this);
 }
 
 BlockedPlugin::~BlockedPlugin() {
-  render_view_->CustomMenuListenerDestroyed(this);
-  render_view_->UnregisterBlockedPlugin(this);
 }
 
 void BlockedPlugin::BindWebFrame(WebFrame* frame) {
@@ -118,17 +121,32 @@ void BlockedPlugin::ShowContextMenu(const WebKit::WebMouseEvent& event) {
 
   menu_data.customItems.swap(custom_items);
   menu_data.mousePosition = WebPoint(event.windowX, event.windowY);
-  render_view_->showContextMenu(NULL, menu_data);
-  render_view_->CustomMenuListenerInstall(this);
+  render_view()->showContextMenu(NULL, menu_data);
 }
 
-void BlockedPlugin::MenuItemSelected(unsigned id) {
+bool BlockedPlugin::OnMessageReceived(const IPC::Message& message) {
+  // We don't swallow ViewMsg_CustomContextMenuAction because we listen for all
+  // custom menu IDs, and not just our own. We don't swallow
+  // ViewMsg_LoadBlockedPlugins because multiple blocked plugins have an
+  // interest in it.
+  if (message.type() == ViewMsg_CustomContextMenuAction::ID) {
+    ViewMsg_CustomContextMenuAction::Dispatch(
+        &message, this, this, &BlockedPlugin::OnMenuItemSelected);
+  } else if (message.type() == ViewMsg_LoadBlockedPlugins::ID) {
+    LoadPlugin();
+  } else if (message.type() == ViewMsg_DisplayPrerenderedPage::ID) {
+    if (is_blocked_for_prerendering_)
+      LoadPlugin();
+  }
+
+  return false;
+}
+
+void BlockedPlugin::OnMenuItemSelected(unsigned id) {
   if (id == kMenuActionLoad) {
     LoadPlugin();
   } else if (id == kMenuActionRemove) {
     HidePlugin();
-  } else {
-    NOTREACHED();
   }
 }
 
@@ -136,8 +154,7 @@ void BlockedPlugin::LoadPlugin() {
   CHECK(plugin_);
   WebPluginContainer* container = plugin_->container();
   WebPlugin* new_plugin =
-      render_view_->CreatePluginNoCheck(frame_,
-                                        plugin_params_);
+      render_view()->CreatePluginNoCheck(frame_, plugin_params_);
   if (new_plugin && new_plugin->initialize(container)) {
     container->setPlugin(new_plugin);
     container->invalidate();
@@ -173,11 +190,19 @@ void BlockedPlugin::HidePlugin() {
   if (element.hasAttribute("width") && element.hasAttribute("height")) {
     std::string width_str("width:[\\s]*");
     width_str += element.getAttribute("width").utf8().data();
+    if (EndsWith(width_str, "px", false)) {
+      width_str = width_str.substr(0, width_str.length() - 2);
+    }
+    TrimWhitespace(width_str, TRIM_TRAILING, &width_str);
     width_str += "[\\s]*px";
     WebRegularExpression width_regex(WebString::fromUTF8(width_str.c_str()),
                                      WebKit::WebTextCaseSensitive);
     std::string height_str("height:[\\s]*");
     height_str += element.getAttribute("height").utf8().data();
+    if (EndsWith(height_str, "px", false)) {
+      height_str = height_str.substr(0, height_str.length() - 2);
+    }
+    TrimWhitespace(height_str, TRIM_TRAILING, &height_str);
     height_str += "[\\s]*px";
     WebRegularExpression height_regex(WebString::fromUTF8(height_str.c_str()),
                                       WebKit::WebTextCaseSensitive);

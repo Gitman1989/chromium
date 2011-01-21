@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -177,8 +177,8 @@ void AutocompleteProviderTest::
 
   // Create another TemplateURL for KeywordProvider.
   TemplateURL* keyword_t_url = new TemplateURL();
-  keyword_t_url->set_short_name(L"k");
-  keyword_t_url->set_keyword(L"k");
+  keyword_t_url->set_short_name(ASCIIToUTF16("k"));
+  keyword_t_url->set_keyword(ASCIIToUTF16("k"));
   keyword_t_url->SetURL("http://keyword/{searchTerms}", 0, 0);
   profile_.GetTemplateURLModel()->Add(keyword_t_url);
   ASSERT_NE(0, keyword_t_url->id());
@@ -382,8 +382,7 @@ TEST(AutocompleteTest, InputCrash) {
                           false);
 }
 
-// Test that we can properly compare matches' relevance when at least one is
-// negative.
+// Test comparing matches relevance.
 TEST(AutocompleteMatch, MoreRelevant) {
   struct RelevantCases {
     int r1;
@@ -394,8 +393,8 @@ TEST(AutocompleteMatch, MoreRelevant) {
     {  10,  -5, true  },
     {  -5,  10, false },
     {   0,  10, false },
-    { -10,  -5, true  },
-    {  -5, -10, false },
+    { -10,  -5, false  },
+    {  -5, -10, true },
   };
 
   AutocompleteMatch m1(NULL, 0, false, AutocompleteMatch::URL_WHAT_YOU_TYPED);

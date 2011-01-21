@@ -14,15 +14,15 @@
 #include <string>
 #include <vector>
 
-#include "app/win/window_impl.h"
 #include "base/message_loop.h"
 #include "base/scoped_vector.h"
 #include "base/win/scoped_comptr.h"
+#include "ui/base/win/window_impl.h"
 #include "views/focus/focus_manager.h"
 #include "views/layout_manager.h"
 #include "views/widget/widget.h"
 
-namespace app {
+namespace ui {
 class ViewProp;
 }
 
@@ -74,7 +74,7 @@ const int WM_NCUAHDRAWFRAME = 0xAF;
 //  then responsible for cleaning up after it.
 //
 ///////////////////////////////////////////////////////////////////////////////
-class WidgetWin : public app::win::WindowImpl,
+class WidgetWin : public ui::WindowImpl,
                   public Widget,
                   public MessageLoopForUI::Observer,
                   public FocusTraversable {
@@ -484,7 +484,7 @@ class WidgetWin : public app::win::WindowImpl,
   bool is_window_;
 
  private:
-  typedef ScopedVector<app::ViewProp> ViewProps;
+  typedef ScopedVector<ui::ViewProp> ViewProps;
 
   // Implementation of GetWindow. Ascends the parents of |hwnd| returning the
   // first ancestor that is a Window.

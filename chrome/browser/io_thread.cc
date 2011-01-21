@@ -17,6 +17,7 @@
 #include "base/threading/thread_restrictions.h"
 #include "chrome/browser/browser_thread.h"
 #include "chrome/browser/gpu_process_host.h"
+#include "chrome/browser/in_process_webkit/indexed_db_key_utility_client.h"
 #include "chrome/browser/net/chrome_net_log.h"
 #include "chrome/browser/net/chrome_url_request_context.h"
 #include "chrome/browser/net/connect_interceptor.h"
@@ -70,8 +71,11 @@ net::HostResolver* CreateGlobalHostResolver(net::NetLog* net_log) {
     // For each option (i.e., non-default), we have a fixed probability.
     base::FieldTrial::Probability kProbabilityPerGroup = 100;  // 10%.
 
+    // After June 30, 2011 builds, it will always be in default group
+    // (parallel_default).
     scoped_refptr<base::FieldTrial> trial(
-        new base::FieldTrial("DnsParallelism", kDivisor));
+        new base::FieldTrial(
+            "DnsParallelism", kDivisor, "parallel_default", 2011, 6, 30));
 
     // List options with different counts.
     // Firefox limits total to 8 in parallel, and default is currently 50.
@@ -82,9 +86,6 @@ net::HostResolver* CreateGlobalHostResolver(net::NetLog* net_log) {
     int parallel_10 = trial->AppendGroup("parallel_10", kProbabilityPerGroup);
     int parallel_14 = trial->AppendGroup("parallel_14", kProbabilityPerGroup);
     int parallel_20 = trial->AppendGroup("parallel_20", kProbabilityPerGroup);
-
-    trial->AppendGroup("parallel_default",
-                        base::FieldTrial::kAllRemainingProbability);
 
     if (trial->group() == parallel_6)
       parallelism = 6;
@@ -362,6 +363,8 @@ void IOThread::CleanUp() {
 
   // Destroy all URLRequests started by URLFetchers.
   URLFetcher::CancelAll();
+
+  IndexedDBKeyUtilityClient::Shutdown();
 
   // If any child processes are still running, terminate them and
   // and delete the BrowserChildProcessHost instances to release whatever

@@ -124,11 +124,7 @@ void WindowGtk::SetBounds(const gfx::Rect& bounds,
 
 void WindowGtk::Show() {
   gtk_widget_show(GetNativeView());
-
-  window_->show();
 }
-
-
 
 void WindowGtk::HideWindow() {
   Hide();
@@ -426,8 +422,6 @@ void WindowGtk::Init(GtkWindow* parent, const gfx::Rect& bounds) {
 
   // ResetWindowRegion(false);
   window_ = new QMainWindow;
-
-
 }
 
 ////////////////////////////////////////////////////////////////////////////////

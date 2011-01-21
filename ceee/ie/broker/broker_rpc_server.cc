@@ -20,7 +20,7 @@
 namespace {
 // This lock ensures that histograms created by the broker are thread safe.
 // The histograms created here can be initialized on multiple threads.
-Lock g_metrics_lock;
+base::Lock g_metrics_lock;
 
 RPC_STATUS PrepareEndpoint(std::wstring endpoint) {
   std::wstring protocol = kRpcProtocol;
@@ -106,7 +106,7 @@ bool BrokerRpcServer::Stop() {
   // Unregister RPC interface.
   status = ::RpcServerUnregisterIf(
       BrokerRpcServer_CeeeBroker_v1_1_s_ifspec, NULL, FALSE);
-  LOG_IF(WARNING, RPC_S_OK != status || RPC_S_UNKNOWN_MGR_TYPE != status ||
+  LOG_IF(WARNING, RPC_S_OK != status && RPC_S_UNKNOWN_MGR_TYPE != status &&
                   RPC_S_UNKNOWN_IF != status) <<
       "Failed to unregister interface. RPC_STATUS=0x" << com::LogWe(status);
 
@@ -157,7 +157,7 @@ void BrokerRpcServer_SendUmaHistogramTimes(handle_t binding_handle,
                                            int sample) {
   // We can't unfortunately use the HISTOGRAM_*_TIMES here because they use
   // static variables to save time.
-  AutoLock lock(g_metrics_lock);
+  base::AutoLock lock(g_metrics_lock);
   scoped_refptr<base::Histogram> counter =
       base::Histogram::FactoryTimeGet(name,
           base::TimeDelta::FromMilliseconds(1),
@@ -175,7 +175,7 @@ void BrokerRpcServer_SendUmaHistogramData(handle_t binding_handle,
                                           int bucket_count) {
   // We can't unfortunately use the HISTOGRAM_*_COUNT here because they use
   // static variables to save time.
-  AutoLock lock(g_metrics_lock);
+  base::AutoLock lock(g_metrics_lock);
   scoped_refptr<base::Histogram> counter =
       base::Histogram::FactoryGet(name, min, max, bucket_count,
           base::Histogram::kUmaTargetedHistogramFlag);

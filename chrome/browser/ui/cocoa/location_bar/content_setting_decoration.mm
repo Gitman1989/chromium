@@ -7,7 +7,6 @@
 #include <algorithm>
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/command_line.h"
 #include "base/sys_string_conversions.h"
 #include "base/utf_string_conversions.h"
@@ -17,11 +16,12 @@
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
-#import "chrome/browser/ui/cocoa/content_setting_bubble_cocoa.h"
+#import "chrome/browser/ui/cocoa/content_settings/content_setting_bubble_cocoa.h"
 #import "chrome/browser/ui/cocoa/location_bar/location_bar_view_mac.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "net/base/net_util.h"
+#include "ui/base/resource/resource_bundle.h"
 
 namespace {
 

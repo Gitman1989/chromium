@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,7 +10,6 @@
 
 #include "app/app_paths.h"
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/message_loop.h"
@@ -21,6 +20,8 @@
 #include "chrome/common/chrome_switches.h"
 #include "grit/app_locale_settings.h"
 #include "third_party/cros/chromeos_cros_api.h"
+#include "ui/base/resource/resource_bundle.h"
+#include "ui/base/ui_base_paths.h"
 #include "views/focus/accelerator_handler.h"
 
 int main(int argc, char** argv) {
@@ -33,6 +34,7 @@ int main(int argc, char** argv) {
   base::AtExitManager exit_manager;
   base::EnableTerminationOnHeapCorruption();
   app::RegisterPathProvider();
+  ui::RegisterPathProvider();
   CommandLine::Init(argc, argv);
 
   // Check if the UI language code is passed from the command line,
@@ -50,7 +52,7 @@ int main(int argc, char** argv) {
       l10n_util::GetStringUTF8(IDS_UI_FONT_FAMILY_CROS);
   // The font name should not be empty here, but just in case.
   if (font_name != "default" && !font_name.empty()) {
-    // Don't use gtk_util::SetGtkFont() in chrome/browser/gtk not to
+    // Don't use gtk_util::SetGtkFont() in chrome/browser/ui/gtk not to
     // introduce a dependency to it.
     g_object_set(gtk_settings_get_default(),
                  "gtk-font-name", font_name.c_str(), NULL);

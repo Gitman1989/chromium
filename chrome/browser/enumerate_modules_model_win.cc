@@ -59,7 +59,7 @@ namespace {
 
 // Used to protect the LoadedModuleVector which is accessed
 // from both the UI thread and the FILE thread.
-Lock* lock = NULL;
+base::Lock* lock = NULL;
 
 // A struct to help de-duping modules before adding them to the enumerated
 // modules vector.
@@ -423,12 +423,12 @@ void ModuleEnumerator::ReadShellExtensions(HKEY parent) {
     std::wstring key(std::wstring(L"CLSID\\") + registration.Name() +
         L"\\InProcServer32");
     base::win::RegKey clsid;
-    if (!clsid.Open(HKEY_CLASSES_ROOT, key.c_str(), KEY_READ)) {
+    if (clsid.Open(HKEY_CLASSES_ROOT, key.c_str(), KEY_READ) != ERROR_SUCCESS) {
       ++registration;
       continue;
     }
     string16 dll;
-    if (!clsid.ReadValue(L"", &dll)) {
+    if (clsid.ReadValue(L"", &dll) != ERROR_SUCCESS) {
       ++registration;
       continue;
     }
@@ -817,7 +817,7 @@ EnumerateModulesModel::EnumerateModulesModel()
         this, &EnumerateModulesModel::ScanNow);
   }
 
-  lock = new Lock();
+  lock = new base::Lock();
 }
 
 EnumerateModulesModel::~EnumerateModulesModel() {

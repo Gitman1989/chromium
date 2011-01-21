@@ -8,7 +8,6 @@
 #include "chrome/tools/profiles/thumbnail-inl.h"
 
 #include "app/app_paths.h"
-#include "app/resource_bundle.h"
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
@@ -29,6 +28,8 @@
 #include "chrome/common/notification_service.h"
 #include "gfx/codec/jpeg_codec.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/base/resource/resource_bundle.h"
+#include "ui/base/ui_base_paths.h"
 
 using base::Time;
 
@@ -139,8 +140,7 @@ void InsertURLBatch(Profile* profile,
   GURL previous_url;
   PageTransition::Type transition = PageTransition::TYPED;
   const int end_page_id = page_id + batch_size;
-  history::TopSites* top_sites =
-      history::TopSites::IsEnabled() ? profile->GetTopSites() : NULL;
+  history::TopSites* top_sites = profile->GetTopSites();
   for (; page_id < end_page_id; ++page_id) {
     // Randomly decide whether this new URL simulates following a link or
     // whether it's a jump to a new URL.
@@ -234,6 +234,7 @@ int main(int argc, const char* argv[]) {
 
   chrome::RegisterPathProvider();
   app::RegisterPathProvider();
+  ui::RegisterPathProvider();
   ResourceBundle::InitSharedInstance("en-US");
   NotificationService notification_service;
   MessageLoopForUI message_loop;

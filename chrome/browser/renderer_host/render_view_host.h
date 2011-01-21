@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -381,7 +381,7 @@ class RenderViewHost : public RenderWidgetHost {
   void UpdateWebPreferences(const WebPreferences& prefs);
 
   // Request the Renderer to ask the default plugin to start installation of
-  // missing plugin. Called by PluginInstaller.
+  // missing plugin. Called by PluginInstallerInfoBarDelegate.
   void InstallMissingPlugin();
 
   // Load all blocked plugins in the RenderView.
@@ -473,18 +473,6 @@ class RenderViewHost : public RenderWidgetHost {
 
   // Tells the render view that a custom context action has been selected.
   void PerformCustomContextMenuAction(unsigned action);
-
-  // Tells the renderer to translate the current page from one language to
-  // another.  If the current page id is not |page_id|, the request is ignored.
-  // |translate_script| is the script that should be injected in the page to
-  // perform the translation.
-  void TranslatePage(int page_id,
-                     const std::string& translate_script,
-                     const std::string& source_lang,
-                     const std::string& target_lang);
-
-  // Reverts the text of current page to its original (non-translated) contents.
-  void RevertTranslation(int page_id);
 
   // Informs renderer of updated content settings.
   void SendContentSettings(const GURL& url,
@@ -621,10 +609,6 @@ class RenderViewHost : public RenderWidgetHost {
   void OnMsgShowModalHTMLDialog(const GURL& url, int width, int height,
                                 const std::string& json_arguments,
                                 IPC::Message* reply_msg);
-  void OnMsgPasswordFormsFound(
-      const std::vector<webkit_glue::PasswordForm>& forms);
-  void OnMsgPasswordFormsVisible(
-      const std::vector<webkit_glue::PasswordForm>& visible_forms);
   void OnMsgStartDragging(const WebDropData& drop_data,
                           WebKit::WebDragOperationsMask operations_allowed,
                           const SkBitmap& image,

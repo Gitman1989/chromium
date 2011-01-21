@@ -85,7 +85,7 @@ END_VTABLE_PATCHES()
 
 // Static map initialization
 ProtData::ProtocolDataMap ProtData::datamap_;
-Lock ProtData::datamap_lock_;
+base::Lock ProtData::datamap_lock_;
 
 ProtocolSinkWrap::ProtocolSinkWrap() {
   DVLOG(1) << __FUNCTION__ << base::StringPrintf(" 0x%08X", this);
@@ -331,7 +331,7 @@ ProtData::ProtData(IInternetProtocol* protocol,
   DVLOG(1) << __FUNCTION__ << " " << this;
 
   // Add to map.
-  AutoLock lock(datamap_lock_);
+  base::AutoLock lock(datamap_lock_);
   DCHECK(datamap_.end() == datamap_.find(protocol_));
   datamap_[protocol] = this;
 }
@@ -571,7 +571,7 @@ void ProtData::SaveReferrer(IInternetProtocolSink* delegate) {
 scoped_refptr<ProtData> ProtData::DataFromProtocol(
     IInternetProtocol* protocol) {
   scoped_refptr<ProtData> instance;
-  AutoLock lock(datamap_lock_);
+  base::AutoLock lock(datamap_lock_);
   ProtocolDataMap::iterator it = datamap_.find(protocol);
   if (datamap_.end() != it)
     instance = it->second;
@@ -581,7 +581,7 @@ scoped_refptr<ProtData> ProtData::DataFromProtocol(
 void ProtData::Invalidate() {
   if (protocol_) {
     // Remove from map.
-    AutoLock lock(datamap_lock_);
+    base::AutoLock lock(datamap_lock_);
     DCHECK(datamap_.end() != datamap_.find(protocol_));
     datamap_.erase(protocol_);
     protocol_ = NULL;

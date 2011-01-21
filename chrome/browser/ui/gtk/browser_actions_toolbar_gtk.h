@@ -9,19 +9,19 @@
 #include <map>
 #include <string>
 
-#include "app/gtk_signal.h"
-#include "app/gtk_signal_registrar.h"
 #include "base/linked_ptr.h"
 #include "base/task.h"
 #include "chrome/browser/extensions/extension_toolbar_model.h"
-#include "chrome/browser/gtk/custom_button.h"
-#include "chrome/browser/gtk/menu_gtk.h"
-#include "chrome/browser/gtk/overflow_button.h"
-#include "chrome/browser/gtk/owned_widget_gtk.h"
+#include "chrome/browser/ui/gtk/custom_button.h"
+#include "chrome/browser/ui/gtk/menu_gtk.h"
+#include "chrome/browser/ui/gtk/overflow_button.h"
+#include "chrome/browser/ui/gtk/owned_widget_gtk.h"
 #include "chrome/common/notification_observer.h"
 #include "chrome/common/notification_registrar.h"
 #include "ui/base/animation/animation_delegate.h"
 #include "ui/base/animation/slide_animation.h"
+#include "ui/base/gtk/gtk_signal.h"
+#include "ui/base/gtk/gtk_signal_registrar.h"
 #include "ui/base/models/simple_menu_model.h"
 
 class Browser;
@@ -211,7 +211,7 @@ class BrowserActionsToolbarGtk : public ExtensionToolbarModel::Observer,
   // This is the width we were at when we started animating.
   int start_width_;
 
-  GtkSignalRegistrar signals_;
+  ui::GtkSignalRegistrar signals_;
 
   NotificationRegistrar registrar_;
 

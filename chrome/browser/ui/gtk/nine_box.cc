@@ -2,14 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/gtk/nine_box.h"
+#include "chrome/browser/ui/gtk/nine_box.h"
 
-#include "app/resource_bundle.h"
 #include "base/basictypes.h"
 #include "base/i18n/rtl.h"
 #include "base/logging.h"
 #include "gfx/gtk_util.h"
 #include "gfx/point.h"
+#include "ui/base/resource/resource_bundle.h"
 
 namespace {
 

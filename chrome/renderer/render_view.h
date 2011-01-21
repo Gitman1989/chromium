@@ -57,7 +57,6 @@
 
 class AudioMessageFilter;
 class BlockedPlugin;
-class CustomMenuListener;
 class DictionaryValue;
 class DeviceOrientationDispatcher;
 class DevToolsAgent;
@@ -352,15 +351,6 @@ class RenderView : public RenderWidget,
   // only by gears and this function can be deleted when we remove gears.
   uint32 GetCPBrowsingContext();
 
-  // Handles registering and deregistering customer handlers for custom
-  // context menu events.
-  // To install a custom context menu, call showContextMenu() with your
-  // custom entries, followed immediately by CustomMenuListenerInstall() to
-  // register a listener for when a custom menu item is selected. Note that
-  // subsequent calls to showContextMenu() will clear the custom listener.
-  void CustomMenuListenerInstall(CustomMenuListener* listening);
-  void CustomMenuListenerDestroyed(CustomMenuListener* dead);
-
 #if defined(OS_MACOSX)
   // Enables/disabled plugin IME for the given plugin.
   void SetPluginImeEnabled(bool enabled, int plugin_id);
@@ -386,9 +376,6 @@ class RenderView : public RenderWidget,
 
   void RegisterPluginDelegate(WebPluginDelegateProxy* delegate);
   void UnregisterPluginDelegate(WebPluginDelegateProxy* delegate);
-
-  void RegisterBlockedPlugin(BlockedPlugin* blocked_plugin);
-  void UnregisterBlockedPlugin(BlockedPlugin* blocked_plugin);
 
   // IPC::Channel::Listener implementation -------------------------------------
 
@@ -589,9 +576,19 @@ class RenderView : public RenderWidget,
       const WebKit::WebURLRequest& request,
       const WebKit::WebURLResponse&);
   virtual void didDisplayInsecureContent(WebKit::WebFrame* frame);
+
+  // We have two didRunInsecureContent's with the same name. That's because
+  // we're in the process of adding an argument and one of them will be correct.
+  // Once the WebKit change is in, the first should be removed the the second
+  // should be tagged with OVERRIDE.
   virtual void didRunInsecureContent(
       WebKit::WebFrame* frame,
-      const WebKit::WebSecurityOrigin& origin) OVERRIDE;
+      const WebKit::WebSecurityOrigin& origin);
+  virtual void didRunInsecureContent(
+      WebKit::WebFrame* frame,
+      const WebKit::WebSecurityOrigin& origin,
+      const WebKit::WebURL& target);
+
   virtual bool allowScript(WebKit::WebFrame* frame, bool enabled_per_settings);
   virtual bool allowDatabase(WebKit::WebFrame* frame,
                              const WebKit::WebString& name,
@@ -668,6 +665,7 @@ class RenderView : public RenderWidget,
       TransportDIB** dib,
       gfx::Rect* location,
       gfx::Rect* clip);
+  virtual gfx::Size GetScrollOffset();
   virtual void DidHandleKeyEvent();
   virtual void DidHandleMouseEvent(const WebKit::WebMouseEvent& event);
   virtual void OnSetFocus(bool enable);
@@ -892,7 +890,7 @@ class RenderView : public RenderWidget,
                                        const std::string& origin,
                                        const std::string& target);
   void OnInstallMissingPlugin();
-  void OnLoadBlockedPlugins();
+  void OnDisplayPrerenderedPage();
   void OnMediaPlayerActionAt(const gfx::Point& location,
                              const WebKit::WebMediaPlayerAction& action);
   void OnMoveOrResizeStarted();
@@ -1004,7 +1002,8 @@ class RenderView : public RenderWidget,
       const WebKit::WebPluginParams& params,
       const webkit::npapi::PluginGroup& group,
       int resource_id,
-      int message_id);
+      int message_id,
+      bool is_blocked_for_prerendering);
 
   // Sends an IPC notification that the specified content type was blocked.
   // If the content type requires it, |resource_identifier| names the specific
@@ -1088,6 +1087,9 @@ class RenderView : public RenderWidget,
   bool MaybeLoadAlternateErrorPage(WebKit::WebFrame* frame,
                                    const WebKit::WebURLError& error,
                                    bool replace);
+
+  // Common method for OnPrintPages() and OnPrintPreview().
+  void OnPrint(bool is_preview);
 
   // Prints |frame|.
   void Print(WebKit::WebFrame* frame, bool script_initiated, bool is_preview);
@@ -1332,9 +1334,6 @@ class RenderView : public RenderWidget,
   // destroyed yet. Pepper v2 plugins are tracked by the pepper_delegate_.
   std::set<WebPluginDelegatePepper*> current_oldstyle_pepper_plugins_;
 
-  // A list of all BlockedPlugins so they can all be loaded if needed.
-  std::set<BlockedPlugin*> blocked_plugins_;
-
   // Helper objects ------------------------------------------------------------
 
   ScopedRunnableMethodFactory<RenderView> page_info_method_factory_;
@@ -1464,9 +1463,6 @@ class RenderView : public RenderWidget,
 
   // The external popup for the currently showing select popup.
   scoped_ptr<ExternalPopupMenu> external_popup_menu_;
-
-  // The custom menu event listener, if any.
-  CustomMenuListener* custom_menu_listener_;
 
   // The node that the context menu was pressed over.
   WebKit::WebNode context_menu_node_;

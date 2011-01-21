@@ -4,12 +4,9 @@
 
 #include "chrome/browser/ui/views/autocomplete/autocomplete_popup_contents_view.h"
 
-#include "app/bidi_line_iterator.h"
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
-#include "app/theme_provider.h"
-#include "app/text_elider.h"
 #include "base/compiler_specific.h"
+#include "base/i18n/bidi_line_iterator.h"
 #include "base/i18n/rtl.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/autocomplete/autocomplete_edit_view.h"
@@ -28,6 +25,9 @@
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "third_party/skia/include/core/SkShader.h"
+#include "ui/base/resource/resource_bundle.h"
+#include "ui/base/text/text_elider.h"
+#include "ui/base/theme_provider.h"
 #include "unicode/ubidi.h"
 #include "views/controls/button/text_button.h"
 #include "views/controls/label.h"
@@ -38,16 +38,16 @@
 #include "views/window/window.h"
 
 #if defined(OS_WIN)
-#include <objidl.h>
 #include <commctrl.h>
 #include <dwmapi.h>
+#include <objidl.h>
 
-#include "app/win/hwnd_util.h"
 #include "base/win/scoped_gdi_object.h"
+#include "ui/base/win/hwnd_util.h"
 #endif
 
 #if defined(OS_LINUX)
-#include "chrome/browser/gtk/gtk_util.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
 #include "gfx/skia_utils_gtk.h"
 #endif
 
@@ -525,7 +525,6 @@ const SkBitmap* AutocompleteResultView::GetIcon() const {
       case IDR_OMNIBOX_HTTP:    icon = IDR_OMNIBOX_HTTP_SELECTED; break;
       case IDR_OMNIBOX_HISTORY: icon = IDR_OMNIBOX_HISTORY_SELECTED; break;
       case IDR_OMNIBOX_SEARCH:  icon = IDR_OMNIBOX_SEARCH_SELECTED; break;
-      case IDR_OMNIBOX_MORE:    icon = IDR_OMNIBOX_MORE_SELECTED; break;
       case IDR_OMNIBOX_STAR:    icon = IDR_OMNIBOX_STAR_SELECTED; break;
       default:             NOTREACHED(); break;
     }
@@ -558,8 +557,8 @@ int AutocompleteResultView::DrawString(
   // worry about whether our eliding might change the visual display in
   // unintended ways, e.g. by removing directional markings or by adding an
   // ellipsis that's not enclosed in appropriate markings.
-  BiDiLineIterator bidi_line;
-  if (!bidi_line.Open(text, base::i18n::IsRTL(), is_url))
+  base::i18n::BiDiLineIterator bidi_line;
+  if (!bidi_line.Open(WideToUTF16Hack(text), base::i18n::IsRTL(), is_url))
     return x;
   const int num_runs = bidi_line.CountRuns();
   Runs runs;
@@ -711,8 +710,8 @@ void AutocompleteResultView::Elide(Runs* runs, int remaining_width) const {
 
       // Can we fit at least an ellipsis?
       std::wstring elided_text(UTF16ToWideHack(
-          gfx::ElideText(WideToUTF16Hack(j->text), *j->font, remaining_width,
-                         false)));
+          ui::ElideText(WideToUTF16Hack(j->text), *j->font, remaining_width,
+                        false)));
       Classifications::reverse_iterator prior_classification(j);
       ++prior_classification;
       const bool on_first_classification =
@@ -1107,7 +1106,7 @@ void AutocompletePopupContentsView::MakeContentsPath(
 void AutocompletePopupContentsView::UpdateBlurRegion() {
 #if defined(OS_WIN)
   // We only support background blurring on Vista with Aero-Glass enabled.
-  if (!app::win::ShouldUseVistaFrame() || !GetWidget())
+  if (!ui::ShouldUseVistaFrame() || !GetWidget())
     return;
 
   // Provide a blurred background effect within the contents region of the

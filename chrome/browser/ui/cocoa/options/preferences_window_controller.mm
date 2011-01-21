@@ -8,7 +8,6 @@
 
 #include "app/l10n_util.h"
 #include "app/l10n_util_mac.h"
-#include "app/resource_bundle.h"
 #include "base/logging.h"
 #include "base/mac/mac_util.h"
 #include "base/mac/scoped_aedesc.h"
@@ -41,7 +40,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #import "chrome/browser/ui/cocoa/clear_browsing_data_controller.h"
-#import "chrome/browser/ui/cocoa/import_settings_dialog.h"
+#import "chrome/browser/ui/cocoa/importer/import_settings_dialog.h"
 #import "chrome/browser/ui/cocoa/l10n_util.h"
 #import "chrome/browser/ui/cocoa/options/content_settings_dialog_controller.h"
 #import "chrome/browser/ui/cocoa/options/custom_home_pages_model.h"
@@ -65,6 +64,7 @@
 #include "grit/theme_resources.h"
 #import "third_party/GTM/AppKit/GTMNSAnimation+Duration.h"
 #import "third_party/GTM/AppKit/GTMUILocalizerAndLayoutTweaker.h"
+#include "ui/base/resource/resource_bundle.h"
 
 namespace {
 
@@ -1429,9 +1429,11 @@ const int kDisabledIndex = 1;
   syncService_->ShowConfigure(NULL);
 }
 
+// Called when the user clicks on the multi-purpose 'sync problem'
+// link.
 - (IBAction)doSyncReauthentication:(id)sender {
   DCHECK(syncService_ && !syncService_->IsManaged());
-  syncService_->ShowLoginDialog(NULL);
+  syncService_->ShowErrorUI(NULL);
 }
 
 - (void)setPasswordManagerEnabledIndex:(NSInteger)value {

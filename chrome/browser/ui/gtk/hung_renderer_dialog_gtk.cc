@@ -6,22 +6,22 @@
 
 #include <gtk/gtk.h>
 
-#include "app/gtk_signal.h"
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/process_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_list.h"
-#include "chrome/browser/gtk/gtk_util.h"
 #include "chrome/browser/renderer_host/render_process_host.h"
 #include "chrome/browser/renderer_host/render_view_host.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
 #include "chrome/common/logging_chrome.h"
 #include "chrome/common/result_codes.h"
 #include "gfx/gtk_util.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "ui/base/gtk/gtk_signal.h"
+#include "ui/base/resource/resource_bundle.h"
 
 namespace {
 

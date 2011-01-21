@@ -8,7 +8,6 @@
 
 #include "views/view.h"
 
-
 namespace views {
 
 class NativeTabbedPaneWrapper;
@@ -35,7 +34,6 @@ class TabbedPane : public View {
 
   // Returns the index of the selected tab.
   int GetSelectedTabIndex();
-
 
   // Returns the contents of the selected tab.
   View* GetSelectedTab();

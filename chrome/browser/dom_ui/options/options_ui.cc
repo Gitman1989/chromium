@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <vector>
 
-#include "app/resource_bundle.h"
 #include "base/callback.h"
 #include "base/command_line.h"
 #include "base/message_loop.h"
@@ -31,12 +30,12 @@
 #include "chrome/browser/dom_ui/options/core_options_handler.h"
 #include "chrome/browser/dom_ui/options/font_settings_handler.h"
 #include "chrome/browser/dom_ui/options/import_data_handler.h"
+#include "chrome/browser/dom_ui/options/language_options_handler.h"
 #include "chrome/browser/dom_ui/options/password_manager_handler.h"
 #include "chrome/browser/dom_ui/options/personal_options_handler.h"
 #include "chrome/browser/dom_ui/options/search_engine_manager_handler.h"
 #include "chrome/browser/dom_ui/options/startup_page_manager_handler.h"
 #include "chrome/browser/dom_ui/options/stop_syncing_handler.h"
-#include "chrome/browser/dom_ui/options/sync_options_handler.h"
 #include "chrome/browser/metrics/user_metrics.h"
 #include "chrome/browser/renderer_host/render_view_host.h"
 #include "chrome/browser/profiles/profile.h"
@@ -52,6 +51,7 @@
 #include "grit/locale_settings.h"
 #include "grit/theme_resources.h"
 #include "net/base/escape.h"
+#include "ui/base/resource/resource_bundle.h"
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/dom_ui/accounts_options_handler.h"
@@ -62,7 +62,6 @@
 #include "chrome/browser/chromeos/dom_ui/language_customize_modifier_keys_handler.h"
 #include "chrome/browser/chromeos/dom_ui/language_hangul_options_handler.h"
 #include "chrome/browser/chromeos/dom_ui/language_mozc_options_handler.h"
-#include "chrome/browser/chromeos/dom_ui/language_options_handler.h"
 #include "chrome/browser/chromeos/dom_ui/language_pinyin_options_handler.h"
 #include "chrome/browser/chromeos/dom_ui/proxy_handler.h"
 #include "chrome/browser/chromeos/dom_ui/stats_options_handler.h"
@@ -154,13 +153,13 @@ OptionsUI::OptionsUI(TabContents* contents) : DOMUI(contents) {
   AddOptionsPageUIHandler(localized_strings, new ContentSettingsHandler());
   AddOptionsPageUIHandler(localized_strings, new CookiesViewHandler());
   AddOptionsPageUIHandler(localized_strings, new FontSettingsHandler());
+  AddOptionsPageUIHandler(localized_strings, new LanguageOptionsHandler());
   AddOptionsPageUIHandler(localized_strings, new PasswordManagerHandler());
   AddOptionsPageUIHandler(localized_strings, new PersonalOptionsHandler());
   AddOptionsPageUIHandler(localized_strings, new SearchEngineManagerHandler());
   AddOptionsPageUIHandler(localized_strings, new StartupPageManagerHandler());
   AddOptionsPageUIHandler(localized_strings, new ImportDataHandler());
   AddOptionsPageUIHandler(localized_strings, new StopSyncingHandler());
-  AddOptionsPageUIHandler(localized_strings, new SyncOptionsHandler());
 #if defined(OS_CHROMEOS)
   AddOptionsPageUIHandler(localized_strings, new AboutPageHandler());
   AddOptionsPageUIHandler(localized_strings,
@@ -174,8 +173,6 @@ OptionsUI::OptionsUI(TabContents* contents) : DOMUI(contents) {
                           new chromeos::LanguageHangulOptionsHandler());
   AddOptionsPageUIHandler(localized_strings,
                           new chromeos::LanguageMozcOptionsHandler());
-  AddOptionsPageUIHandler(localized_strings,
-                          new chromeos::LanguageOptionsHandler());
   AddOptionsPageUIHandler(localized_strings,
                           new chromeos::LanguagePinyinOptionsHandler());
   AddOptionsPageUIHandler(localized_strings, new chromeos::ProxyHandler());

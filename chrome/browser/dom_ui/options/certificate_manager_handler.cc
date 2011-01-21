@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,10 +15,10 @@
 #include "chrome/browser/browser_thread.h"  // for FileAccessProvider
 #include "chrome/browser/certificate_manager_model.h"
 #include "chrome/browser/certificate_viewer.h"
-#include "chrome/browser/gtk/certificate_dialogs.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/tab_contents/tab_contents_view.h"
-#include "chrome/browser/ui/pk11_password_dialog.h"
+#include "chrome/browser/ui/crypto_module_password_dialog.h"
+#include "chrome/browser/ui/gtk/certificate_dialogs.h"
 #include "grit/generated_resources.h"
 #include "net/base/crypto_module.h"
 #include "net/base/x509_certificate.h"
@@ -538,7 +538,7 @@ void CertificateManagerHandler::ExportPersonalPasswordSelected(
   // TODO(mattm): do something smarter about non-extractable keys
   browser::UnlockCertSlotIfNecessary(
       selected_cert_list_[0].get(),
-      browser::kPK11PasswordCertExport,
+      browser::kCryptoModulePasswordCertExport,
       "",  // unused.
       NewCallback(this,
                   &CertificateManagerHandler::ExportPersonalSlotsUnlocked));
@@ -631,7 +631,7 @@ void CertificateManagerHandler::ImportPersonalFileRead(
 
   browser::UnlockSlotIfNecessary(
       module_.get(),
-      browser::kPK11PasswordCertImport,
+      browser::kCryptoModulePasswordCertImport,
       "",  // unused.
       NewCallback(this,
                   &CertificateManagerHandler::ImportPersonalSlotUnlocked));
@@ -779,9 +779,9 @@ void CertificateManagerHandler::ImportCAFileRead(int read_errno,
 
 void CertificateManagerHandler::ImportCATrustSelected(const ListValue* args) {
   bool fail = false;
-  bool trust_ssl;
-  bool trust_email;
-  bool trust_obj_sign;
+  bool trust_ssl = false;
+  bool trust_email = false;
+  bool trust_obj_sign = false;
   fail |= !CallbackArgsToBool(args, 0, &trust_ssl);
   fail |= !CallbackArgsToBool(args, 1, &trust_email);
   fail |= !CallbackArgsToBool(args, 2, &trust_obj_sign);

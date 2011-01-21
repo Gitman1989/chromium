@@ -6,7 +6,6 @@
 
 #include "app/l10n_util.h"
 #include "app/l10n_util_win.h"
-#include "app/win/hwnd_util.h"
 #include "base/logging.h"
 #include "base/message_loop.h"
 #include "base/stl_util-inl.h"
@@ -15,6 +14,7 @@
 #include "gfx/font.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/keycodes/keyboard_codes.h"
+#include "ui/base/win/hwnd_util.h"
 #include "views/accelerator.h"
 #include "views/controls/menu/menu_2.h"
 
@@ -60,7 +60,7 @@ class NativeMenuWin::MenuHostWindow {
     RegisterClass();
     hwnd_ = CreateWindowEx(l10n_util::GetExtendedStyles(), kWindowClassName,
                            L"", 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, NULL, NULL);
-    app::win::SetWindowUserData(hwnd_, this);
+    ui::SetWindowUserData(hwnd_, this);
   }
 
   ~MenuHostWindow() {
@@ -86,6 +86,14 @@ class NativeMenuWin::MenuHostWindow {
     ATOM clazz = RegisterClassEx(&wcex);
     DCHECK(clazz);
     registered = true;
+  }
+
+  NativeMenuWin* GetNativeMenuWinFromHMENU(HMENU hmenu) const {
+    MENUINFO mi = {0};
+    mi.cbSize = sizeof(mi);
+    mi.fMask = MIM_MENUDATA | MIM_STYLE;
+    GetMenuInfo(hmenu, &mi);
+    return reinterpret_cast<NativeMenuWin*>(mi.dwMenuData);
   }
 
   // Converts the WPARAM value passed to WM_MENUSELECT into an index
@@ -116,15 +124,20 @@ class NativeMenuWin::MenuHostWindow {
 
   // Called when the user selects a specific item.
   void OnMenuCommand(int position, HMENU menu) {
-    parent_->model_->ActivatedAt(position);
+    NativeMenuWin* intergoat = GetNativeMenuWinFromHMENU(menu);
+    ui::MenuModel* model = intergoat->model_;
+    model->ActivatedAt(position);
   }
 
   // Called as the user moves their mouse or arrows through the contents of the
   // menu.
   void OnMenuSelect(WPARAM w_param, HMENU menu) {
+    if (!menu)
+      return;  // menu is null when closing on XP.
+
     int position = GetMenuItemIndexFromWPARAM(menu, w_param);
     if (position >= 0)
-      parent_->model_->HighlightChangedTo(position);
+      GetNativeMenuWinFromHMENU(menu)->model_->HighlightChangedTo(position);
   }
 
   // Called by Windows to measure the size of an owner-drawn menu item.
@@ -278,7 +291,7 @@ class NativeMenuWin::MenuHostWindow {
                                              WPARAM w_param,
                                              LPARAM l_param) {
     MenuHostWindow* host =
-        reinterpret_cast<MenuHostWindow*>(app::win::GetWindowUserData(window));
+        reinterpret_cast<MenuHostWindow*>(ui::GetWindowUserData(window));
     // host is null during initial construction.
     LRESULT l_result = 0;
     if (!host || !host->ProcessWindowMessage(window, message, w_param, l_param,

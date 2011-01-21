@@ -8,7 +8,6 @@
 #include <vssym32.h>
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/message_loop.h"
 #include "base/string16.h"
 #include "base/string_number_conversions.h"
@@ -34,6 +33,7 @@
 #include "grit/theme_resources.h"
 #include "grit/locale_settings.h"
 #include "grit/theme_resources.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "views/border.h"
 #include "views/controls/button/image_button.h"
 #include "views/controls/button/native_button.h"
@@ -468,7 +468,7 @@ void AutoFillProfilesView::Init() {
   remove_button_ = new views::NativeButton(this,
       UTF16ToWide(l10n_util::GetStringUTF16(IDS_AUTOFILL_DELETE_BUTTON)));
 
-  views::GridLayout* layout = CreatePanelGridLayout(this);
+  views::GridLayout* layout = views::GridLayout::CreatePanel(this);
   SetLayoutManager(layout);
 
   const int table_with_buttons_column_view_set_id = 0;

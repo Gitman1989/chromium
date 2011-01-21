@@ -7,7 +7,6 @@
 #include <cmath>
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/auto_reset.h"
 #include "base/metrics/histogram.h"
 #include "base/metrics/stats_counters.h"
@@ -50,7 +49,7 @@
 #include "chrome/browser/modal_html_dialog_delegate.h"
 #include "chrome/browser/omnibox_search_hint.h"
 #include "chrome/browser/platform_util.h"
-#include "chrome/browser/plugin_installer.h"
+#include "chrome/browser/plugin_installer_infobar_delegate.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prerender/prerender_manager.h"
 #include "chrome/browser/printing/print_preview_tab_controller.h"
@@ -75,6 +74,7 @@
 #include "chrome/browser/tab_contents/tab_contents_delegate.h"
 #include "chrome/browser/tab_contents/tab_contents_ssl_helper.h"
 #include "chrome/browser/tab_contents/tab_contents_view.h"
+#include "chrome/browser/tab_contents/thumbnail_generator.h"
 #include "chrome/browser/tab_contents/web_navigation_observer.h"
 #include "chrome/browser/translate/page_translated_details.h"
 #include "chrome/browser/ui/app_modal_dialogs/message_box_handler.h"
@@ -103,6 +103,7 @@
 #include "net/base/net_util.h"
 #include "net/base/registry_controlled_domain.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "webkit/glue/password_form.h"
 #include "webkit/plugins/npapi/plugin_list.h"
 #include "webkit/glue/webpreferences.h"
@@ -246,82 +247,101 @@ void MakeNavigateParams(const NavigationEntry& entry,
   params->request_time = base::Time::Now();
 }
 
+
+// OutdatedPluginInfoBar ------------------------------------------------------
+
 class OutdatedPluginInfoBar : public ConfirmInfoBarDelegate {
  public:
   OutdatedPluginInfoBar(TabContents* tab_contents,
                         const string16& name,
-                        const GURL& update_url)
-      : ConfirmInfoBarDelegate(tab_contents),
-        tab_contents_(tab_contents),
-        name_(name),
-        update_url_(update_url) {
-    UserMetrics::RecordAction(UserMetricsAction("OutdatedPluginInfobar.Shown"));
-    tab_contents->AddInfoBar(this);
-  }
-
-  virtual int GetButtons() const {
-    return BUTTON_OK | BUTTON_CANCEL | BUTTON_OK_DEFAULT;
-  }
-
-  virtual string16 GetButtonLabel(InfoBarButton button) const {
-    if (button == BUTTON_CANCEL)
-      return l10n_util::GetStringUTF16(IDS_PLUGIN_ENABLE_TEMPORARILY);
-    if (button == BUTTON_OK)
-      return l10n_util::GetStringUTF16(IDS_PLUGIN_UPDATE);
-    return ConfirmInfoBarDelegate::GetButtonLabel(button);
-  }
-
-  virtual string16 GetMessageText() const {
-    return l10n_util::GetStringFUTF16(IDS_PLUGIN_OUTDATED_PROMPT, name_);
-  }
-
-  virtual string16 GetLinkText() {
-    return l10n_util::GetStringUTF16(IDS_LEARN_MORE);
-  }
-
-  virtual SkBitmap* GetIcon() const {
-    return ResourceBundle::GetSharedInstance().GetBitmapNamed(
-        IDR_INFOBAR_PLUGIN_INSTALL);
-  }
-
-  virtual bool Accept() {
-    UserMetrics::RecordAction(
-        UserMetricsAction("OutdatedPluginInfobar.Update"));
-    tab_contents_->OpenURL(update_url_, GURL(),
-                           NEW_FOREGROUND_TAB, PageTransition::LINK);
-    return false;
-  }
-
-  virtual bool Cancel() {
-    UserMetrics::RecordAction(
-        UserMetricsAction("OutdatedPluginInfobar.AllowThisTime"));
-    tab_contents_->render_view_host()->LoadBlockedPlugins();
-    return true;
-  }
-
-  virtual bool LinkClicked(WindowOpenDisposition disposition) {
-    UserMetrics::RecordAction(
-        UserMetricsAction("OutdatedPluginInfobar.LearnMore"));
-    // TODO(bauerb): Navigate to a help page explaining why we disabled
-    // the plugin, once we have one.
-    return false;
-  }
-
-  virtual void InfoBarClosed() {
-    UserMetrics::RecordAction(
-        UserMetricsAction("OutdatedPluginInfobar.Closed"));
-    delete this;
-  }
+                        const GURL& update_url);
 
  private:
+  virtual ~OutdatedPluginInfoBar();
+
+  // ConfirmInfoBarDelegate:
+  virtual void InfoBarClosed();
+  virtual SkBitmap* GetIcon() const;
+  virtual string16 GetMessageText() const;
+  virtual int GetButtons() const;
+  virtual string16 GetButtonLabel(InfoBarButton button) const;
+  virtual bool Accept();
+  virtual bool Cancel();
+  virtual string16 GetLinkText();
+  virtual bool LinkClicked(WindowOpenDisposition disposition);
+
   TabContents* tab_contents_;
   string16 name_;
   GURL update_url_;
 };
 
+OutdatedPluginInfoBar::OutdatedPluginInfoBar(TabContents* tab_contents,
+                                             const string16& name,
+                                             const GURL& update_url)
+    : ConfirmInfoBarDelegate(tab_contents),
+      tab_contents_(tab_contents),
+      name_(name),
+      update_url_(update_url) {
+  UserMetrics::RecordAction(UserMetricsAction("OutdatedPluginInfobar.Shown"));
+  tab_contents->AddInfoBar(this);
+}
+
+OutdatedPluginInfoBar::~OutdatedPluginInfoBar() {
+}
+
+void OutdatedPluginInfoBar::InfoBarClosed() {
+  UserMetrics::RecordAction(UserMetricsAction("OutdatedPluginInfobar.Closed"));
+  delete this;
+}
+
+SkBitmap* OutdatedPluginInfoBar::GetIcon() const {
+  return ResourceBundle::GetSharedInstance().GetBitmapNamed(
+      IDR_INFOBAR_PLUGIN_INSTALL);
+}
+
+string16 OutdatedPluginInfoBar::GetMessageText() const {
+  return l10n_util::GetStringFUTF16(IDS_PLUGIN_OUTDATED_PROMPT, name_);
+}
+
+int OutdatedPluginInfoBar::GetButtons() const {
+  return BUTTON_OK | BUTTON_CANCEL;
+}
+
+string16 OutdatedPluginInfoBar::GetButtonLabel(InfoBarButton button) const {
+  return l10n_util::GetStringUTF16((button == BUTTON_OK) ?
+      IDS_PLUGIN_UPDATE : IDS_PLUGIN_ENABLE_TEMPORARILY);
+}
+
+bool OutdatedPluginInfoBar::Accept() {
+  UserMetrics::RecordAction(UserMetricsAction("OutdatedPluginInfobar.Update"));
+  tab_contents_->OpenURL(update_url_, GURL(), NEW_FOREGROUND_TAB,
+                         PageTransition::LINK);
+  return false;
+}
+
+bool OutdatedPluginInfoBar::Cancel() {
+  UserMetrics::RecordAction(
+      UserMetricsAction("OutdatedPluginInfobar.AllowThisTime"));
+  tab_contents_->render_view_host()->LoadBlockedPlugins();
+  return false;
+}
+
+string16 OutdatedPluginInfoBar::GetLinkText() {
+  return l10n_util::GetStringUTF16(IDS_LEARN_MORE);
+}
+
+bool OutdatedPluginInfoBar::LinkClicked(WindowOpenDisposition disposition) {
+  UserMetrics::RecordAction(
+      UserMetricsAction("OutdatedPluginInfobar.LearnMore"));
+  // TODO(bauerb): Navigate to a help page explaining why we disabled
+  // the plugin, once we have one.
+  return false;
+}
+
 }  // namespace
 
-// -----------------------------------------------------------------------------
+
+// TabContents ----------------------------------------------------------------
 
 // static
 int TabContents::find_request_id_counter_ = -1;
@@ -448,9 +468,9 @@ TabContents::TabContents(Profile* profile,
     omnibox_search_hint_.reset(new OmniboxSearchHint(this));
 
   autofill_manager_.reset(new AutoFillManager(this));
-  message_filters_.push_back(autofill_manager_.get());
+  AddNavigationObserver(autofill_manager_.get());
   autocomplete_history_manager_.reset(new AutocompleteHistoryManager(this));
-  message_filters_.push_back(autocomplete_history_manager_.get());
+  AddNavigationObserver(autocomplete_history_manager_.get());
 }
 
 TabContents::~TabContents() {
@@ -570,10 +590,12 @@ void TabContents::RegisterUserPrefs(PrefService* prefs) {
 }
 
 bool TabContents::OnMessageReceived(const IPC::Message& message) {
-  for (size_t i = 0; i < message_filters_.size(); ++i) {
-    if (message_filters_[i]->OnMessageReceived(message))
+  ObserverListBase<WebNavigationObserver>::Iterator it(
+      web_navigation_observers_);
+  WebNavigationObserver* observer;
+  while ((observer = it.GetNext()) != NULL)
+    if (observer->OnMessageReceived(message))
       return true;
-  }
 
   bool handled = true;
   bool message_is_ok = true;
@@ -609,9 +631,9 @@ bool TabContents::HostsExtension() const {
   return GetURL().SchemeIs(chrome::kExtensionScheme);
 }
 
-PluginInstaller* TabContents::GetPluginInstaller() {
+PluginInstallerInfoBarDelegate* TabContents::GetPluginInstaller() {
   if (plugin_installer_.get() == NULL)
-    plugin_installer_.reset(new PluginInstaller(this));
+    plugin_installer_.reset(new PluginInstallerInfoBarDelegate(this));
   return plugin_installer_.get();
 }
 
@@ -1189,8 +1211,7 @@ void TabContents::AddInfoBar(InfoBarDelegate* delegate) {
 
   infobar_delegates_.push_back(delegate);
   NotificationService::current()->Notify(
-      NotificationType::TAB_CONTENTS_INFOBAR_ADDED,
-      Source<TabContents>(this),
+      NotificationType::TAB_CONTENTS_INFOBAR_ADDED, Source<TabContents>(this),
       Details<InfoBarDelegate>(delegate));
 
   // Add ourselves as an observer for navigations the first time a delegate is
@@ -1216,19 +1237,11 @@ void TabContents::RemoveInfoBar(InfoBarDelegate* delegate) {
         Source<TabContents>(this),
         Details<InfoBarDelegate>(delegate));
 
-    // Just to be safe, make sure the delegate was not removed by an observer.
-    it = find(infobar_delegates_.begin(), infobar_delegates_.end(), delegate);
-    if (it != infobar_delegates_.end()) {
-      infobar_delegates_.erase(it);
-      // Remove ourselves as an observer if we are tracking no more InfoBars.
-      if (infobar_delegates_.empty()) {
-        registrar_.Remove(this, NotificationType::NAV_ENTRY_COMMITTED,
-                          Source<NavigationController>(&controller_));
-      }
-    } else {
-      // If you hit this NOTREACHED, please comment in bug
-      // http://crbug.com/50428 how you got there.
-      NOTREACHED();
+    infobar_delegates_.erase(it);
+    // Remove ourselves as an observer if we are tracking no more InfoBars.
+    if (infobar_delegates_.empty()) {
+      registrar_.Remove(this, NotificationType::NAV_ENTRY_COMMITTED,
+                        Source<NavigationController>(&controller_));
     }
   }
 }
@@ -1253,16 +1266,8 @@ void TabContents::ReplaceInfoBar(InfoBarDelegate* old_delegate,
       Source<TabContents>(this),
       Details<std::pair<InfoBarDelegate*, InfoBarDelegate*> >(details.get()));
 
-  // Just to be safe, make sure the delegate was not removed by an observer.
-  it = find(infobar_delegates_.begin(), infobar_delegates_.end(), old_delegate);
-  if (it != infobar_delegates_.end()) {
-    // Remove the old one.
-    infobar_delegates_.erase(it);
-  } else {
-    // If you hit this NOTREACHED, please comment in bug
-    // http://crbug.com/50428 how you got there.
-    NOTREACHED();
-  }
+  // Remove the old one.
+  infobar_delegates_.erase(it);
 
   // Add the new one.
   DCHECK(find(infobar_delegates_.begin(),
@@ -1635,6 +1640,10 @@ void TabContents::OnDidStartProvisionalLoadForFrame(int64 frame_id,
     if (!is_error_page)
       content_settings_delegate_->ClearCookieSpecificContentSettings();
     content_settings_delegate_->ClearGeolocationContentSettings();
+
+    // Check if the URL we are about to load has been prerendered by any chance,
+    // and use it if possible.
+    MaybeUsePreloadedPage(url);
   }
 }
 
@@ -1649,6 +1658,10 @@ void TabContents::OnDidRedirectProvisionalLoad(int32 page_id,
   if (!entry || entry->url() != source_url)
     return;
   entry->set_url(target_url);
+
+  // Check if the URL we are about to load has been prerendered by any chance,
+  // and use it if possible.
+  MaybeUsePreloadedPage(target_url);
 }
 
 void TabContents::OnDidFailProvisionalLoadWithError(
@@ -1746,7 +1759,7 @@ void TabContents::OnDidDisplayInsecureContent() {
 }
 
 void TabContents::OnDidRunInsecureContent(
-    const std::string& security_origin) {
+    const std::string& security_origin, const GURL& target_url) {
   controller_.ssl_manager()->DidRunInsecureContent(security_origin);
 }
 
@@ -1834,13 +1847,6 @@ void TabContents::ExpireInfoBars(
 
   for (int i = infobar_delegate_count() - 1; i >= 0; --i) {
     InfoBarDelegate* delegate = GetInfoBarDelegateAt(i);
-    if (!delegate) {
-      // If you hit this NOTREACHED, please comment in bug
-      // http://crbug.com/50428 how you got there.
-      NOTREACHED();
-      continue;
-    }
-
     if (delegate->ShouldExpire(details))
       RemoveInfoBar(delegate);
   }
@@ -1977,9 +1983,6 @@ void TabContents::DidNavigateMainFramePostCommit(
   // Notify observers about navigation.
   FOR_EACH_OBSERVER(WebNavigationObserver, web_navigation_observers_,
                     DidNavigateMainFramePostCommit(details, params));
-
-  // Clear the cache of forms in AutoFill.
-  autofill_manager_->Reset();
 }
 
 void TabContents::DidNavigateAnyFramePostCommit(
@@ -2175,7 +2178,7 @@ void TabContents::GenerateKeywordIfNecessary(
 
   GURL keyword_url = previous_entry->user_typed_url().is_valid() ?
           previous_entry->user_typed_url() : previous_entry->url();
-  std::wstring keyword =
+  string16 keyword =
       TemplateURLModel::GenerateKeyword(keyword_url, true);  // autodetected
   if (keyword.empty())
     return;
@@ -2308,16 +2311,14 @@ void TabContents::OnCrashedPlugin(const FilePath& plugin_path) {
   }
   SkBitmap* crash_icon = ResourceBundle::GetSharedInstance().GetBitmapNamed(
       IDR_INFOBAR_PLUGIN_CRASHED);
-  AddInfoBar(new SimpleAlertInfoBarDelegate(
-      this, l10n_util::GetStringFUTF16(IDS_PLUGIN_CRASHED_PROMPT,
-                                       WideToUTF16Hack(plugin_name)),
-      crash_icon, true));
+  AddInfoBar(new SimpleAlertInfoBarDelegate(this, crash_icon,
+      l10n_util::GetStringFUTF16(IDS_PLUGIN_CRASHED_PROMPT,
+                                 WideToUTF16Hack(plugin_name)), true));
 }
 
 void TabContents::OnCrashedWorker() {
-  AddInfoBar(new SimpleAlertInfoBarDelegate(
-      this, l10n_util::GetStringUTF16(IDS_WEBWORKER_CRASHED_PROMPT),
-      NULL, true));
+  AddInfoBar(new SimpleAlertInfoBarDelegate(this, NULL,
+      l10n_util::GetStringUTF16(IDS_WEBWORKER_CRASHED_PROMPT), true));
 }
 
 void TabContents::OnDidGetApplicationInfo(int32 page_id,
@@ -2370,6 +2371,12 @@ void TabContents::OnPageContents(const GURL& url,
       NotificationType::TAB_LANGUAGE_DETERMINED,
       Source<TabContents>(this),
       Details<std::string>(&lang));
+
+  // Generate the thumbnail here if the in-browser thumbnailing is enabled.
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableInBrowserThumbnailing)) {
+    ThumbnailGenerator::UpdateThumbnailIfNecessary(this, url);
+  }
 }
 
 void TabContents::OnPageTranslated(int32 page_id,
@@ -2563,14 +2570,8 @@ void TabContents::DidNavigate(RenderViewHost* rvh,
   int extra_invalidate_flags = 0;
 
   if (PageTransition::IsMainFrame(params.transition)) {
-    PrerenderManager* pm = profile()->GetPrerenderManager();
-    if (pm != NULL) {
-      if (pm->MaybeUsePreloadedPage(this, params.url)) {
-        // TODO(tburkard): If the preloaded page has not finished preloading
-        // yet, we should not do this.
-        DidStopLoading();
-        return;
-      }
+    if (MaybeUsePreloadedPage(params.url)) {
+      return;
     }
 
     bool was_bookmark_bar_visible = ShouldShowBookmarkBar();
@@ -2715,16 +2716,9 @@ void TabContents::UpdateThumbnail(const GURL& url,
     return;
 
   // Tell History about this thumbnail
-  if (history::TopSites::IsEnabled()) {
-    history::TopSites* ts = profile()->GetTopSites();
-    if (ts)
-      ts->SetPageThumbnail(url, bitmap, score);
-  } else {
-    HistoryService* hs =
-        profile()->GetHistoryService(Profile::IMPLICIT_ACCESS);
-    if (hs)
-      hs->SetPageThumbnail(url, bitmap, score);
-  }
+  history::TopSites* ts = profile()->GetTopSites();
+  if (ts)
+    ts->SetPageThumbnail(url, bitmap, score);
 }
 
 void TabContents::UpdateInspectorSetting(const std::string& key,
@@ -2931,18 +2925,6 @@ void TabContents::ShowModalHTMLDialog(const GURL& url, int width, int height,
   }
 }
 
-void TabContents::PasswordFormsFound(
-    const std::vector<webkit_glue::PasswordForm>& forms) {
-  FOR_EACH_OBSERVER(WebNavigationObserver, web_navigation_observers_,
-                    PasswordFormsFound(forms));
-}
-
-void TabContents::PasswordFormsVisible(
-    const std::vector<webkit_glue::PasswordForm>& visible_forms) {
-  FOR_EACH_OBSERVER(WebNavigationObserver, web_navigation_observers_,
-                    PasswordFormsVisible(visible_forms));
-}
-
 // Checks to see if we should generate a keyword based on the OSDD, and if
 // necessary uses TemplateURLFetcher to download the OSDD and create a keyword.
 void TabContents::PageHasOSDD(
@@ -3003,7 +2985,7 @@ void TabContents::PageHasOSDD(
   if (!keyword_url.is_valid())
     return;
 
-  std::wstring keyword = TemplateURLModel::GenerateKeyword(
+  string16 keyword = TemplateURLModel::GenerateKeyword(
       keyword_url,
       provider_type == TemplateURLFetcher::AUTODETECTED_PROVIDER);
 
@@ -3065,9 +3047,8 @@ void TabContents::OnIgnoredUIEvent() {
 }
 
 void TabContents::OnJSOutOfMemory() {
-  AddInfoBar(new SimpleAlertInfoBarDelegate(
-                 this, l10n_util::GetStringUTF16(IDS_JS_OUT_OF_MEMORY_PROMPT),
-                 NULL, true));
+  AddInfoBar(new SimpleAlertInfoBarDelegate(this, NULL,
+      l10n_util::GetStringUTF16(IDS_JS_OUT_OF_MEMORY_PROMPT), true));
 }
 
 void TabContents::OnCrossSiteResponse(int new_render_process_host_id,
@@ -3384,4 +3365,17 @@ void TabContents::SwapInRenderViewHost(RenderViewHost* rvh) {
 void TabContents::CreateViewAndSetSizeForRVH(RenderViewHost* rvh) {
   RenderWidgetHostView* rwh_view = view()->CreateViewForWidget(rvh);
   rwh_view->SetSize(view()->GetContainerSize());
+}
+
+bool TabContents::MaybeUsePreloadedPage(const GURL& url) {
+  PrerenderManager* pm = profile()->GetPrerenderManager();
+  if (pm != NULL) {
+    if (pm->MaybeUsePreloadedPage(this, url)) {
+      // TODO(tburkard): If the preloaded page has not finished preloading
+      // yet, we should not do this.
+      DidStopLoading();
+      return true;
+    }
+  }
+  return false;
 }

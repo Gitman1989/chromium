@@ -17,7 +17,7 @@
 #include "chrome/browser/chromeos/status/status_area_view.h"
 #include "chrome/browser/chromeos/view_ids.h"
 #include "chrome/browser/chromeos/wm_ipc.h"
-#include "chrome/browser/gtk/gtk_util.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
 #include "chrome/browser/ui/views/frame/browser_frame_gtk.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/browser_view_layout.h"
@@ -352,12 +352,8 @@ void BrowserView::OpenButtonOptions(const views::View* button_view) {
   }
 }
 
-bool BrowserView::IsBrowserMode() const {
-  return true;
-}
-
-bool BrowserView::IsScreenLockerMode() const {
-  return false;
+StatusAreaHost::ScreenMode BrowserView::GetScreenMode() const {
+  return kBrowserMode;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

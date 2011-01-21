@@ -149,6 +149,12 @@ class NotificationType {
     // are provided.
     RESOURCE_RECEIVED_REDIRECT,
 
+    // A new window is created in response to a request from a renderer. The
+    // source will be a Source<TabContents> corresponding to the tab the
+    // request originates from.  Details in the form of a
+    // ViewHostMsg_CreateWindow_Params object are provided.
+    CREATING_NEW_WINDOW,
+
     // SSL ---------------------------------------------------------------------
 
     // Updating the SSL security indicators (the lock icon and such) proceeds
@@ -1154,20 +1160,6 @@ class NotificationType {
     // Foreign sessions has been disabled. New tabs should not display foreign
     // session data.
     FOREIGN_SESSION_DISABLED,
-
-    // The syncer requires a passphrase to decrypt sensitive updates. This
-    // notification is sent when the first sensitive data type is setup by the
-    // user as well as anytime any the passphrase is changed in another synced
-    // client.  The source is the SyncBackendHost wanting a passphrase.  The
-    // details are a boolean: true if the passphrase is required for decryption,
-    // false if only required for encryption.
-    SYNC_PASSPHRASE_REQUIRED,
-
-    // Sent when the passphrase provided by the user is accepted. After this
-    // notification is sent, updates to sensitive nodes are encrypted using the
-    // accepted passphrase.  The source is the SyncBackendHost that accepted
-    // the passphrase.  No details.
-    SYNC_PASSPHRASE_ACCEPTED,
 
     // Sent when the set of data types that should be synced has been modified
     // externally (eg. by the dom_ui options screen).

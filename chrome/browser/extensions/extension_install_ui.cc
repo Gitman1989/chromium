@@ -7,7 +7,6 @@
 #include <map>
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/command_line.h"
 #include "base/file_util.h"
 #include "base/i18n/rtl.h"
@@ -31,6 +30,7 @@
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "ui/base/resource/resource_bundle.h"
 
 #if defined(OS_MACOSX)
 #include "chrome/browser/ui/cocoa/extensions/extension_installed_bubble_bridge.h"
@@ -42,8 +42,8 @@
 
 #if defined(TOOLKIT_GTK)
 #include "chrome/browser/extensions/gtk_theme_installed_infobar_delegate.h"
-#include "chrome/browser/gtk/extension_installed_bubble_gtk.h"
-#include "chrome/browser/gtk/gtk_theme_provider.h"
+#include "chrome/browser/ui/gtk/extension_installed_bubble_gtk.h"
+#include "chrome/browser/ui/gtk/gtk_theme_provider.h"
 #endif
 
 // static
@@ -228,9 +228,10 @@ void ExtensionInstallUI::OnImageLoaded(
   }
 }
 
-void ExtensionInstallUI::ShowThemeInfoBar(
-    const std::string& previous_theme_id, bool previous_use_system_theme,
-    const Extension* new_theme, Profile* profile) {
+void ExtensionInstallUI::ShowThemeInfoBar(const std::string& previous_theme_id,
+                                          bool previous_use_system_theme,
+                                          const Extension* new_theme,
+                                          Profile* profile) {
   if (!new_theme->is_theme())
     return;
 
@@ -263,10 +264,8 @@ void ExtensionInstallUI::ShowThemeInfoBar(
   }
 
   // Then either replace that old one or add a new one.
-  InfoBarDelegate* new_delegate =
-      GetNewThemeInstalledInfoBarDelegate(
-          tab_contents, new_theme,
-          previous_theme_id, previous_use_system_theme);
+  InfoBarDelegate* new_delegate = GetNewThemeInstalledInfoBarDelegate(
+      tab_contents, new_theme, previous_theme_id, previous_use_system_theme);
 
   if (old_delegate)
     tab_contents->ReplaceInfoBar(old_delegate, new_delegate);
@@ -303,20 +302,22 @@ void ExtensionInstallUI::ShowGenericExtensionInstalledInfoBar(
                                  extension_name) +
       UTF8ToUTF16(" ") +
       l10n_util::GetStringUTF16(IDS_EXTENSION_INSTALLED_MANAGE_INFO_MAC);
-  InfoBarDelegate* delegate = new SimpleAlertInfoBarDelegate(
-      tab_contents, msg, new SkBitmap(icon_), true);
+  InfoBarDelegate* delegate = new SimpleAlertInfoBarDelegate(tab_contents,
+      new SkBitmap(icon_), msg, true);
   tab_contents->AddInfoBar(delegate);
 }
 #endif
 
 InfoBarDelegate* ExtensionInstallUI::GetNewThemeInstalledInfoBarDelegate(
-    TabContents* tab_contents, const Extension* new_theme,
-    const std::string& previous_theme_id, bool previous_use_system_theme) {
+    TabContents* tab_contents,
+    const Extension* new_theme,
+    const std::string& previous_theme_id,
+    bool previous_use_system_theme) {
 #if defined(TOOLKIT_GTK)
   return new GtkThemeInstalledInfoBarDelegate(tab_contents, new_theme,
       previous_theme_id, previous_use_system_theme);
 #else
   return new ThemeInstalledInfoBarDelegate(tab_contents, new_theme,
-      previous_theme_id);
+                                           previous_theme_id);
 #endif
 }

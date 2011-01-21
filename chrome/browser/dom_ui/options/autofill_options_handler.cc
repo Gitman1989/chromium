@@ -84,6 +84,11 @@ void AutoFillOptionsHandler::GetLocalizedValues(
   localized_strings->SetString("editCreditCardTitle",
       l10n_util::GetStringUTF16(IDS_AUTOFILL_EDIT_CREDITCARD_CAPTION));
 
+#if defined(OS_MACOSX)
+  localized_strings->SetString("auxiliaryProfilesEnabled",
+      l10n_util::GetStringUTF16(IDS_AUTOFILL_USE_MAC_ADDRESS_BOOK));
+#endif  // defined(OS_MACOSX)
+
   SetAddressOverlayStrings(localized_strings);
   SetCreditCardOverlayStrings(localized_strings);
 }
@@ -236,7 +241,14 @@ void AutoFillOptionsHandler::LoadAddressEditor(const ListValue* args) {
   }
 
   AutoFillProfile* profile = personal_data_->GetProfileByGUID(guid);
-  DCHECK(profile);
+  if (!profile) {
+    // There is a race where a user can click once on the close button and
+    // quickly click again on the list item before the item is removed (since
+    // the list is not updated until the model tells the list an item has been
+    // removed). This will activate the editor for a profile that has been
+    // removed. Do nothing in that case.
+    return;
+  }
 
   // TODO(jhawkins): This is hacky because we can't send DictionaryValue
   // directly to CallJavascriptFunction().
@@ -283,7 +295,14 @@ void AutoFillOptionsHandler::LoadCreditCardEditor(const ListValue* args) {
   }
 
   CreditCard* credit_card = personal_data_->GetCreditCardByGUID(guid);
-  DCHECK(credit_card);
+  if (!credit_card) {
+    // There is a race where a user can click once on the close button and
+    // quickly click again on the list item before the item is removed (since
+    // the list is not updated until the model tells the list an item has been
+    // removed). This will activate the editor for a profile that has been
+    // removed. Do nothing in that case.
+    return;
+  }
 
   // TODO(jhawkins): This is hacky because we can't send DictionaryValue
   // directly to CallJavascriptFunction().

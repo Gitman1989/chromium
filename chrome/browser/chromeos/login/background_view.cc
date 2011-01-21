@@ -8,8 +8,6 @@
 #include <vector>
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
-#include "app/x11_util.h"
 #include "base/string16.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
@@ -35,6 +33,8 @@
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "third_party/cros/chromeos_wm_ipc_enums.h"
+#include "ui/base/resource/resource_bundle.h"
+#include "ui/base/x/x11_util.h"
 #include "views/controls/button/text_button.h"
 #include "views/controls/label.h"
 #include "views/screen.h"
@@ -98,9 +98,9 @@ class TextButtonWithHandCursorOver : public views::TextButton {
 // This gets rid of the ugly X default cursor.
 static void ResetXCursor() {
   // TODO(sky): nuke this once new window manager is in place.
-  Display* display = x11_util::GetXDisplay();
+  Display* display = ui::GetXDisplay();
   Cursor cursor = XCreateFontCursor(display, XC_left_ptr);
-  XID root_window = x11_util::GetX11RootWindow();
+  XID root_window = ui::GetX11RootWindow();
   XSetWindowAttributes attr;
   attr.cursor = cursor;
   XChangeWindowAttributes(display, root_window, CWCursor, &attr);
@@ -327,12 +327,8 @@ void BackgroundView::OpenButtonOptions(const views::View* button_view) {
   }
 }
 
-bool BackgroundView::IsBrowserMode() const {
-  return false;
-}
-
-bool BackgroundView::IsScreenLockerMode() const {
-  return false;
+StatusAreaHost::ScreenMode BackgroundView::GetScreenMode() const {
+  return kLoginMode;
 }
 
 // Overridden from LoginHtmlDialog::Delegate:

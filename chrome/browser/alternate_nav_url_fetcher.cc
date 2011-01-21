@@ -5,7 +5,6 @@
 #include "chrome/browser/alternate_nav_url_fetcher.h"
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/intranet_redirect_detector.h"
 #include "chrome/browser/profiles/profile.h"
@@ -17,6 +16,7 @@
 #include "grit/theme_resources.h"
 #include "net/base/registry_controlled_domain.h"
 #include "net/url_request/url_request.h"
+#include "ui/base/resource/resource_bundle.h"
 
 AlternateNavURLFetcher::AlternateNavURLFetcher(
     const GURL& alternate_nav_url)
@@ -98,6 +98,11 @@ void AlternateNavURLFetcher::OnURLFetchComplete(
   ShowInfobarIfPossible();
 }
 
+SkBitmap* AlternateNavURLFetcher::GetIcon() const {
+  return ResourceBundle::GetSharedInstance().GetBitmapNamed(
+      IDR_INFOBAR_ALT_NAV_URL);
+}
+
 string16 AlternateNavURLFetcher::GetMessageTextWithOffset(
     size_t* link_offset) const {
   const string16 label = l10n_util::GetStringFUTF16(
@@ -108,11 +113,6 @@ string16 AlternateNavURLFetcher::GetMessageTextWithOffset(
 
 string16 AlternateNavURLFetcher::GetLinkText() const {
   return UTF8ToUTF16(alternate_nav_url_.spec());
-}
-
-SkBitmap* AlternateNavURLFetcher::GetIcon() const {
-  return ResourceBundle::GetSharedInstance().GetBitmapNamed(
-      IDR_INFOBAR_ALT_NAV_URL);
 }
 
 bool AlternateNavURLFetcher::LinkClicked(WindowOpenDisposition disposition) {

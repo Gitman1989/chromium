@@ -4,7 +4,6 @@
 
 #include "views/controls/tabbed_pane/tabbed_pane.h"
 
-
 #include "base/logging.h"
 // TODO(avi): remove when not needed
 #include "base/utf_string_conversions.h"
@@ -29,10 +28,8 @@ void TabbedPane::SetListener(Listener* listener) {
 }
 
 void TabbedPane::AddTab(const std::wstring& title, View* contents) {
-
   native_tabbed_pane_->AddTab(title, contents);
   PreferredSizeChanged();
-
 }
 
 void TabbedPane::AddTabAtIndex(int index,

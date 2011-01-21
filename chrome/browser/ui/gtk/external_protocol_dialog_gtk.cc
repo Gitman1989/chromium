@@ -2,23 +2,23 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/gtk/external_protocol_dialog_gtk.h"
+#include "chrome/browser/ui/gtk/external_protocol_dialog_gtk.h"
 
 #include <gtk/gtk.h>
 
 #include <string>
 
 #include "app/l10n_util.h"
-#include "app/text_elider.h"
-#include "base/metrics/histogram.h"
 #include "base/message_loop.h"
+#include "base/metrics/histogram.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/external_protocol_handler.h"
-#include "chrome/browser/gtk/gtk_util.h"
 #include "chrome/browser/tab_contents/tab_util.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
+#include "ui/base/text/text_elider.h"
 
 namespace {
 
@@ -63,9 +63,9 @@ ExternalProtocolDialogGtk::ExternalProtocolDialogGtk(const GURL& url)
   const int kMaxCommandSize = 256;
   std::wstring elided_url_without_scheme;
   std::wstring elided_command;
-  gfx::ElideString(ASCIIToWide(url.possibly_invalid_spec()),
+  ui::ElideString(ASCIIToWide(url.possibly_invalid_spec()),
       kMaxUrlWithoutSchemeSize, &elided_url_without_scheme);
-  gfx::ElideString(ASCIIToWide(std::string("xdg-open ") + url.spec()),
+  ui::ElideString(ASCIIToWide(std::string("xdg-open ") + url.spec()),
       kMaxCommandSize, &elided_command);
 
   std::string message_text = l10n_util::GetStringFUTF8(

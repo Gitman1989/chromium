@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/gtk/task_manager_gtk.h"
+#include "chrome/browser/ui/gtk/task_manager_gtk.h"
 
 #include <gdk/gdkkeysyms.h>
 
@@ -12,19 +12,18 @@
 #include <vector>
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/auto_reset.h"
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/defaults.h"
-#include "chrome/browser/gtk/gtk_chrome_link_button.h"
-#include "chrome/browser/gtk/gtk_theme_provider.h"
-#include "chrome/browser/gtk/gtk_tree.h"
-#include "chrome/browser/gtk/gtk_util.h"
 #include "chrome/browser/memory_purger.h"
 #include "chrome/browser/prefs/pref_service.h"
+#include "chrome/browser/ui/gtk/gtk_chrome_link_button.h"
+#include "chrome/browser/ui/gtk/gtk_theme_provider.h"
+#include "chrome/browser/ui/gtk/gtk_tree.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "gfx/gtk_util.h"
@@ -32,11 +31,12 @@
 #include "grit/chromium_strings.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/models/simple_menu_model.h"
+#include "ui/base/resource/resource_bundle.h"
 
 #if defined(TOOLKIT_VIEWS)
 #include "views/controls/menu/menu_2.h"
 #else
-#include "chrome/browser/gtk/menu_gtk.h"
+#include "chrome/browser/ui/gtk/menu_gtk.h"
 #endif
 
 namespace {

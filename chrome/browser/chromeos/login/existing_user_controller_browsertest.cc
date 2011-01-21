@@ -9,6 +9,7 @@
 #include "chrome/browser/chromeos/cros/mock_login_library.h"
 #include "chrome/browser/chromeos/cros/mock_network_library.h"
 #include "chrome/browser/chromeos/login/existing_user_controller.h"
+#include "chrome/browser/chromeos/login/helper.h"
 #include "chrome/browser/chromeos/login/login_performer.h"
 #include "chrome/browser/chromeos/login/login_utils.h"
 #include "chrome/browser/chromeos/login/mock_authenticator.h"
@@ -55,11 +56,19 @@ class MockLoginPerformerDelegate : public LoginPerformer::Delegate {
 class ExistingUserControllerTest : public WizardInProcessBrowserTest {
  protected:
   ExistingUserControllerTest()
-      : chromeos::WizardInProcessBrowserTest(
-            WizardController::kLoginScreenName),
+      : chromeos::WizardInProcessBrowserTest(""),
         mock_cryptohome_library_(NULL),
         mock_login_library_(NULL),
         mock_network_library_(NULL) {
+  }
+
+  virtual void SetUpWizard() {
+    gfx::Rect background_bounds(login::kWizardScreenWidth,
+                                login::kWizardScreenHeight);
+    ExistingUserController* controller = 
+        new ExistingUserController(std::vector<UserManager::User>(),
+                                   background_bounds);
+    controller->Init();
   }
 
   ExistingUserController* existing_user_controller() {

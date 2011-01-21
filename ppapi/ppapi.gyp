@@ -3,9 +3,6 @@
 # found in the LICENSE file.
 
 {
-  'includes': [
-    '../third_party/mesa/mesa.gypi',
-  ],
   'variables': {
     'chromium_code': 1,  # Use higher warning level.
   },
@@ -70,9 +67,6 @@
         'c/dev/pp_file_info_dev.h',
         'c/dev/pp_graphics_3d_dev.h',
         'c/dev/pp_video_dev.h',
-        'c/dev/ppb_audio_config_dev.h',
-        'c/dev/ppb_audio_dev.h',
-        'c/dev/ppb_audio_trusted_dev.h',
         'c/dev/ppb_buffer_dev.h',
         'c/dev/ppb_char_set_dev.h',
         'c/dev/ppb_context_3d_dev.h',
@@ -170,10 +164,6 @@
         'cpp/var.h',
 
         # Dev interfaces.
-        'cpp/dev/audio_config_dev.cc',
-        'cpp/dev/audio_config_dev.h',
-        'cpp/dev/audio_dev.cc',
-        'cpp/dev/audio_dev.h',
         'cpp/dev/buffer_dev.cc',
         'cpp/dev/buffer_dev.h',
         'cpp/dev/context_3d_dev.cc',
@@ -270,43 +260,6 @@
             'WARNING_CFLAGS': ['-Wextra', '-pedantic'],
            },
         }]
-      ],
-    },
-    {
-      'target_name': 'ppapi_egl',
-      'type': 'static_library',
-      'dependencies': [
-        'ppapi_c',
-      ],
-      'include_dirs': [
-        'lib/gl/include',
-      ],
-      'defines': [
-        # Do not export internal Mesa funcations. Exporting them is not
-        # required because we are compiling both - API dispatcher and driver
-        # into a single library.
-        'PUBLIC=',
-        # Define a new PPAPI platform.
-        '_EGL_PLATFORM_PPAPI=_EGL_NUM_PLATFORMS',
-        '_EGL_NATIVE_PLATFORM=_EGL_PLATFORM_PPAPI',
-      ],
-      'conditions': [
-        ['OS=="win"', {
-          'defines': [
-            '_EGL_OS_WINDOWS',
-          ],
-        }],
-        ['OS=="mac"', {
-          # TODO(alokp): Make this compile on mac.
-          'suppress_wildcard': 1,
-        }],
-      ],
-      'sources': [
-        # Mesa EGL API dispatcher sources.
-        '<@(mesa_egl_sources)',
-        # PPAPI EGL driver sources.
-        'lib/gl/egl/egldriver.c',
-        'lib/gl/egl/egldriver_ppapi.c',
       ],
     },
     {
@@ -583,6 +536,8 @@
       'sources': [
         'shared_impl/audio_impl.cc',
         'shared_impl/audio_impl.h',
+        'shared_impl/image_data_impl.cc',
+        'shared_impl/image_data_impl.h',
       ],
       'conditions': [
         ['OS=="win"', {
@@ -690,6 +645,26 @@
         }],
         ['OS=="mac"', {
         }]
+      ],
+    },
+    {
+      'target_name': 'ppapi_unittests',
+      'type': 'executable',
+      'variables': {
+        'chromium_code': 1,
+      },
+      'msvs_guid': 'C2BD9365-5BD7-44A7-854E-A49E606BE8E4',
+      'dependencies': [
+        'ppapi_proxy',
+        '../base/base.gyp:test_support_base',
+        '../ipc/ipc.gyp:test_support_ipc',
+        '../testing/gmock.gyp:gmock',
+        '../testing/gtest.gyp:gtest',
+      ],
+      'sources': [
+        'proxy/run_all_unittests.cc',
+
+        'proxy/plugin_var_tracker_unittest.cc',
       ],
     },
   ],

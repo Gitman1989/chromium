@@ -2,31 +2,31 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/gtk/edit_search_engine_dialog.h"
+#include "chrome/browser/ui/gtk/edit_search_engine_dialog.h"
 
 #include <gtk/gtk.h>
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/i18n/rtl.h"
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/gtk/accessible_widget_helper_gtk.h"
-#include "chrome/browser/gtk/gtk_util.h"
 #include "chrome/browser/net/url_fixer_upper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/edit_search_engine_controller.h"
 #include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_model.h"
+#include "chrome/browser/ui/gtk/accessible_widget_helper_gtk.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
 #include "googleurl/src/gurl.h"
 #include "grit/app_resources.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "ui/base/resource/resource_bundle.h"
 
 namespace {
 
 std::string GetDisplayURL(const TemplateURL& turl) {
-  return turl.url() ? WideToUTF8(turl.url()->DisplayURL()) : std::string();
+  return turl.url() ? UTF16ToUTF8(turl.url()->DisplayURL()) : std::string();
 }
 
 // Forces text to lowercase when connected to an editable's "insert-text"
@@ -158,10 +158,10 @@ void EditSearchEngineDialog::Init(GtkWindow* parent_window, Profile* profile) {
   if (controller_->template_url()) {
     gtk_entry_set_text(
         GTK_ENTRY(title_entry_),
-        WideToUTF8(controller_->template_url()->short_name()).c_str());
+        UTF16ToUTF8(controller_->template_url()->short_name()).c_str());
     gtk_entry_set_text(
         GTK_ENTRY(keyword_entry_),
-        WideToUTF8(controller_->template_url()->keyword()).c_str());
+        UTF16ToUTF8(controller_->template_url()->keyword()).c_str());
     gtk_entry_set_text(
         GTK_ENTRY(url_entry_),
         GetDisplayURL(*controller_->template_url()).c_str());

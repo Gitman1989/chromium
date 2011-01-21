@@ -6,7 +6,6 @@
 
 #include <string>
 
-#include "app/resource_bundle.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/cros/keyboard_library.h"
@@ -14,6 +13,7 @@
 #include "chrome/browser/chromeos/status/status_area_host.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "ui/base/resource/resource_bundle.h"
 
 namespace {
 
@@ -42,9 +42,8 @@ namespace chromeos {
 InputMethodMenuButton::InputMethodMenuButton(StatusAreaHost* host)
     : StatusAreaButton(this),
       InputMethodMenu(GetPrefService(host),
-                      host->IsBrowserMode(),
-                      host->IsScreenLockerMode(),
-                      false /* is_out_of_box_experience_mode */),
+                      host->GetScreenMode(),
+                      false /* for_out_of_box_experience_dialog */),
       host_(host) {
   set_border(NULL);
   set_use_menu_button_paint(true);
@@ -112,7 +111,7 @@ void InputMethodMenuButton::UpdateUI(const std::string& input_method_id,
   // like Hiragana and Katakana modes in Japanese input methods.
   if (num_active_input_methods == 1 &&
       input_method::IsKeyboardLayout(input_method_id) &&
-      host_->IsBrowserMode()) {
+      host_->GetScreenMode() == StatusAreaHost::kBrowserMode) {
     // As the disabled color is set to invisible, disabling makes the
     // button disappear.
     SetEnabled(false);

@@ -2,26 +2,25 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/gtk/first_run_dialog.h"
+#include "chrome/browser/ui/gtk/first_run_dialog.h"
 
 #include <string>
 #include <vector>
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/i18n/rtl.h"
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/google/google_util.h"
-#include "chrome/browser/gtk/gtk_chrome_link_button.h"
-#include "chrome/browser/gtk/gtk_floating_container.h"
-#include "chrome/browser/gtk/gtk_util.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/process_singleton.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_model.h"
 #include "chrome/browser/shell_integration.h"
+#include "chrome/browser/ui/gtk/gtk_chrome_link_button.h"
+#include "chrome/browser/ui/gtk/gtk_floating_container.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/installer/util/google_update_settings.h"
@@ -29,6 +28,7 @@
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
 #include "grit/theme_resources.h"
+#include "ui/base/resource/resource_bundle.h"
 
 #if defined(USE_LINUX_BREAKPAD)
 #include "chrome/app/breakpad_linux.h"
@@ -342,7 +342,7 @@ void FirstRunDialog::OnTemplateURLModelChanged() {
       GtkWidget* logo_label = gtk_label_new(NULL);
       char* markup = g_markup_printf_escaped(
           "<span weight='bold' size='x-large' color='black'>%s</span>",
-          WideToUTF8((*search_engine_iter)->short_name()).c_str());
+          UTF16ToUTF8((*search_engine_iter)->short_name()).c_str());
       gtk_label_set_markup(GTK_LABEL(logo_label), markup);
       g_free(markup);
       gtk_widget_set_size_request(logo_label, -1,

@@ -8,8 +8,10 @@
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/prerender/prerender_contents.h"
+#include "chrome/browser/renderer_host/render_view_host.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/tab_contents/render_view_host_manager.h"
+#include "chrome/common/render_messages.h"
 
 struct PrerenderManager::PrerenderContentsData {
   PrerenderContents* contents_;
@@ -39,7 +41,8 @@ PrerenderManager::~PrerenderManager() {
   }
 }
 
-void PrerenderManager::AddPreload(const GURL& url) {
+void PrerenderManager::AddPreload(const GURL& url,
+                                  const std::vector<GURL>& alias_urls) {
   DCHECK(CalledOnValidThread());
   DeleteOldEntries();
   // If the URL already exists in the set of preloaded URLs, don't do anything.
@@ -49,7 +52,7 @@ void PrerenderManager::AddPreload(const GURL& url) {
     if (it->url_ == url)
       return;
   }
-  PrerenderContentsData data(CreatePrerenderContents(url),
+  PrerenderContentsData data(CreatePrerenderContents(url, alias_urls),
                              GetCurrentTime(), url);
   prerender_list_.push_back(data);
   data.contents_->StartPrerendering();
@@ -75,7 +78,8 @@ PrerenderContents* PrerenderManager::GetEntry(const GURL& url) {
   for (std::list<PrerenderContentsData>::iterator it = prerender_list_.begin();
        it != prerender_list_.end();
        ++it) {
-    if (it->url_ == url) {
+    PrerenderContents* pc = it->contents_;
+    if (pc->MatchesURL(url)) {
       PrerenderContents* pc = it->contents_;
       prerender_list_.erase(it);
       return pc;
@@ -93,6 +97,7 @@ bool PrerenderManager::MaybeUsePreloadedPage(TabContents* tc, const GURL& url) {
 
   RenderViewHost* rvh = pc->render_view_host();
   pc->set_render_view_host(NULL);
+  rvh->Send(new ViewMsg_DisplayPrerenderedPage(rvh->routing_id()));
   tc->SwapInRenderViewHost(rvh);
 
   ViewHostMsg_FrameNavigate_Params* p = pc->navigate_params();
@@ -129,6 +134,8 @@ bool PrerenderManager::IsPrerenderElementFresh(const base::Time start) const {
   return (now - start < max_prerender_age_);
 }
 
-PrerenderContents* PrerenderManager::CreatePrerenderContents(const GURL& url) {
-  return new PrerenderContents(this, profile_, url);
+PrerenderContents* PrerenderManager::CreatePrerenderContents(
+    const GURL& url,
+    const std::vector<GURL>& alias_urls) {
+  return new PrerenderContents(this, profile_, url, alias_urls);
 }

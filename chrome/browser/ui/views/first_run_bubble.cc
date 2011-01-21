@@ -4,10 +4,7 @@
 
 #include "chrome/browser/ui/views/first_run_bubble.h"
 
-#include "app/gfx/font_util.h"
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
-#include "app/win/hwnd_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_list.h"
 #include "chrome/browser/browser_window.h"
@@ -19,6 +16,9 @@
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
 #include "grit/theme_resources.h"
+#include "ui/base/l10n/l10n_font_util.h"
+#include "ui/base/resource/resource_bundle.h"
+#include "ui/base/win/hwnd_util.h"
 #include "views/event.h"
 #include "views/controls/button/native_button.h"
 #include "views/controls/button/image_button.h"
@@ -346,9 +346,9 @@ gfx::Size FirstRunOEMBubbleView::GetPreferredSize() {
   const gfx::Font& font = rb.GetFont(
       ResourceBundle::MediumFont).DeriveFont(3, gfx::Font::BOLD);
   gfx::Size size = gfx::Size(
-      gfx::GetLocalizedContentsWidthForFont(
+      ui::GetLocalizedContentsWidthForFont(
           IDS_FIRSTRUNOEMBUBBLE_DIALOG_WIDTH_CHARS, font),
-      gfx::GetLocalizedContentsHeightForFont(
+      ui::GetLocalizedContentsHeightForFont(
           IDS_FIRSTRUNOEMBUBBLE_DIALOG_HEIGHT_LINES, font));
 
   // WARNING: HACK. Vista and XP calculate font size differently; this means
@@ -358,7 +358,7 @@ gfx::Size FirstRunOEMBubbleView::GetPreferredSize() {
   // now, we force Vista to show a correctly-sized box by taking account of
   // the difference in font size calculation. The coefficient should not be
   // stored in a variable because it's a hack and should go away.
-  if (app::win::ShouldUseVistaFrame()) {
+  if (ui::ShouldUseVistaFrame()) {
     size.set_width(static_cast<int>(size.width() * 0.85));
     size.set_height(static_cast<int>(size.height() * 0.85));
   }

@@ -39,10 +39,8 @@ class PolicyJsonUnittest(unittest.TestCase):
         "      'name': 'HomepageLocation',"
         "      'type': 'string',"
         "      'supported_on': ['chrome.*:8-'],"
-        "      'annotations': {"
-        "        'features': {'dynamic_refresh': 1},"
-        "        'example_value': 'http://chromium.org',"
-        "       },"
+        "      'features': {'dynamic_refresh': 1},"
+        "      'example_value': 'http://chromium.org',"
         "      'caption': 'nothing special 1',"
         "      'desc': 'nothing special 2',"
         "      'label': 'nothing special 3',"
@@ -67,8 +65,10 @@ class PolicyJsonUnittest(unittest.TestCase):
         "{"
         "  'policy_definitions': ["
         "    {"
+        "      'name': 'Policy1',"
         "      'items': ["
         "        {"
+        "          'name': 'Item1',"
         "          'caption': 'nothing special',"
         "        }"
         "      ]"
@@ -90,6 +90,7 @@ class PolicyJsonUnittest(unittest.TestCase):
         "    {"
         "      'policies': ["
         "        {"
+        "          'name': 'Policy1',"
         "          'caption': 'nothing special',"
         "        }"
         "      ]"
@@ -152,6 +153,7 @@ with a newline?''',
     original = """{
         'policy_definitions': [
           {
+            'name': 'Policy1',
             'caption': '''Please install
                 <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>.''',
           },
@@ -172,7 +174,22 @@ with a newline?''',
     self.failUnless(ph.GetPresentation() == 'PRODUCT_NAME')
     self.failUnless(ph.GetExample() == 'Google Chrome')
 
+  def testGetDescription(self):
+    gatherer = policy_json.PolicyJson({})
+    self.assertEquals(
+        gatherer._GetDescription({'name': 'Policy1'}, 'policy', None, 'desc'),
+        'Description of the policy named Policy1')
+    self.assertEquals(
+        gatherer._GetDescription({'name': 'Plcy2'}, 'policy', None, 'caption'),
+        'Caption of the policy named Plcy2')
+    self.assertEquals(
+        gatherer._GetDescription({'name': 'Plcy3'}, 'policy', None, 'label'),
+        'Label of the policy named Plcy3')
+    self.assertEquals(
+        gatherer._GetDescription({'name': 'Item'}, 'enum_item',
+                                 {'name': 'Policy'}, 'caption'),
+        'Caption of the option named Item in policy Policy')
+
 
 if __name__ == '__main__':
   unittest.main()
-

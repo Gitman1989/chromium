@@ -324,9 +324,6 @@
     # whether to compile in the sources for the GPU plugin / process.
     'enable_gpu%': 1,
 
-    # Use GConf, the GNOME configuration system.
-    'use_gconf%': 1,
-
     # Use OpenSSL instead of NSS. Under development: see http://crbug.com/62803
     'use_openssl%': 0,
 
@@ -447,6 +444,13 @@
         'libjpeg_gyp_path': '../third_party/libjpeg/libjpeg.gyp',
       }],  # use_libjpeg_turbo==1
 
+      # Use GConf, the GNOME configuration system.
+      ['chromeos==1', {
+        'use_gconf%': 0,
+      }, {
+        'use_gconf%': 1,
+      }],
+
       # Setup -D flags passed into grit.
       ['chromeos==1', {
         'grit_defines': ['-D', 'chromeos'],
@@ -554,6 +558,14 @@
           }, { # else: OS != "win", generate less debug information.
             'variables': {
               'debug_extra_cflags': '-g1',
+            },
+          }],
+          # Clang creates chubby debug information, which makes linking very
+          # slow. For now, don't create debug information with clang.  See
+          # http://crbug.com/70000
+          ['OS=="linux" and clang==1', {
+            'variables': {
+              'debug_extra_cflags': '-g0',
             },
           }],
         ],  # conditions for fastbuild.

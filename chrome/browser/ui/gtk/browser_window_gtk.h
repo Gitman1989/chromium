@@ -10,18 +10,18 @@
 
 #include <map>
 
-#include "app/active_window_watcher_x.h"
-#include "app/gtk_signal.h"
-#include "app/x11_util.h"
 #include "base/scoped_ptr.h"
 #include "base/timer.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_window.h"
-#include "chrome/browser/gtk/infobar_arrow_model.h"
 #include "chrome/browser/prefs/pref_member.h"
 #include "chrome/browser/tabs/tab_strip_model_observer.h"
+#include "chrome/browser/ui/gtk/infobar_arrow_model.h"
 #include "chrome/common/notification_registrar.h"
 #include "gfx/rect.h"
+#include "ui/base/gtk/gtk_signal.h"
+#include "ui/base/x/active_window_watcher_x.h"
+#include "ui/base/x/x11_util.h"
 
 class BookmarkBarGtk;
 class Browser;
@@ -44,7 +44,7 @@ class TabStripGtk;
 class BrowserWindowGtk : public BrowserWindow,
                          public NotificationObserver,
                          public TabStripModelObserver,
-                         public ActiveWindowWatcherX::Observer,
+                         public ui::ActiveWindowWatcherX::Observer,
                          public InfoBarArrowModel::Observer {
  public:
   explicit BrowserWindowGtk(Browser* browser);

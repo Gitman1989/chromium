@@ -12,11 +12,11 @@
 #include "base/file_util.h"
 #include "base/file_version_info.h"
 #include "base/lazy_instance.h"
-#include "base/lock.h"
 #include "base/logging.h"
 #include "base/path_service.h"
 #include "base/process_util.h"
 #include "base/string_util.h"
+#include "base/synchronization/lock.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/sys_info.h"
 #include "base/utf_string_conversions.h"
@@ -30,6 +30,7 @@
 #include "chrome_frame/navigation_constraints.h"
 #include "chrome_frame/simple_resource_loader.h"
 #include "chrome_frame/utils.h"
+#include "ui/base/ui_base_switches.h"
 
 #ifdef NDEBUG
 int64 kAutomationServerReasonableLaunchDelay = 1000;  // in milliseconds
@@ -44,7 +45,7 @@ static const wchar_t kUmaSendIntervalValue[] = L"UmaSendInterval";
 // This lock ensures that histograms created by ChromeFrame are thread safe.
 // The histograms created in ChromeFrame can be initialized on multiple
 // threads.
-Lock g_ChromeFrameHistogramLock;
+base::Lock g_ChromeFrameHistogramLock;
 
 class ChromeFrameAutomationProxyImpl::TabProxyNotificationMessageFilter
     : public IPC::ChannelProxy::MessageFilter {
@@ -54,12 +55,12 @@ class ChromeFrameAutomationProxyImpl::TabProxyNotificationMessageFilter
   }
 
   void AddTabProxy(AutomationHandle tab_proxy) {
-    AutoLock lock(lock_);
+    base::AutoLock lock(lock_);
     tabs_list_.push_back(tab_proxy);
   }
 
   void RemoveTabProxy(AutomationHandle tab_proxy) {
-    AutoLock lock(lock_);
+    base::AutoLock lock(lock_);
     tabs_list_.remove(tab_proxy);
   }
 
@@ -79,6 +80,8 @@ class ChromeFrameAutomationProxyImpl::TabProxyNotificationMessageFilter
       tab->Release();
     } else {
       DLOG(ERROR) << "Failed to find TabProxy for tab:" << message.routing_id();
+      // To prevent subsequent crashes, we set handled to true in this case.
+      handled = true;
     }
     return handled;
   }
@@ -98,7 +101,7 @@ class ChromeFrameAutomationProxyImpl::TabProxyNotificationMessageFilter
  private:
   AutomationHandleTracker* tracker_;
   std::list<AutomationHandle> tabs_list_;
-  Lock lock_;
+  base::Lock lock_;
 };
 
 class ChromeFrameAutomationProxyImpl::CFMsgDispatcher
@@ -396,11 +399,12 @@ void AutomationProxyCacheEntry::RemoveDelegate(LaunchDelegate* delegate,
       if (snapshots_)
         SendUMAData();
 
-      // Take down the proxy since we no longer have any clients.
-      proxy_.reset(NULL);
-
       // Process pending notifications.
       thread_->message_loop()->RunAllPending();
+
+      // Take down the proxy since we no longer have any clients.
+      // Make sure we only do this once all pending messages have been cleared.
+      proxy_.reset(NULL);
     }
     // Be careful to remove from the list after running pending
     // tasks.  Otherwise the delegate being removed might miss out
@@ -482,7 +486,7 @@ void ProxyFactory::GetAutomationServer(
 
   scoped_refptr<AutomationProxyCacheEntry> entry;
   // Find already existing launcher thread for given profile
-  AutoLock lock(lock_);
+  base::AutoLock lock(lock_);
   for (size_t i = 0; i < proxies_.container().size(); ++i) {
     if (proxies_[i]->IsSameProfile(params->profile_name())) {
       entry = proxies_[i];

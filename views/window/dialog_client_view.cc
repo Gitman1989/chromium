@@ -15,12 +15,12 @@
 #include <algorithm>
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/utf_string_conversions.h"
 #include "gfx/canvas_skia.h"
 #include "gfx/font.h"
 #include "grit/app_strings.h"
 #include "ui/base/keycodes/keyboard_codes.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "views/controls/button/native_button.h"
 #include "views/standard_layout.h"
 #include "views/window/dialog_delegate.h"
@@ -33,6 +33,8 @@
 #include "views/window/hit_test.h"
 #include "views/widget/widget.h"
 #endif
+
+using ui::MessageBoxFlags;
 
 namespace views {
 

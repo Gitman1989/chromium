@@ -6,7 +6,6 @@
 
 #include <string>
 
-#include "app/resource_bundle.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
@@ -39,6 +38,7 @@
 #include "chrome/common/chrome_plugin_lib.h"
 #include "chrome/common/switch_utils.h"
 #include "net/predictor_api.h"
+#include "ui/base/resource/resource_bundle.h"
 
 #if defined(OS_WIN)
 #include "chrome/browser/rlz/rlz.h"
@@ -48,7 +48,6 @@
 #include "chrome/browser/chromeos/boot_times_loader.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/cros/login_library.h"
-#include "chrome/browser/chromeos/wm_ipc.h"
 #endif
 
 using base::Time;
@@ -252,7 +251,6 @@ void Shutdown() {
   UnregisterURLRequestChromeJob();
 
 #if defined(OS_CHROMEOS)
-  chromeos::WmIpc::instance()->NotifyAboutSignout();
   if (chromeos::CrosLibrary::Get()->EnsureLoaded()) {
     chromeos::CrosLibrary::Get()->GetLoginLibrary()->StopSession("");
   }

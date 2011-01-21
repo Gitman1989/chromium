@@ -8,18 +8,18 @@
 #define CHROME_BROWSER_UI_GTK_NOTIFICATIONS_BALLOON_VIEW_GTK_H_
 #pragma once
 
-#include "app/gtk_signal.h"
 #include "base/basictypes.h"
 #include "base/scoped_ptr.h"
-#include "chrome/browser/gtk/menu_gtk.h"
-#include "chrome/browser/gtk/notifications/balloon_view_host_gtk.h"
 #include "chrome/browser/notifications/balloon.h"
+#include "chrome/browser/ui/gtk/menu_gtk.h"
+#include "chrome/browser/ui/gtk/notifications/balloon_view_host_gtk.h"
 #include "chrome/common/notification_observer.h"
 #include "chrome/common/notification_registrar.h"
 #include "gfx/point.h"
 #include "gfx/rect.h"
 #include "gfx/size.h"
 #include "ui/base/animation/animation_delegate.h"
+#include "ui/base/gtk/gtk_signal.h"
 
 class BalloonCollection;
 class CustomDrawButton;

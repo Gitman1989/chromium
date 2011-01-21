@@ -2,25 +2,23 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/gtk/gtk_theme_provider.h"
+#include "chrome/browser/ui/gtk/gtk_theme_provider.h"
 
 #include <gtk/gtk.h>
 
 #include <set>
 
-#include "app/gtk_signal_registrar.h"
-#include "app/resource_bundle.h"
 #include "base/environment.h"
-#include "base/stl_util-inl.h"
 #include "base/nix/xdg_util.h"
-#include "chrome/browser/gtk/cairo_cached_surface.h"
-#include "chrome/browser/gtk/chrome_gtk_frame.h"
-#include "chrome/browser/gtk/gtk_chrome_button.h"
-#include "chrome/browser/gtk/gtk_util.h"
-#include "chrome/browser/gtk/hover_controller_gtk.h"
+#include "base/stl_util-inl.h"
 #include "chrome/browser/metrics/user_metrics.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/gtk/cairo_cached_surface.h"
+#include "chrome/browser/ui/gtk/chrome_gtk_frame.h"
+#include "chrome/browser/ui/gtk/gtk_chrome_button.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
+#include "chrome/browser/ui/gtk/hover_controller_gtk.h"
 #include "chrome/common/notification_details.h"
 #include "chrome/common/notification_service.h"
 #include "chrome/common/notification_source.h"
@@ -38,6 +36,8 @@
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkShader.h"
+#include "ui/base/gtk/gtk_signal_registrar.h"
+#include "ui/base/resource/resource_bundle.h"
 
 namespace {
 
@@ -105,8 +105,6 @@ const int kAutocompleteImages[] = {
   IDR_OMNIBOX_HISTORY_DARK,
   IDR_OMNIBOX_SEARCH,
   IDR_OMNIBOX_SEARCH_DARK,
-  IDR_OMNIBOX_MORE,
-  IDR_OMNIBOX_MORE_DARK,
   IDR_OMNIBOX_STAR,
   IDR_OMNIBOX_STAR_DARK,
   IDR_GEOLOCATION_ALLOWED_LOCATIONBAR_ICON,
@@ -253,7 +251,7 @@ GtkThemeProvider::GtkThemeProvider()
     : BrowserThemeProvider(),
       fake_window_(gtk_window_new(GTK_WINDOW_TOPLEVEL)),
       fake_frame_(chrome_gtk_frame_new()),
-      signals_(new GtkSignalRegistrar),
+      signals_(new ui::GtkSignalRegistrar),
       fullscreen_icon_set_(NULL) {
   fake_label_.Own(gtk_label_new(""));
   fake_entry_.Own(gtk_entry_new());
@@ -325,7 +323,7 @@ bool GtkThemeProvider::HasCustomImage(int id) const {
 
 void GtkThemeProvider::InitThemesFor(NotificationObserver* observer) {
   observer->Observe(NotificationType::BROWSER_THEME_CHANGED,
-                    Source<ThemeProvider>(this),
+                    Source<ui::ThemeProvider>(this),
                     NotificationService::NoDetails());
 }
 
@@ -947,7 +945,6 @@ SkBitmap* GtkThemeProvider::GenerateGtkThemeBitmap(int id) const {
     // different colors between the omnibox and the normal background area.
     case IDR_OMNIBOX_HISTORY:
     case IDR_OMNIBOX_HTTP:
-    case IDR_OMNIBOX_MORE:
     case IDR_OMNIBOX_SEARCH:
     case IDR_OMNIBOX_STAR:
     case IDR_GEOLOCATION_ALLOWED_LOCATIONBAR_ICON:
@@ -960,7 +957,6 @@ SkBitmap* GtkThemeProvider::GenerateGtkThemeBitmap(int id) const {
     // with the selected color.
     case IDR_OMNIBOX_HISTORY_DARK:
     case IDR_OMNIBOX_HTTP_DARK:
-    case IDR_OMNIBOX_MORE_DARK:
     case IDR_OMNIBOX_SEARCH_DARK:
     case IDR_OMNIBOX_STAR_DARK: {
       return GenerateTintedIcon(id, selected_entry_tint_);

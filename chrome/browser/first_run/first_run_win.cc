@@ -13,7 +13,6 @@
 
 #include "app/app_switches.h"
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/environment.h"
 #include "base/file_util.h"
 #include "base/path_service.h"
@@ -58,6 +57,8 @@
 #include "views/widget/root_view.h"
 #include "views/widget/widget_win.h"
 #include "views/window/window.h"
+#include "ui/base/resource/resource_bundle.h"
+#include "ui/base/ui_base_switches.h"
 
 namespace {
 
@@ -278,8 +279,10 @@ bool Upgrade::SwapNewChromeExeIfPresent() {
   BrowserDistribution *dist = BrowserDistribution::GetDistribution();
   base::win::RegKey key;
   std::wstring rename_cmd;
-  if (key.Open(reg_root, dist->GetVersionKey().c_str(), KEY_READ) &&
-      key.ReadValue(google_update::kRegRenameCmdField, &rename_cmd)) {
+  if ((key.Open(reg_root, dist->GetVersionKey().c_str(),
+                KEY_READ) == ERROR_SUCCESS) &&
+      (key.ReadValue(google_update::kRegRenameCmdField,
+                     &rename_cmd) == ERROR_SUCCESS)) {
     base::ProcessHandle handle;
     if (base::LaunchApp(rename_cmd, true, true, &handle)) {
       DWORD exit_code;
@@ -640,7 +643,7 @@ class TryChromeDialog : public views::ButtonListener,
     root_view->set_background(
         views::Background::CreateSolidBackground(0xfc, 0xfc, 0xfc));
 
-    views::GridLayout* layout = CreatePanelGridLayout(root_view);
+    views::GridLayout* layout = views::GridLayout::CreatePanel(root_view);
     if (!layout) {
       NOTREACHED();
       return Upgrade::TD_DIALOG_ERROR;

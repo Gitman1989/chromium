@@ -18,6 +18,7 @@
 #include "base/singleton.h"
 #include "base/stl_util-inl.h"
 #include "base/third_party/nss/blapi.h"
+#include "base/string16.h"
 #include "base/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
@@ -30,6 +31,8 @@
 #include "chrome/common/extensions/extension_error_utils.h"
 #include "chrome/common/extensions/extension_l10n_util.h"
 #include "chrome/common/extensions/extension_resource.h"
+#include "chrome/common/extensions/extension_sidebar_defaults.h"
+#include "chrome/common/extensions/extension_sidebar_utils.h"
 #include "chrome/common/extensions/user_script.h"
 #include "chrome/common/url_constants.h"
 #include "googleurl/src/url_util.h"
@@ -194,6 +197,7 @@ const int Extension::kIconSizes[] = {
 
 const int Extension::kPageActionIconMaxSize = 19;
 const int Extension::kBrowserActionIconMaxSize = 19;
+const int Extension::kSidebarIconMaxSize = 16;
 
 // Explicit permissions -- permission declaration required.
 const char Extension::kBackgroundPermission[] = "background";
@@ -804,6 +808,51 @@ ExtensionAction* Extension::LoadExtensionActionHelper(
   return result.release();
 }
 
+ExtensionSidebarDefaults* Extension::LoadExtensionSidebarDefaults(
+    const DictionaryValue* extension_sidebar, std::string* error) {
+  scoped_ptr<ExtensionSidebarDefaults> result(new ExtensionSidebarDefaults());
+
+  std::string default_icon;
+  // Read sidebar's |default_icon| (optional).
+  if (extension_sidebar->HasKey(keys::kSidebarDefaultIcon)) {
+    if (!extension_sidebar->GetString(keys::kSidebarDefaultIcon,
+                                      &default_icon) ||
+        default_icon.empty()) {
+      *error = errors::kInvalidSidebarDefaultIconPath;
+      return NULL;
+    }
+    result->set_default_icon_path(default_icon);
+  }
+
+  // Read sidebar's |default_title| (optional).
+  string16 default_title;
+  if (extension_sidebar->HasKey(keys::kSidebarDefaultTitle)) {
+    if (!extension_sidebar->GetString(keys::kSidebarDefaultTitle,
+                                      &default_title)) {
+      *error = errors::kInvalidSidebarDefaultTitle;
+      return NULL;
+    }
+  }
+  result->set_default_title(default_title);
+
+  // Read sidebar's |default_url| (optional).
+  std::string default_url;
+  if (extension_sidebar->HasKey(keys::kSidebarDefaultUrl)) {
+    if (!extension_sidebar->GetString(keys::kSidebarDefaultUrl, &default_url) ||
+        default_url.empty()) {
+      *error = errors::kInvalidSidebarDefaultUrl;
+      return NULL;
+    }
+    GURL resolved_url = extension_sidebar_utils::ResolveAndVerifyUrl(
+        default_url, this, error);
+    if (!resolved_url.is_valid())
+      return NULL;
+    result->set_default_url(resolved_url);
+  }
+
+  return result.release();
+}
+
 bool Extension::ContainsNonThemeKeys(const DictionaryValue& source) const {
   for (DictionaryValue::key_iterator key = source.begin_keys();
        key != source.end_keys(); ++key) {
@@ -1253,8 +1302,7 @@ bool Extension::InitFromValue(const DictionaryValue& source, bool require_key,
   }
 
   // Make a copy of the manifest so we can store it in prefs.
-  manifest_value_.reset(
-      static_cast<DictionaryValue*>(source.DeepCopy()));
+  manifest_value_.reset(source.DeepCopy());
 
   // Initialize the URL.
   extension_url_ =
@@ -1426,8 +1474,7 @@ bool Extension::InitFromValue(const DictionaryValue& source, bool require_key,
           return false;
         }
       }
-      theme_images_.reset(
-          static_cast<DictionaryValue*>(images_value->DeepCopy()));
+      theme_images_.reset(images_value->DeepCopy());
     }
 
     DictionaryValue* colors_value;
@@ -1455,8 +1502,7 @@ bool Extension::InitFromValue(const DictionaryValue& source, bool require_key,
           return false;
         }
       }
-      theme_colors_.reset(
-          static_cast<DictionaryValue*>(colors_value->DeepCopy()));
+      theme_colors_.reset(colors_value->DeepCopy());
     }
 
     DictionaryValue* tints_value;
@@ -1476,15 +1522,14 @@ bool Extension::InitFromValue(const DictionaryValue& source, bool require_key,
           return false;
         }
       }
-      theme_tints_.reset(
-          static_cast<DictionaryValue*>(tints_value->DeepCopy()));
+      theme_tints_.reset(tints_value->DeepCopy());
     }
 
     DictionaryValue* display_properties_value;
     if (theme_value->GetDictionary(keys::kThemeDisplayProperties,
         &display_properties_value)) {
       theme_display_properties_.reset(
-          static_cast<DictionaryValue*>(display_properties_value->DeepCopy()));
+          display_properties_value->DeepCopy());
     }
 
     return true;
@@ -1931,6 +1976,23 @@ bool Extension::InitFromValue(const DictionaryValue& source, bool require_key,
 
   InitEffectiveHostPermissions();
 
+  // Initialize sidebar action (optional). It has to be done after host
+  // permissions are initialized to verify default sidebar url.
+  if (source.HasKey(keys::kSidebar)) {
+    DictionaryValue* sidebar_value;
+    if (!source.GetDictionary(keys::kSidebar, &sidebar_value)) {
+      *error = errors::kInvalidSidebar;
+      return false;
+    }
+    if (!HasApiPermission(Extension::kExperimentalPermission)) {
+      *error = errors::kSidebarExperimental;
+      return false;
+    }
+    sidebar_defaults_.reset(LoadExtensionSidebarDefaults(sidebar_value, error));
+    if (!sidebar_defaults_.get())
+      return false;  // Failed to parse sidebar definition.
+  }
+
   // Although |source| is passed in as a const, it's still possible to modify
   // it.  This is dangerous since the utility process re-uses |source| after
   // it calls InitFromValue, passing it up to the browser process which calls
@@ -2296,8 +2358,7 @@ ExtensionInfo::ExtensionInfo(const DictionaryValue* manifest,
       extension_path(path),
       extension_location(location) {
   if (manifest)
-    extension_manifest.reset(
-        static_cast<DictionaryValue*>(manifest->DeepCopy()));
+    extension_manifest.reset(manifest->DeepCopy());
 }
 
 ExtensionInfo::~ExtensionInfo() {}

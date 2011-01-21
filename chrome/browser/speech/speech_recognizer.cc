@@ -39,12 +39,14 @@ SpeechRecognizer::SpeechRecognizer(Delegate* delegate,
                                    int caller_id,
                                    const std::string& language,
                                    const std::string& grammar,
-                                   const std::string& hardware_info)
+                                   const std::string& hardware_info,
+                                   const std::string& origin_url)
     : delegate_(delegate),
       caller_id_(caller_id),
       language_(language),
       grammar_(grammar),
       hardware_info_(hardware_info),
+      origin_url_(origin_url),
       codec_(AudioEncoder::CODEC_SPEEX),
       encoder_(NULL),
       endpointer_(kAudioSampleRate),
@@ -127,8 +129,12 @@ void SpeechRecognizer::StopRecording() {
   // Since the http request takes a single string as POST data, allocate
   // one and copy over bytes from the audio buffers to the string.
   // And If we haven't got any audio yet end the recognition sequence here.
+  string mime_type = encoder_->mime_type();
   string data;
-  if (!encoder_->GetEncodedData(&data)) {
+  encoder_->GetEncodedData(&data);
+  encoder_.reset();
+
+  if (data.empty()) {
     // Guard against the delegate freeing us until we finish our job.
     scoped_refptr<SpeechRecognizer> me(this);
     delegate_->DidCompleteRecognition(caller_id_);
@@ -136,10 +142,9 @@ void SpeechRecognizer::StopRecording() {
     DCHECK(!request_.get());
     request_.reset(new SpeechRecognitionRequest(
         Profile::GetDefaultRequestContext(), this));
-    request_->Send(language_, grammar_, hardware_info_, encoder_->mime_type(),
-                   data);
+    request_->Send(language_, grammar_, hardware_info_, origin_url_,
+                   mime_type, data);
   }
-  encoder_.reset();
 }
 
 void SpeechRecognizer::ReleaseAudioBuffers() {

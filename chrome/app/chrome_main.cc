@@ -4,7 +4,6 @@
 
 #include "app/app_paths.h"
 #include "app/app_switches.h"
-#include "app/resource_bundle.h"
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/debug/debugger.h"
@@ -36,6 +35,9 @@
 #include "chrome/common/set_process_title.h"
 #include "chrome/common/url_constants.h"
 #include "ipc/ipc_switches.h"
+#include "ui/base/resource/resource_bundle.h"
+#include "ui/base/ui_base_paths.h"
+#include "ui/base/ui_base_switches.h"
 
 #if defined(OS_WIN)
 #include <algorithm>
@@ -75,7 +77,7 @@
 #include <gtk/gtk.h>
 #include <stdlib.h>
 #include <string.h>
-#include "app/x11_util.h"
+#include "ui/base/x/x11_util.h"
 #endif
 
 #if defined(USE_TCMALLOC)
@@ -135,10 +137,12 @@ void InvalidParameter(const wchar_t* expression, const wchar_t* function,
                       const wchar_t* file, unsigned int line,
                       uintptr_t reserved) {
   __debugbreak();
+  _exit(1);
 }
 
 void PureCall() {
   __debugbreak();
+  _exit(1);
 }
 
 #pragma warning(push)
@@ -160,6 +164,7 @@ void OnNoMemory() {
   // the buffer is then used, it provides a handy mapping of memory starting at
   // address 0 for an attacker to utilize.
   __debugbreak();
+  _exit(1);
 }
 #pragma warning(pop)
 
@@ -717,6 +722,7 @@ int ChromeMain(int argc, char** argv) {
 
   // Initialize the Chrome path provider.
   app::RegisterPathProvider();
+  ui::RegisterPathProvider();
   chrome::RegisterPathProvider();
 
   // Notice a user data directory override if any

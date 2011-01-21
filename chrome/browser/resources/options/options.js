@@ -9,7 +9,7 @@ var AutoFillEditAddressOverlay = options.AutoFillEditAddressOverlay;
 var AutoFillEditCreditCardOverlay = options.AutoFillEditCreditCardOverlay;
 var AutoFillOptions = options.AutoFillOptions;
 var BrowserOptions = options.BrowserOptions;
-var ClearBrowserDataPage = options.ClearBrowserDataPage;
+var ClearBrowserDataOverlay = options.ClearBrowserDataOverlay;
 var ContentSettings = options.ContentSettings;
 var ContentSettingsExceptionsArea =
     options.contentSettings.ContentSettingsExceptionsArea;
@@ -17,6 +17,7 @@ var CookiesView = options.CookiesView;
 var FontSettings = options.FontSettings;
 var ImportDataOverlay = options.ImportDataOverlay;
 var InstantConfirmOverlay = options.InstantConfirmOverlay;
+var LanguageOptions = options.LanguageOptions;
 var OptionsPage = options.OptionsPage;
 var PasswordManager = options.PasswordManager;
 var PersonalOptions = options.PersonalOptions;
@@ -74,22 +75,22 @@ function load() {
         new OptionsPage('languageChewing',
                         localStrings.getString('languageChewingPage'),
                         'languageChewingPage'),
-        SystemOptions.getInstance());
+        LanguageOptions.getInstance());
     OptionsPage.registerSubPage(
         new OptionsPage('languageHangul',
                         localStrings.getString('languageHangulPage'),
                         'languageHangulPage'),
-        SystemOptions.getInstance());
+        LanguageOptions.getInstance());
     OptionsPage.registerSubPage(
         new OptionsPage('languageMozc',
                         localStrings.getString('languageMozcPage'),
                         'languageMozcPage'),
-        SystemOptions.getInstance());
+        LanguageOptions.getInstance());
     OptionsPage.registerSubPage(
         new OptionsPage('languagePinyin',
                         localStrings.getString('languagePinyinPage'),
                         'languagePinyinPage'),
-        SystemOptions.getInstance());
+        LanguageOptions.getInstance());
     OptionsPage.register(InternetOptions.getInstance());
   }
   OptionsPage.register(AdvancedOptions.getInstance());
@@ -105,9 +106,11 @@ function load() {
   OptionsPage.registerSubPage(FontSettings.getInstance(),
                               AdvancedOptions.getInstance(),
                               [$('fontSettingsCustomizeFontsButton')]);
-  OptionsPage.registerSubPage(ClearBrowserDataPage.getInstance(),
-                              AdvancedOptions.getInstance(),
-                              [$('privacyClearDataButton')]);
+  if (!cr.isChromeOS) {
+    OptionsPage.registerSubPage(LanguageOptions.getInstance(),
+                                AdvancedOptions.getInstance(),
+                                [$('language-button')]);
+  }
   if (!cr.isWindows && !cr.isMac) {
     OptionsPage.registerSubPage(CertificateManager.getInstance(),
                                 AdvancedOptions.getInstance(),
@@ -121,6 +124,8 @@ function load() {
   OptionsPage.registerOverlay(AlertOverlay.getInstance());
   OptionsPage.registerOverlay(AutoFillEditAddressOverlay.getInstance());
   OptionsPage.registerOverlay(AutoFillEditCreditCardOverlay.getInstance());
+  OptionsPage.registerOverlay(ClearBrowserDataOverlay.getInstance(),
+                              [$('privacyClearDataButton')]);
   OptionsPage.registerOverlay(ImportDataOverlay.getInstance());
   OptionsPage.registerOverlay(InstantConfirmOverlay.getInstance());
 
@@ -167,10 +172,21 @@ function load() {
   // Allow platform specific CSS rules.
   if (cr.isMac)
     document.documentElement.setAttribute('os', 'mac');
-  if (cr.isLinux)
+  if (cr.isWindows)
+    document.documentElement.setAttribute('os', 'windows');
+  if (cr.isChromeOS)
+    document.documentElement.setAttribute('os', 'chromeos');
+  if (cr.isLinux) {
+    document.documentElement.setAttribute('os', 'linux');
     document.documentElement.setAttribute('toolkit', 'gtk');
+  }
   if (cr.isViews)
     document.documentElement.setAttribute('toolkit', 'views');
+
+  // Clicking on the Settings title brings up the 'Basics' page.
+  $('settings-title').onclick = function() {
+    OptionsPage.showPageByName(BrowserOptions.getInstance().name);
+  };
 }
 
 document.addEventListener('DOMContentLoaded', load);

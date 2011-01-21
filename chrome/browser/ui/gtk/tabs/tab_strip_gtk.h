@@ -9,17 +9,17 @@
 #include <gtk/gtk.h>
 #include <vector>
 
-#include "app/gtk_signal.h"
 #include "base/basictypes.h"
 #include "base/task.h"
 #include "base/message_loop.h"
-#include "chrome/browser/gtk/owned_widget_gtk.h"
-#include "chrome/browser/gtk/tabstrip_origin_provider.h"
-#include "chrome/browser/gtk/tabs/tab_gtk.h"
-#include "chrome/browser/gtk/view_id_util.h"
 #include "chrome/browser/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/gtk/owned_widget_gtk.h"
+#include "chrome/browser/ui/gtk/tabs/tab_gtk.h"
+#include "chrome/browser/ui/gtk/tabstrip_origin_provider.h"
+#include "chrome/browser/ui/gtk/view_id_util.h"
 #include "chrome/common/notification_observer.h"
 #include "gfx/rect.h"
+#include "ui/base/gtk/gtk_signal.h"
 
 class BrowserWindowGtk;
 class CustomDrawButton;
@@ -142,7 +142,7 @@ class TabStripGtk : public TabStripModelObserver,
   virtual void ContinueDrag(GdkDragContext* context);
   virtual bool EndDrag(bool canceled);
   virtual bool HasAvailableDragActions() const;
-  virtual ThemeProvider* GetThemeProvider();
+  virtual ui::ThemeProvider* GetThemeProvider();
 
   // MessageLoop::Observer implementation:
   virtual void WillProcessEvent(GdkEvent* event);

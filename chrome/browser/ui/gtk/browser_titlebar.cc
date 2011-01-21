@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/gtk/browser_titlebar.h"
+#include "chrome/browser/ui/gtk/browser_titlebar.h"
 
 #include <gdk/gdkkeysyms.h>
 #include <gtk/gtk.h>
@@ -11,28 +11,27 @@
 #include <vector>
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/command_line.h"
 #include "base/singleton.h"
 #include "base/string_piece.h"
 #include "base/string_tokenizer.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
-#include "chrome/browser/gtk/accelerators_gtk.h"
-#include "chrome/browser/gtk/browser_window_gtk.h"
-#include "chrome/browser/gtk/custom_button.h"
-#if defined(USE_GCONF)
-#include "chrome/browser/gtk/gconf_titlebar_listener.h"
-#endif
-#include "chrome/browser/gtk/gtk_theme_provider.h"
-#include "chrome/browser/gtk/gtk_util.h"
-#include "chrome/browser/gtk/menu_gtk.h"
-#include "chrome/browser/gtk/nine_box.h"
-#include "chrome/browser/gtk/tabs/tab_strip_gtk.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/gtk/accelerators_gtk.h"
+#include "chrome/browser/ui/gtk/browser_window_gtk.h"
+#include "chrome/browser/ui/gtk/custom_button.h"
+#if defined(USE_GCONF)
+#include "chrome/browser/ui/gtk/gconf_titlebar_listener.h"
+#endif
+#include "chrome/browser/ui/gtk/gtk_theme_provider.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
+#include "chrome/browser/ui/gtk/menu_gtk.h"
+#include "chrome/browser/ui/gtk/nine_box.h"
+#include "chrome/browser/ui/gtk/tabs/tab_strip_gtk.h"
 #include "chrome/browser/ui/toolbar/encoding_menu_controller.h"
 #include "chrome/browser/ui/toolbar/wrench_menu_model.h"
 #include "chrome/common/notification_service.h"
@@ -42,6 +41,7 @@
 #include "grit/app_resources.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
+#include "ui/base/resource/resource_bundle.h"
 
 namespace {
 
@@ -367,11 +367,11 @@ void BrowserTitlebar::Init() {
 
   gtk_widget_show_all(container_);
 
-  ActiveWindowWatcherX::AddObserver(this);
+  ui::ActiveWindowWatcherX::AddObserver(this);
 }
 
 BrowserTitlebar::~BrowserTitlebar() {
-  ActiveWindowWatcherX::RemoveObserver(this);
+  ui::ActiveWindowWatcherX::RemoveObserver(this);
 #if defined(USE_GCONF)
   GConfTitlebarListener::GetInstance()->RemoveObserver(this);
 #endif

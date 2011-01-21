@@ -1,4 +1,4 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -36,6 +36,10 @@ void PasswordManagerHandler::GetLocalizedValues(
       l10n_util::GetStringUTF16(IDS_PASSWORDS_SHOW_PASSWORDS_TAB_TITLE));
   localized_strings->SetString("passwordExceptionsTitle",
       l10n_util::GetStringUTF16(IDS_PASSWORDS_EXCEPTIONS_TAB_TITLE));
+  localized_strings->SetString("passwordShowButton",
+      l10n_util::GetStringUTF16(IDS_PASSWORDS_PAGE_VIEW_SHOW_BUTTON));
+  localized_strings->SetString("passwordHideButton",
+      l10n_util::GetStringUTF16(IDS_PASSWORDS_PAGE_VIEW_HIDE_BUTTON));
   localized_strings->SetString("passwordsSiteColumn",
       l10n_util::GetStringUTF16(IDS_PASSWORDS_PAGE_VIEW_SITE_COLUMN));
   localized_strings->SetString("passwordsUsernameColumn",
@@ -44,10 +48,6 @@ void PasswordManagerHandler::GetLocalizedValues(
       l10n_util::GetStringUTF16(IDS_PASSWORDS_PAGE_VIEW_REMOVE_BUTTON));
   localized_strings->SetString("passwordsRemoveAllButton",
       l10n_util::GetStringUTF16(IDS_PASSWORDS_PAGE_VIEW_REMOVE_ALL_BUTTON));
-  localized_strings->SetString("passwordsShowButton",
-      l10n_util::GetStringUTF16(IDS_PASSWORDS_PAGE_VIEW_SHOW_BUTTON));
-  localized_strings->SetString("passwordsHideButton",
-      l10n_util::GetStringUTF16(IDS_PASSWORDS_PAGE_VIEW_HIDE_BUTTON));
   localized_strings->SetString("passwordsRemoveAllTitle",
       l10n_util::GetStringUTF16(
           IDS_PASSWORDS_PAGE_VIEW_CAPTION_DELETE_ALL_PASSWORDS));
@@ -153,6 +153,19 @@ void PasswordManagerHandler::SetPasswordExceptionList() {
       L"PasswordManager.setPasswordExceptionsList", entries);
 }
 
+PasswordManagerHandler::ListPopulater::ListPopulater(
+    PasswordManagerHandler* page) : page_(page),
+                                    pending_login_query_(0) {
+}
+
+PasswordManagerHandler::ListPopulater::~ListPopulater() {
+  page_->GetPasswordStore()->CancelLoginsQuery(pending_login_query_);
+}
+
+PasswordManagerHandler::PasswordListPopulater::PasswordListPopulater(
+    PasswordManagerHandler* page) : ListPopulater(page) {
+}
+
 void PasswordManagerHandler::PasswordListPopulater::Populate() {
   DCHECK(!pending_login_query_);
   PasswordStore* store = page_->GetPasswordStore();
@@ -169,6 +182,11 @@ void PasswordManagerHandler::PasswordListPopulater::
   pending_login_query_ = 0;
   page_->password_list_ = result;
   page_->SetPasswordList();
+}
+
+PasswordManagerHandler::PasswordExceptionListPopulater::
+    PasswordExceptionListPopulater(PasswordManagerHandler* page)
+        : ListPopulater(page) {
 }
 
 void PasswordManagerHandler::PasswordExceptionListPopulater::Populate() {

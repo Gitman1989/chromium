@@ -146,14 +146,16 @@ BrowserProcessImpl::~BrowserProcessImpl() {
   // any pending URLFetchers, and avoid creating any more.
   SdchDictionaryFetcher::Shutdown();
 
-  // We need to destroy the MetricsService, GoogleURLTracker, and
-  // IntranetRedirectDetector before the io_thread_ gets destroyed, since their
-  // destructors can call the URLFetcher destructor, which does a
-  // PostDelayedTask operation on the IO thread.  (The IO thread will handle
-  // that URLFetcher operation before going away.)
+  // We need to destroy the MetricsService, GoogleURLTracker,
+  // IntranetRedirectDetector, and SafeBrowsing ClientSideDetectionService
+  // before the io_thread_ gets destroyed, since their destructors can call the
+  // URLFetcher destructor, which does a PostDelayedTask operation on the IO
+  // thread. (The IO thread will handle that URLFetcher operation before going
+  // away.)
   metrics_service_.reset();
   google_url_tracker_.reset();
   intranet_redirect_detector_.reset();
+  safe_browsing_detection_service_.reset();
 
   // Need to clear the desktop notification balloons before the io_thread_ and
   // before the profiles, since if there are any still showing we will access
@@ -542,7 +544,9 @@ void BrowserProcessImpl::Observe(NotificationType type,
       if (prefs->GetBoolean(prefs::kClearSiteDataOnExit) &&
           local_state()->GetBoolean(prefs::kClearPluginLSODataEnabled)) {
         plugin_data_remover_ = new PluginDataRemover();
-        plugin_data_remover_->StartRemoving(base::Time(), NULL);
+        if (!plugin_data_remover_mime_type().empty())
+          plugin_data_remover_->set_mime_type(plugin_data_remover_mime_type());
+        plugin_data_remover_->StartRemoving(base::Time());
       }
     }
   } else {
@@ -551,13 +555,8 @@ void BrowserProcessImpl::Observe(NotificationType type,
 }
 
 void BrowserProcessImpl::WaitForPluginDataRemoverToFinish() {
-  if (!plugin_data_remover_.get() || !plugin_data_remover_->is_removing())
-    return;
-  plugin_data_remover_->set_done_task(new MessageLoop::QuitTask());
-  base::Time start_time(base::Time::Now());
-  MessageLoop::current()->Run();
-  UMA_HISTOGRAM_TIMES("ClearPluginData.wait_at_shutdown",
-                      base::Time::Now() - start_time);
+  if (plugin_data_remover_.get())
+    plugin_data_remover_->Wait();
 }
 
 #if (defined(OS_WIN) || defined(OS_LINUX)) && !defined(OS_CHROMEOS)

@@ -5,7 +5,6 @@
 #include "chrome/browser/ui/views/create_application_shortcut_view.h"
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/callback.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/windows_version.h"
@@ -25,6 +24,7 @@
 #include "net/url_request/url_request.h"
 #include "third_party/skia/include/core/SkRect.h"
 #include "third_party/skia/include/core/SkPaint.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "views/controls/button/checkbox.h"
 #include "views/controls/image_view.h"
 #include "views/controls/label.h"
@@ -119,7 +119,7 @@ void AppInfoView::PrepareDescriptionLabel(const string16& description) {
 }
 
 void AppInfoView::SetupLayout() {
-  views::GridLayout* layout = CreatePanelGridLayout(this);
+  views::GridLayout* layout = views::GridLayout::CreatePanel(this);
   SetLayoutManager(layout);
 
   static const int kColumnSetId = 0;
@@ -263,7 +263,7 @@ void CreateApplicationShortcutView::InitControls() {
 #endif
 
   // Layout controls
-  views::GridLayout* layout = CreatePanelGridLayout(this);
+  views::GridLayout* layout = views::GridLayout::CreatePanel(this);
   SetLayoutManager(layout);
 
   static const int kHeaderColumnSetId = 0;

@@ -8,7 +8,6 @@
 
 #include <algorithm>
 
-#include "app/resource_bundle.h"
 #include "base/mac/mac_util.h"
 #include "base/mac/scoped_cftyperef.h"
 #include "base/scoped_callback_factory.h"
@@ -25,8 +24,8 @@
 #include "chrome/browser/tab_contents/thumbnail_generator.h"
 #import "chrome/browser/ui/cocoa/bookmarks/bookmark_bar_constants.h"
 #import "chrome/browser/ui/cocoa/browser_window_controller.h"
-#import "chrome/browser/ui/cocoa/tab_strip_controller.h"
-#import "chrome/browser/ui/cocoa/tab_strip_model_observer_bridge.h"
+#import "chrome/browser/ui/cocoa/tabs/tab_strip_controller.h"
+#import "chrome/browser/ui/cocoa/tabs/tab_strip_model_observer_bridge.h"
 #include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
 #include "chrome/common/pref_names.h"
 #include "gfx/scoped_cg_context_state_mac.h"
@@ -34,6 +33,7 @@
 #include "grit/theme_resources.h"
 #include "skia/ext/skia_utils_mac.h"
 #include "third_party/skia/include/utils/mac/SkCGUtils.h"
+#include "ui/base/resource/resource_bundle.h"
 
 const int kTopGradientHeight  = 15;
 

@@ -13,8 +13,6 @@
 
 #include "app/l10n_util.h"
 #include "app/l10n_util_win.h"
-#include "app/win/drag_source.h"
-#include "app/win/drop_target.h"
 #include "app/win/iat_patch_function.h"
 #include "app/win/win_util.h"
 #include "base/auto_reset.h"
@@ -47,6 +45,8 @@
 #include "skia/ext/skia_utils_win.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
+#include "ui/base/dragdrop/drag_source.h"
+#include "ui/base/dragdrop/drop_target.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/dragdrop/os_exchange_data_provider_win.h"
 #include "ui/base/keycodes/keyboard_codes.h"
@@ -68,7 +68,7 @@ namespace {
 // URL. A drop of plain text from the same edit either copies or moves the
 // selected text, and a drop of plain text from a source other than the edit
 // does a paste and go.
-class EditDropTarget : public app::win::DropTarget {
+class EditDropTarget : public ui::DropTarget {
  public:
   explicit EditDropTarget(AutocompleteEditViewWin* edit);
 
@@ -119,7 +119,7 @@ DWORD CopyOrLinkDropEffect(DWORD effect) {
 }
 
 EditDropTarget::EditDropTarget(AutocompleteEditViewWin* edit)
-    : app::win::DropTarget(edit->m_hWnd),
+    : ui::DropTarget(edit->m_hWnd),
       edit_(edit),
       drag_has_url_(false),
       drag_has_string_(false) {
@@ -861,8 +861,11 @@ bool AutocompleteEditViewWin::OnAfterPossibleChangeInternal(
       new_sel.cpMax = length;
     SetSelectionRange(new_sel);
   }
-  const bool selection_differs = (new_sel.cpMin != sel_before_change_.cpMin) ||
-      (new_sel.cpMax != sel_before_change_.cpMax);
+  const bool selection_differs =
+      ((new_sel.cpMin != new_sel.cpMax) ||
+       (sel_before_change_.cpMin != sel_before_change_.cpMax)) &&
+      ((new_sel.cpMin != sel_before_change_.cpMin) ||
+       (new_sel.cpMax != sel_before_change_.cpMax));
   const bool at_end_of_edit =
       (new_sel.cpMin == length) && (new_sel.cpMax == length);
 
@@ -1690,10 +1693,8 @@ void AutocompleteEditViewWin::OnPaste() {
   // Replace the selection if we have something to paste.
   const std::wstring text(GetClipboardText());
   if (!text.empty()) {
-    // If this paste will be replacing all the text, record that, so we can do
-    // different behaviors in such a case.
-    if (IsSelectAll())
-      model_->on_paste_replacing_all();
+    // Record this paste, so we can do different behavior.
+    model_->on_paste();
     // Force a Paste operation to trigger the text_changed code in
     // OnAfterPossibleChange(), even if identical contents are pasted into the
     // text box.
@@ -1972,7 +1973,7 @@ bool AutocompleteEditViewWin::OnKeyDownOnlyWritable(TCHAR key,
     }
 
     case VK_TAB: {
-      if (model_->is_keyword_hint() && !model_->keyword().empty()) {
+      if (model_->is_keyword_hint()) {
         // Accept the keyword.
         ScopedFreeze freeze(this, GetTextObjectModel());
         model_->AcceptKeyword();
@@ -2427,7 +2428,7 @@ void AutocompleteEditViewWin::StartDragIfNecessary(const CPoint& point) {
 
   data.SetString(text_to_write);
 
-  scoped_refptr<app::win::DragSource> drag_source(new app::win::DragSource);
+  scoped_refptr<ui::DragSource> drag_source(new ui::DragSource);
   DWORD dropped_mode;
   AutoReset<bool> auto_reset_in_drag(&in_drag_, true);
   if (DoDragDrop(ui::OSExchangeDataProviderWin::GetIDataObject(data),

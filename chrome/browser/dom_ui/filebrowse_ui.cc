@@ -5,7 +5,6 @@
 #include "chrome/browser/dom_ui/filebrowse_ui.h"
 
 #include "app/l10n_util.h"
-#include "app/resource_bundle.h"
 #include "base/callback.h"
 #include "base/command_line.h"
 #include "base/file_util.h"
@@ -48,6 +47,7 @@
 #include "grit/locale_settings.h"
 #include "net/base/escape.h"
 #include "net/url_request/url_request_file_job.h"
+#include "ui/base/resource/resource_bundle.h"
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/cros/cros_library.h"
@@ -126,7 +126,7 @@ class FilebrowseHandler : public net::DirectoryLister::DirectoryListerDelegate,
 
   // DownloadItem::Observer interface
   virtual void OnDownloadUpdated(DownloadItem* download);
-  virtual void OnDownloadFileCompleted(DownloadItem* download) { }
+  virtual void OnDownloadFileCompleted(DownloadItem* download);
   virtual void OnDownloadOpened(DownloadItem* download) { }
 
   // DownloadManager::Observer interface
@@ -195,6 +195,9 @@ class FilebrowseHandler : public net::DirectoryLister::DirectoryListerDelegate,
   void FireOnValidatedSavePathOnUIThread(bool valid, const FilePath& save_path);
 
  private:
+
+  // Retrieves downloads from the DownloadManager and updates the page.
+  void UpdateDownloadList();
 
   void OpenNewWindow(const ListValue* args, bool popup);
 
@@ -894,17 +897,23 @@ void FilebrowseHandler::OnListDone(int error) {
   info_value.SetString(kPropertyPath, currentpath_.value());
   dom_ui_->CallJavascriptFunction(L"browseFileResult",
                                   info_value, *(filelist_value_.get()));
-  SendCurrentDownloads();
 }
 
 void FilebrowseHandler::HandleGetMetadata(const ListValue* args) {
 }
 
 void FilebrowseHandler::HandleGetDownloads(const ListValue* args) {
-  ModelChanged();
+  UpdateDownloadList();
 }
 
 void FilebrowseHandler::ModelChanged() {
+  if (!currentpath_.empty())
+    GetChildrenForPath(currentpath_, true);
+  else
+    UpdateDownloadList();
+}
+
+void FilebrowseHandler::UpdateDownloadList() {
   ClearDownloadItems();
 
   std::vector<DownloadItem*> downloads;
@@ -1111,6 +1120,10 @@ void FilebrowseHandler::SendCurrentDownloads() {
   }
 
   dom_ui_->CallJavascriptFunction(L"downloadsList", results_value);
+}
+
+void FilebrowseHandler::OnDownloadFileCompleted(DownloadItem* download) {
+  GetChildrenForPath(currentpath_, true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -1,8 +1,10 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/renderer/print_web_view_helper.h"
+
+#include <string>
 
 #include "app/l10n_util.h"
 #include "base/logging.h"
@@ -262,7 +264,7 @@ void PrintWebViewHelper::PrintPages(const ViewMsg_PrintPages_Params& params,
 
   const gfx::Size& canvas_size = prep_frame_view.GetPrintCanvasSize();
   ViewMsg_PrintPage_Params page_params;
-  page_params.params = params.params;
+  page_params.params = printParams;
   if (params.pages.empty()) {
     for (int i = 0; i < page_count; ++i) {
       page_params.page_number = i;
@@ -401,13 +403,16 @@ void PrintWebViewHelper::UpdatePrintableSizeInPrintParameters(
       static_cast<int>(ConvertUnitDouble(content_height_in_points,
           printing::kPointsPerInch, dpi)));
 
+  double page_width_in_points = content_width_in_points +
+      margin_left_in_points + margin_right_in_points;
+  double page_height_in_points = content_height_in_points +
+      margin_top_in_points + margin_bottom_in_points;
+
   params->page_size = gfx::Size(
-      static_cast<int>(ConvertUnitDouble(content_width_in_points +
-          margin_left_in_points + margin_right_in_points,
-          printing::kPointsPerInch, dpi)),
-      static_cast<int>(ConvertUnitDouble(content_height_in_points +
-          margin_top_in_points + margin_bottom_in_points,
-          printing::kPointsPerInch, dpi)));
+      static_cast<int>(ConvertUnitDouble(
+          page_width_in_points, printing::kPointsPerInch, dpi)),
+      static_cast<int>(ConvertUnitDouble(
+          page_height_in_points, printing::kPointsPerInch, dpi)));
 
   params->margin_top = static_cast<int>(ConvertUnitDouble(
       margin_top_in_points, printing::kPointsPerInch, dpi));

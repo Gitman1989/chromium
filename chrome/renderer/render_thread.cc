@@ -127,9 +127,6 @@ static const double kInitialIdleHandlerDelayS = 1.0 /* seconds */;
 static const double kInitialExtensionIdleHandlerDelayS = 5.0 /* seconds */;
 static const int64 kMaxExtensionIdleHandlerDelayS = 5*60 /* seconds */;
 
-static const int kPrelauchGpuPercentage = 5;
-static const int kPrelauchGpuProcessDelayMS = 10000;
-
 // Keep the global RenderThread in a TLS slot so it is impossible to access
 // incorrectly from the wrong thread.
 static base::LazyInstance<base::ThreadLocalPointer<RenderThread> > lazy_tls(
@@ -268,6 +265,7 @@ void RenderThread::Init() {
   is_extension_process_ = type_str == switches::kExtensionProcess ||
       CommandLine::ForCurrentProcess()->HasSwitch(switches::kSingleProcess);
   is_incognito_process_ = false;
+  is_speech_input_enabled_ = false;
   suspend_webkit_shared_timer_ = true;
   notify_webkit_of_modal_loop_ = true;
   plugin_refresh_allowed_ = true;
@@ -300,23 +298,6 @@ void RenderThread::Init() {
   suicide_on_channel_error_filter_ = new SuicideOnChannelErrorFilter;
   AddFilter(suicide_on_channel_error_filter_.get());
 #endif
-
-  // Establish a channel to the GPU process asynchronously if requested. If the
-  // channel is established in time, EstablishGpuChannelSync will not block when
-  // it is later called. Delays by a fixed period of time to avoid loading the
-  // GPU immediately in an attempt to not slow startup time.
-  scoped_refptr<base::FieldTrial> prelaunch_trial(
-      new base::FieldTrial("PrelaunchGpuProcessExperiment", 100));
-  int prelaunch_group = prelaunch_trial->AppendGroup("prelaunch_gpu_process",
-                                                     kPrelauchGpuPercentage);
-  if (prelaunch_group == prelaunch_trial->group() ||
-      CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kPrelaunchGpuProcess)) {
-    message_loop()->PostDelayedTask(FROM_HERE,
-                                    task_factory_->NewRunnableMethod(
-                                        &RenderThread::EstablishGpuChannel),
-                                    kPrelauchGpuProcessDelayMS);
-  }
 
   TRACE_EVENT_END("RenderThread::Init", 0, "");
 }
@@ -658,9 +639,16 @@ bool RenderThread::OnControlMessageReceived(const IPC::Message& msg) {
                         OnSpellCheckEnableAutoSpellCorrect)
     IPC_MESSAGE_HANDLER(ViewMsg_GpuChannelEstablished, OnGpuChannelEstablished)
     IPC_MESSAGE_HANDLER(ViewMsg_SetPhishingModel, OnSetPhishingModel)
+    IPC_MESSAGE_HANDLER(ViewMsg_SpeechInput_SetFeatureEnabled,
+                        OnSetSpeechInputEnabled)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;
+}
+
+void RenderThread::OnSetSpeechInputEnabled(bool enabled) {
+  DCHECK(!webkit_client_.get());
+  is_speech_input_enabled_ = enabled;
 }
 
 void RenderThread::OnSetNextPageID(int32 next_page_id) {
@@ -964,8 +952,7 @@ void RenderThread::EnsureWebKitInitialized() {
   WebRuntimeFeatures::enableDeviceOrientation(
       !command_line.HasSwitch(switches::kDisableDeviceOrientation));
 
-  WebRuntimeFeatures::enableSpeechInput(
-      !command_line.HasSwitch(switches::kDisableSpeechInput));
+  WebRuntimeFeatures::enableSpeechInput(is_speech_input_enabled_);
 
   WebRuntimeFeatures::enableFileSystem(
       !command_line.HasSwitch(switches::kDisableFileSystem));

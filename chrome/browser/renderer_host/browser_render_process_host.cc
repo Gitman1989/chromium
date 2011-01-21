@@ -66,6 +66,7 @@
 #include "chrome/browser/safe_browsing/client_side_detection_service.h"
 #include "chrome/browser/search_engines/search_provider_install_state_message_filter.h"
 #include "chrome/browser/speech/speech_input_dispatcher_host.h"
+#include "chrome/browser/speech/speech_input_manager.h"
 #include "chrome/browser/spellcheck_host.h"
 #include "chrome/browser/metrics/user_metrics.h"
 #include "chrome/browser/visitedlink/visitedlink_master.h"
@@ -92,6 +93,7 @@
 #include "ipc/ipc_platform_file.h"
 #include "ipc/ipc_switches.h"
 #include "media/base/media_switches.h"
+#include "ui/base/ui_base_switches.h"
 #include "webkit/fileapi/file_system_path_manager.h"
 #include "webkit/plugins/plugin_switches.h"
 
@@ -722,13 +724,13 @@ void BrowserRenderProcessHost::PropagateBrowserCommandLineToRenderer(
     switches::kEnableRemoting,
     switches::kEnableClickToPlay,
     switches::kEnableResourceContentSettings,
-    switches::kPrelaunchGpuProcess,
     switches::kEnableAcceleratedDecoding,
     switches::kDisableFileSystem,
     switches::kPpapiOutOfProcess,
     switches::kEnablePrintPreview,
     switches::kEnableCrxlessWebApps,
-    switches::kDisable3DAPIs
+    switches::kDisable3DAPIs,
+    switches::kEnableInBrowserThumbnailing,
   };
   renderer_cmd->CopySwitchesFrom(browser_cmd, kSwitchNames,
                                  arraysize(kSwitchNames));
@@ -788,6 +790,11 @@ void BrowserRenderProcessHost::InitExtensions() {
   std::vector<std::string> function_names;
   ExtensionFunctionDispatcher::GetAllFunctionNames(&function_names);
   Send(new ViewMsg_Extension_SetFunctionNames(function_names));
+}
+
+void BrowserRenderProcessHost::InitSpeechInput() {
+  Send(new ViewMsg_SpeechInput_SetFeatureEnabled(
+      speech_input::SpeechInputManager::IsFeatureEnabled()));
 }
 
 void BrowserRenderProcessHost::SendUserScriptsUpdate(
@@ -966,12 +973,6 @@ bool BrowserRenderProcessHost::OnMessageReceived(const IPC::Message& msg) {
   // valid, so we ignore incoming messages.
   if (deleting_soon_)
     return false;
-
-#if defined(OS_CHROMEOS)
-  // To troubleshoot crosbug.com/7327.
-  CHECK(this);
-  CHECK(&msg);
-#endif
 
   mark_child_process_activity_time();
   if (msg.routing_id() == MSG_ROUTING_CONTROL) {
@@ -1164,6 +1165,7 @@ void BrowserRenderProcessHost::OnProcessLaunched() {
 
   Send(new ViewMsg_SetIsIncognitoProcess(profile()->IsOffTheRecord()));
 
+  InitSpeechInput();
   InitVisitedLinks();
   InitUserScripts();
   InitExtensions();

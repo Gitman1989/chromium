@@ -9,7 +9,9 @@
 #include "chrome/browser/browser_thread.h"
 #include "chrome/browser/renderer_host/render_process_host.h"
 #include "chrome/browser/renderer_host/render_view_host.h"
+#include "chrome/browser/renderer_host/render_view_host_delegate.h"
 #include "chrome/browser/renderer_host/resource_dispatcher_host.h"
+#include "chrome/common/notification_service.h"
 #include "chrome/common/render_messages_params.h"
 
 // A Task used with InvokeLater that we hold a pointer to in pending_paints_.
@@ -102,7 +104,7 @@ bool RenderWidgetHelper::WaitForUpdateMsg(int render_widget_id,
   for (;;) {
     UpdateMsgProxy* proxy = NULL;
     {
-      AutoLock lock(pending_paints_lock_);
+      base::AutoLock lock(pending_paints_lock_);
 
       UpdateMsgProxyMap::iterator it = pending_paints_.find(render_widget_id);
       if (it != pending_paints_.end()) {
@@ -139,7 +141,7 @@ void RenderWidgetHelper::DidReceiveUpdateMsg(const IPC::Message& msg) {
 
   UpdateMsgProxy* proxy = NULL;
   {
-    AutoLock lock(pending_paints_lock_);
+    base::AutoLock lock(pending_paints_lock_);
 
     UpdateMsgProxyMap::value_type new_value(render_widget_id, NULL);
 
@@ -169,7 +171,7 @@ void RenderWidgetHelper::OnDiscardUpdateMsg(UpdateMsgProxy* proxy) {
 
   // Remove the proxy from the map now that we are going to handle it normally.
   {
-    AutoLock lock(pending_paints_lock_);
+    base::AutoLock lock(pending_paints_lock_);
 
     UpdateMsgProxyMap::iterator it = pending_paints_.find(msg.routing_id());
     DCHECK(it != pending_paints_.end());
@@ -200,10 +202,7 @@ void RenderWidgetHelper::OnCrossSiteClosePageACK(
 }
 
 void RenderWidgetHelper::CreateNewWindow(
-    int opener_id,
-    bool user_gesture,
-    WindowContainerType window_container_type,
-    const string16& frame_name,
+    const ViewHostMsg_CreateWindow_Params& params,
     base::ProcessHandle render_process,
     int* route_id) {
   *route_id = GetNextRoutingID();
@@ -215,18 +214,26 @@ void RenderWidgetHelper::CreateNewWindow(
   BrowserThread::PostTask(
       BrowserThread::UI, FROM_HERE,
       NewRunnableMethod(
-          this, &RenderWidgetHelper::OnCreateWindowOnUI, opener_id, *route_id,
-          window_container_type, frame_name));
+          this, &RenderWidgetHelper::OnCreateWindowOnUI, params, *route_id));
 }
 
 void RenderWidgetHelper::OnCreateWindowOnUI(
-    int opener_id,
-    int route_id,
-    WindowContainerType window_container_type,
-    string16 frame_name) {
-  RenderViewHost* host = RenderViewHost::FromID(render_process_id_, opener_id);
-  if (host)
-    host->CreateNewWindow(route_id, window_container_type, frame_name);
+    const ViewHostMsg_CreateWindow_Params& params,
+    int route_id) {
+  RenderViewHost* host =
+      RenderViewHost::FromID(render_process_id_, params.opener_id);
+  if (host) {
+    host->CreateNewWindow(route_id,
+                          params.window_container_type,
+                          params.frame_name);
+    TabContents* tab_contents = host->delegate()->GetAsTabContents();
+    if (tab_contents) {
+      NotificationService::current()->Notify(
+          NotificationType::CREATING_NEW_WINDOW,
+          Source<TabContents>(tab_contents),
+          Details<const ViewHostMsg_CreateWindow_Params>(&params));
+    }
+  }
 
   BrowserThread::PostTask(
       BrowserThread::IO, FROM_HERE,
@@ -276,7 +283,7 @@ void RenderWidgetHelper::OnCreateFullscreenWidgetOnUI(
 
 #if defined(OS_MACOSX)
 TransportDIB* RenderWidgetHelper::MapTransportDIB(TransportDIB::Id dib_id) {
-  AutoLock locked(allocated_dibs_lock_);
+  base::AutoLock locked(allocated_dibs_lock_);
 
   const std::map<TransportDIB::Id, int>::iterator
       i = allocated_dibs_.find(dib_id);
@@ -300,13 +307,13 @@ void RenderWidgetHelper::AllocTransportDIB(
 
   if (cache_in_browser) {
     // Keep a copy of the file descriptor around
-    AutoLock locked(allocated_dibs_lock_);
+    base::AutoLock locked(allocated_dibs_lock_);
     allocated_dibs_[shared_memory->id()] = dup(result->fd);
   }
 }
 
 void RenderWidgetHelper::FreeTransportDIB(TransportDIB::Id dib_id) {
-  AutoLock locked(allocated_dibs_lock_);
+  base::AutoLock locked(allocated_dibs_lock_);
 
   const std::map<TransportDIB::Id, int>::iterator
     i = allocated_dibs_.find(dib_id);

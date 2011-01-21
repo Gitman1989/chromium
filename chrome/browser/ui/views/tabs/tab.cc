@@ -6,7 +6,6 @@
 
 #include <limits>
 
-#include "app/resource_bundle.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/themes/browser_theme_provider.h"
@@ -22,6 +21,7 @@
 #include "ui/base/animation/multi_animation.h"
 #include "ui/base/animation/slide_animation.h"
 #include "ui/base/animation/throb_animation.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "views/controls/button/image_button.h"
 #include "views/widget/tooltip_manager.h"
 #include "views/widget/widget.h"
@@ -525,7 +525,7 @@ void Tab::PaintInactiveTabBackground(gfx::Canvas* canvas) {
 void Tab::PaintActiveTabBackground(gfx::Canvas* canvas) {
   int offset = GetX(views::View::APPLY_MIRRORING_TRANSFORMATION) +
       background_offset_.x();
-  ThemeProvider* tp = GetThemeProvider();
+  ui::ThemeProvider* tp = GetThemeProvider();
   DCHECK(tp) << "Unable to get theme provider";
 
   SkBitmap* tab_bg = GetThemeProvider()->GetBitmapNamed(IDR_THEME_TOOLBAR);

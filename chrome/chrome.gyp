@@ -4,8 +4,6 @@
 {
   'variables': {
     'chromium_code': 1,
-    'enable_gpu': 0,
-    'remoting': 0,
 
     'variables': {
       'version_py_path': 'tools/build/version.py',
@@ -34,7 +32,7 @@
       'worker',
       'service',
       '../printing/printing.gyp:printing',
-      '../third_party/WebKit/WebKit/chromium/WebKit.gyp:inspector_resources',
+      '../third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:inspector_resources',
     ],
     'nacl_win64_dependencies': [
       'common_nacl_win64',
@@ -136,6 +134,24 @@
       }],
     ],  # conditions
   },  # variables
+  'includes': [
+    # Place some targets in gypi files to reduce contention on this file.
+    # By using an include, we keep everything in a single xcodeproj file.
+    # Note on Win64 targets: targets that end with win64 be used
+    # on 64-bit Windows only. Targets that end with nacl_win64 should be used
+    # by Native Client only.
+    'app/policy/policy_templates.gypi',
+    'chrome_browser.gypi',
+    'chrome_common.gypi',
+    'chrome_dll.gypi',
+    'chrome_exe.gypi',
+    'chrome_installer.gypi',
+    'chrome_installer_util.gypi',
+    'chrome_renderer.gypi',
+    'chrome_tests.gypi',
+    'common_constants.gypi',
+    'nacl.gypi',
+  ],
   'targets': [
     {
       # TODO(mark): It would be better if each static library that needed
@@ -536,6 +552,13 @@
         'common',
         'chrome_resources',
         'chrome_strings',
+        '../media/media.gyp:media',
+        '../skia/skia.gyp:skia',
+        '../third_party/icu/icu.gyp:icui18n',
+        '../third_party/icu/icu.gyp:icuuc',
+        '../third_party/npapi/npapi.gyp:npapi',
+        '../third_party/hunspell/hunspell.gyp:hunspell',
+        '../webkit/support/webkit_support.gyp:glue',
       ],
       'include_dirs': [
         '<(INTERMEDIATE_DIR)',
@@ -639,6 +662,7 @@
         '../app/app.gyp:app_base',
         '../base/base.gyp:base',
         'common',
+        '../media/media.gyp:media',
         '../skia/skia.gyp:skia',
       ],
       'sources': [
@@ -651,6 +675,7 @@
         'gpu/gpu_info_collector_linux.cc',
         'gpu/gpu_info_collector_mac.mm',
         'gpu/gpu_info_collector_win.cc',
+        'gpu/gpu_info_collector.cc',
         'gpu/gpu_info_collector.h',
         'gpu/gpu_main.cc',
         'gpu/gpu_process.cc',
@@ -771,7 +796,7 @@
       'dependencies': [
         '../base/base.gyp:base',
         '../skia/skia.gyp:skia',
-#        '../third_party/WebKit/WebKit/chromium/WebKit.gyp:webkit',
+        '../third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:webkit',
       ],
       'sources': [
         'worker/nativewebworker_impl.cc',
@@ -1057,6 +1082,7 @@
       'type': '<(library)',
       'msvs_guid': '2DA87614-55C5-4E56-A17E-0CD099786197',
       'dependencies': [
+        'chrome_strings',
         'common',
         'common_net',
         '../base/base.gyp:base',
@@ -1431,7 +1457,7 @@
             '../base/base.gyp:base',
             '../base/base.gyp:base_i18n',
             'convert_dict_lib',
-#            '../third_party/hunspell/hunspell.gyp:hunspell',
+            '../third_party/hunspell/hunspell.gyp:hunspell',
           ],
           'sources': [
             'tools/convert_dict/convert_dict.cc',
@@ -1579,6 +1605,7 @@
             '../chrome_frame/chrome_frame.gyp:*',
             '../gfx/gfx.gyp:*',
             '../ipc/ipc.gyp:*',
+            '../media/media.gyp:*',
             '../net/net.gyp:*',
             '../ppapi/ppapi.gyp:*',
             '../printing/printing.gyp:*',
@@ -1602,7 +1629,7 @@
             '../third_party/sqlite/sqlite.gyp:*',
             '../third_party/zlib/zlib.gyp:*',
             '../webkit/support/webkit_support.gyp:*',
-#            '../webkit/webkit.gyp:*',
+            '../webkit/webkit.gyp:*',
 
             '../build/temp_gyp/googleurl.gyp:*',
 
@@ -1808,6 +1835,7 @@
                 '<(grit_out_dir)/renderer_resources.pak',
                 '<(grit_out_dir)/theme_resources.pak',
                 '<(SHARED_INTERMEDIATE_DIR)/app/app_resources/app_resources.pak',
+                '<(SHARED_INTERMEDIATE_DIR)/gfx/gfx_resources.pak',
                 '<(SHARED_INTERMEDIATE_DIR)/net/net_resources.pak',
                 '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_chromium_resources.pak',
                 '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_resources.pak',

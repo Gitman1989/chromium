@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/gtk/menu_bar_helper.h"
+#include "chrome/browser/ui/gtk/menu_bar_helper.h"
 
 #include <algorithm>
 
-#include "app/gtk_signal_registrar.h"
 #include "base/logging.h"
-#include "chrome/browser/gtk/gtk_util.h"
+#include "chrome/browser/ui/gtk/gtk_util.h"
+#include "ui/base/gtk/gtk_signal_registrar.h"
 
 namespace {
 
@@ -81,7 +81,7 @@ void MenuBarHelper::MenuStartedShowing(GtkWidget* button, GtkWidget* menu) {
   button_showing_menu_ = button;
   showing_menu_ = menu;
 
-  signal_handlers_.reset(new GtkSignalRegistrar());
+  signal_handlers_.reset(new ui::GtkSignalRegistrar());
   signal_handlers_->Connect(menu, "destroy",
                             G_CALLBACK(OnMenuHiddenOrDestroyedThunk), this);
   signal_handlers_->Connect(menu, "hide",
