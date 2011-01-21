@@ -55,10 +55,6 @@ namespace printing {
 class PrintViewManager;
 }
 
-namespace webkit_glue {
-struct PasswordForm;
-}
-
 class AutocompleteHistoryManager;
 class AutoFillManager;
 class BlockedContentContainer;
@@ -69,7 +65,7 @@ class FileSelectHelper;
 class InfoBarDelegate;
 class LoadNotificationDetails;
 class OmniboxSearchHint;
-class PluginInstaller;
+class PluginInstallerInfoBarDelegate;
 class Profile;
 class PrerenderManager;
 struct RendererPreferences;
@@ -150,8 +146,8 @@ class TabContents : public PageNavigator,
   // Returns true if contains content rendered by an extension.
   bool HostsExtension() const;
 
-  // Returns the PluginInstaller, creating it if necessary.
-  PluginInstaller* GetPluginInstaller();
+  // Returns the PluginInstallerInfoBarDelegate, creating it if necessary.
+  PluginInstallerInfoBarDelegate* GetPluginInstaller();
 
   // Returns the TabContentsSSLHelper, creating it if necessary.
   TabContentsSSLHelper* GetSSLHelper();
@@ -767,6 +763,7 @@ class TabContents : public PageNavigator,
   FRIEND_TEST_ALL_PREFIXES(TabContentsTest, NoJSMessageOnInterstitials);
   FRIEND_TEST_ALL_PREFIXES(TabContentsTest, UpdateTitle);
   FRIEND_TEST_ALL_PREFIXES(TabContentsTest, CrossSiteCantPreemptAfterUnload);
+  FRIEND_TEST_ALL_PREFIXES(FormStructureBrowserTest, HTMLFiles);
 
   // Temporary until the view/contents separation is complete.
   friend class TabContentsView;
@@ -1014,10 +1011,6 @@ class TabContents : public PageNavigator,
   virtual void ShowModalHTMLDialog(const GURL& url, int width, int height,
                                    const std::string& json_arguments,
                                    IPC::Message* reply_msg);
-  virtual void PasswordFormsFound(
-      const std::vector<webkit_glue::PasswordForm>& forms);
-  virtual void PasswordFormsVisible(
-      const std::vector<webkit_glue::PasswordForm>& visible_forms);
   virtual void PageHasOSDD(RenderViewHost* render_view_host,
                            int32 page_id,
                            const GURL& url,
@@ -1132,8 +1125,8 @@ class TabContents : public PageNavigator,
   // AutoFillManager.
   scoped_ptr<AutoFillManager> autofill_manager_;
 
-  // PluginInstaller, lazily created.
-  scoped_ptr<PluginInstaller> plugin_installer_;
+  // PluginInstallerInfoBarDelegate, lazily created.
+  scoped_ptr<PluginInstallerInfoBarDelegate> plugin_installer_;
 
   // TabContentsSSLHelper, lazily created.
   scoped_ptr<TabContentsSSLHelper> ssl_helper_;
@@ -1348,9 +1341,6 @@ class TabContents : public PageNavigator,
   // Content restrictions, used to disable print/copy etc based on content's
   // (full-page plugins for now only) permissions.
   int content_restrictions_;
-
-  // All the IPC message filters for this render view.
-  std::vector<IPC::Channel::Listener*> message_filters_;
 
   DISALLOW_COPY_AND_ASSIGN(TabContents);
 };
