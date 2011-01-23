@@ -5,7 +5,7 @@
 #ifndef VIEWS_WIDGET_WIDGET_QT_H_
 #define VIEWS_WIDGET_WIDGET_QT_H_
 
-#include "app/active_window_watcher_x.h"
+#include "ui/base/x/active_window_watcher_x.h"
 //#include "app/gtk_signal.h"
 #include "base/message_loop.h"
 #include "gfx/size.h"
@@ -39,7 +39,7 @@ class WindowQt;
 class WidgetQt
     : public Widget,
       public FocusTraversable,
-      public ActiveWindowWatcherX::Observer {
+      public ui::ActiveWindowWatcherX::Observer {
  public:
   // Type of widget.
   enum Type {
@@ -322,9 +322,9 @@ class WidgetQt
   // The TooltipManager.
   // WARNING: RootView's destructor calls into the TooltipManager. As such, this
   // must be destroyed AFTER root_view_.
-  scoped_ptr<TooltipManagerGtk> tooltip_manager_;
+//  scoped_ptr<TooltipManagerGtk> tooltip_manager_;
 
-  scoped_ptr<DropTargetGtk> drop_target_;
+//  scoped_ptr<DropTargetGtk> drop_target_;
 
   // The focus manager keeping track of focus for this Widget and any of its
   // children.  NULL for non top-level widgets.

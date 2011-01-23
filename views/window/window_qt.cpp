@@ -267,7 +267,7 @@ void WindowQt::FrameTypeChanged() {
 
 ////////////////////////////////////////////////////////////////////////////////
 // WindowQt, WidgetGtk overrides:
-
+#if 0
 gboolean WindowQt::OnButtonPress(GtkWidget* widget, GdkEventButton* event) {
   int x = 0, y = 0;
   GetContainedWidgetEventCoordinates(event, &x, &y);
@@ -370,6 +370,7 @@ gboolean WindowQt::OnLeaveNotify(GtkWidget* widget, GdkEventCrossing* event) {
 
   return WidgetGtk::OnLeaveNotify(widget, event);
 }
+#endif
 
 void WindowQt::SetInitialFocus() {
   View* v = window_delegate_->GetInitiallyFocusedView();

@@ -17,7 +17,7 @@
 #include <set>
 #include <vector>
 
-#include "app/drag_drop_types.h"
+#include "ui/base/dragdrop/drag_drop_types.h"
 #include "base/auto_reset.h"
 #include "base/compiler_specific.h"
 #include "base/message_loop.h"
@@ -37,6 +37,7 @@
 
 using ui::OSExchangeData;
 using ui::OSExchangeDataProviderGtk;
+using ui::ActiveWindowWatcherX;
 
 namespace {
 
@@ -45,7 +46,7 @@ namespace {
 namespace views {
 
 // static
-QWidget* WidgetQt::null_parent_ = NULL;
+//QWidget* WidgetQt::null_parent_ = NULL;
 
 ////////////////////////////////////////////////////////////////////////////////
 // WidgetQt, public:
@@ -154,7 +155,8 @@ WidgetQt* WidgetQt::GetViewForNative(QWidget* widget) {
 
 void WidgetQt::ResetDropTarget() {
   ignore_drag_leave_ = false;
-  drop_target_.reset(NULL);
+ // drop_target_.reset(NULL);
+
 }
 
 // static
@@ -285,7 +287,8 @@ void WidgetQt::GenerateMousePressedForView(View* view,
 }
 
 TooltipManager* WidgetQt::GetTooltipManager() {
-  return tooltip_manager_.get();
+  //return tooltip_manager_.get();
+  return NULL;
 }
 
 bool WidgetQt::GetAccelerator(int cmd_id, ui::Accelerator* accelerator) {

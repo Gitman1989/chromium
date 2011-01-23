@@ -64,6 +64,7 @@ class WindowQt : public WidgetQt, public Window {
   virtual const Window* AsWindow() const { return this; }
 
   // Overridden from WidgetGtk:
+#if 0
   virtual gboolean OnButtonPress(GtkWidget* widget, GdkEventButton* event);
   virtual gboolean OnConfigureEvent(GtkWidget* widget,
                                     GdkEventConfigure* event);
@@ -72,6 +73,8 @@ class WindowQt : public WidgetQt, public Window {
   virtual gboolean OnWindowStateEvent(GtkWidget* widget,
                                       GdkEventWindowState* event);
   virtual gboolean OnLeaveNotify(GtkWidget* widget, GdkEventCrossing* event);
+#endif
+
   virtual void SetInitialFocus();
 
  protected:
@@ -118,12 +121,6 @@ class WindowQt : public WidgetQt, public Window {
   GdkWindowState window_state_;
 
   QMainWindow* window_;
-
-
-
-
-
-
 
   // Set to true if the window is in the process of closing.
   bool window_closed_;

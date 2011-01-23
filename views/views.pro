@@ -88,7 +88,23 @@ SOURCES += \
     controls/listbox/listbox.cc \
     controls/listbox/native_listbox_win.cc \
     widget/widget_qt.cc \
-    window/window_qt.cpp
+    window/window_qt.cpp \
+    widget/widget_win_unittest.cc \
+    focus/view_storage.cc \
+    focus/focus_util_win.cc \
+    focus/focus_search.cc \
+    focus/focus_manager_win.cc \
+    focus/focus_manager_unittest.cc \
+    focus/focus_manager_gtk.cc \
+    focus/focus_manager.cc \
+    focus/external_focus_tracker.cc \
+    focus/accelerator_handler_win.cc \
+    focus/accelerator_handler_touch.cc \
+    focus/accelerator_handler_gtk_unittest.cc \
+    focus/accelerator_handler_gtk.cc \
+    focus/focus_manager_qt.cc \
+    widget/root_view_qt.cc \
+    view_qt.cc
 
 HEADERS += \
     views_delegate.h \
@@ -160,7 +176,13 @@ HEADERS += \
     controls/listbox/listbox.h \
     controls/listbox/native_listbox_wrapper.h \
     widget/widget_qt.h \
-    window/window_qt.h
+    window/window_qt.h \
+    focus/view_storage.h \
+    focus/focus_util_win.h \
+    focus/focus_search.h \
+    focus/focus_manager.h \
+    focus/external_focus_tracker.h \
+    focus/accelerator_handler.h
 
 OTHER_FILES += \
     views.target.mk \
@@ -174,4 +196,6 @@ OTHER_FILES += \
     packed_resources.target.mk \
     DEPS \
     widget/widget_gtk.cc~ \
-    widget/drop_target_gtk.cc~
+    widget/drop_target_gtk.cc~ \
+    widget/drop_target_gtk.cc.orig \
+    focus/OWNERS

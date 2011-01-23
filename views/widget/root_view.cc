@@ -626,7 +626,7 @@ View* RootView::GetFocusedView() {
   if (view && (view->GetRootView() == this))
     return view;
 
-#if defined(OS_LINUX)
+#if defined(OS_LINUX) && 0
   if (view && NativeTextfieldViews::IsTextfieldViewsEnabled()) {
     // hack to deal with two root views.
     // should be fixed by eliminating one of them
